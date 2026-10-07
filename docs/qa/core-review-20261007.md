@@ -17,4 +17,12 @@ Follow-up lane verdicts: **code-reviewer APPROVE; architect CLEAR**. Combined re
 
 These model tests use explicit HTTP stubs. They do not prove actual NVIDIA inference, photo recognition quality, latency or OpenShell isolation. Those require separate runtime evidence.
 
-Human input observation: user reported both English and Korean speech appearing in the input box on the demo PC at approximately 13:30 KST. Audible output and mobile HTTPS are still pending; this is user-reported physical input evidence, separate from browser automation.
+Human observation: user reported both English and Korean speech appearing in the input box on the demo PC at approximately 13:30 KST, and normal audible output at approximately 14:10 KST. This is user-reported physical audio evidence, separate from browser automation; another phone remains unverified.
+
+## Runtime-driven repair, 14:14 KST
+
+Reviewed `agent/core.py` SHA256 `9ecfae38f844961e45c7f3b0430e06294517e06ebe0d01e096f16d328b30f2db` with `test_agent_repair.py` and `test_agent_dietary.py`. Real GPU QA exposed stale dietary speech, missing Korean staff questions and an invalid far-location result.
+
+The change supplies bounded schema-specific repair feedback, advertises the actual three-claim limit, distinguishes required confirmation from optional follow-ups, prioritizes current dietary questions and deduplicates generated warnings. Sanitized diagnostics record stage, timing, validation codes and model identity only after an exact configured/response match. Repair remains one attempt/three calls within the existing job deadline.
+
+Independent code review found valid repeated questions were rejected; architecture review found the correct Korean crab term `게` was rejected. Both were corrected and their focused regressions passed. Final lanes: **code-reviewer APPROVE; architect CLEAR** for the repaired delta. Root suite: **71 passed, 33 subtests passed**, 5.26 seconds; live harness offline helpers also passed. These are code checks; worker03 actual GPU acceptance follows separately.

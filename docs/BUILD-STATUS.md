@@ -7,17 +7,19 @@
 | 항목 | 관측·검증 범위 |
 |---|---|
 | Broker | 세션·사진 정규화/EXIF 제거·작업 배정·검색·결과 검증·세션 소유 다운로드 구현. WSL Ubuntu 22.04 실행, Windows localhost:8000 /api/health 실제 응답 확인 |
-| 데이터·agent | 식당 1곳·메뉴 3개와 허용 근거 자료. 사진/질문 → 모델 판단 → 근거/반경 검색 도구 → 구조화 결과 흐름 구현. 테스트 모델 응답은 HTTP stub |
+| 데이터·agent | 식당 1곳·메뉴 3개와 허용 근거 자료. 실제 GPU로 사진/질문 → 모델 판단 → 근거/반경 검색 도구 → 카드 저장 확인. 후속 질문 품질·0건 결과 오류 보완 중 |
 | 웹 | 음성/텍스트·사진·한영 전환·반경 지도·근거/문화/메뉴·한국어 문장·카드 다운로드 구현. 웹 빌드 통과는 통합 담당 확인 |
-| Python 자동 테스트 | 수정 후 Windows pytest: **50 passed, 29 subtests passed**. Starlette/httpx deprecation warning 1개 |
+| Python 자동 테스트 | 응답 수정본 Windows pytest: **71 passed, 33 subtests passed**, 5.26초. Starlette/httpx deprecation warning 1개 |
 | 웹 단위 테스트 | npm test: **7 passed** |
-| 브라우저 테스트 | 웹 담당 최종 실행: Playwright desktop/mobile 합계 **10개 통과**. [인계 기록](../web/BUILD-WEB-01.md). 실제 마이크 입력·스피커 성공은 별도 확인 필요 |
+| 브라우저 테스트 | Playwright desktop/mobile **10개**, GPS 비동기 경합 회귀 **12개 통과**. [인계 기록](../web/BUILD-WEB-01.md). 사용자가 한영 마이크 입력 확인, 실제 스피커 출력 확인 대기 |
 | OpenShell | **0.1.2 gateway Connected**, provider policy lint 통과, 정책 설정 테스트 **4개 통과**. 위 Python 42개에 포함 |
-| GPU 준비 | 담당자가 Brev CLI 인증과 기존 **NVIDIA L40S, 46068 MiB** 확인. NVIDIA 모델 배포 진행 중, hosted API 키는 없음 |
+| GPU 준비 | 기존 **NVIDIA L40S, 46068 MiB**, vLLM 0.12.0 / NVIDIA Nemotron Nano 12B v2 VL BF16 실제 배포·호출 확인. hosted API 키 없이 자체 GPU 추론 |
 
-13:30 시점 health 응답은 `status=ok`, `catalog_count=1`, `worker_connected=false`, `model_configured=false`, `sandbox_verified=false`입니다. 연결·설정 관측용이며 실제 모델 성공이나 정책 차단 증거가 아닙니다. self-hosted 모델 설정은 hosted 키 존재와 별도로 판단해야 합니다.
+14:05 시점 broker/worker는 연결되어 있습니다. health의 `model_configured`는 현재 hosted 키만 검사하고 `sandbox_verified`는 독립 증거를 자동 판정하지 않으므로 둘 다 false입니다. 자체 GPU 추론과 OpenShell 통과 여부는 health 플래그가 아닌 실제 실행 증거로 판단합니다.
 
-사용자는 시연 PC Chrome에서 영어·한국어 실제 마이크 입력이 모두 표시됐다고 확인했습니다. 답변의 실제 음성 재생은 별도 확인 대기입니다. 핵심 코드의 독립 재검수는 [코드 검수 승인·구조 검수 CLEAR](qa/core-review-20261007.md)이며 제품 런타임 판정과 구분합니다.
+최근 실제 실행 `.runtime/qa/20261007T045727704776Z`: 사진 **9.25초**, 주변 식당 **21.48초**, 식이 후속 질문 **27.53초**에 결과·카드 저장 완료. 후속 답변에서 이전 문장을 반복하고 한국어 직원 질문을 누락했으며, 먼 지역 0건 검색은 `invalid_model_output`으로 실패했습니다. 이 결함들을 수정 중이므로 전체 시나리오 PASS가 아닙니다. 지연은 큐·도구·추론·저장을 포함한 사용자 관점의 실측입니다.
+
+사용자는 시연 PC Chrome에서 영어·한국어 실제 마이크 입력과 답변의 실제 음성 재생이 모두 정상이라고 확인했습니다. 이는 해당 PC의 사용자 확인이며 별도 휴대폰 성공까지 의미하지 않습니다. 핵심 코드의 독립 재검수는 [코드 검수 승인·구조 검수 CLEAR](qa/core-review-20261007.md)이며 제품 런타임 판정과 구분합니다.
 
 ## 남은 제품 검증
 
@@ -30,4 +32,4 @@
 
 ## 당일 마감
 
-**15:30 기능 동결 → 16:15 검증 종료 → 16:30 발표 준비 → 17:20 제출.** 통합 담당이 새 실행 증거를 확인하면 이 기록을 갱신합니다. 확인하지 못한 항목은 미검증으로 남깁니다.
+**사용자 최신 마감: 개발·검증·커밋·푸시를 16:00까지 완료.** 15:00 기능 동결 → 15:30 핵심 검증 종료 → 15:45 문서·푸시 → 16:00 인계. 공식 제출 시각은 17:20입니다. 사용 가능한 MVP를 먼저 확보하여 후속 기능 요청에 대응할 시간을 남깁니다. 통합 담당이 새 실행 증거를 확인하면 이 기록을 갱신하며 확인하지 못한 항목은 미검증으로 남깁니다.

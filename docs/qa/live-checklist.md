@@ -19,11 +19,19 @@ From product root:
 .venv/Scripts/python.exe -B tests/live/run_demo.py --run-live --base-url http://127.0.0.1:8000
 # Optional additional real model job, if root approves and time remains:
 .venv/Scripts/python.exe -B tests/live/run_demo.py --run-live --include-fictional
+# Target ONLY far-location and fictional cases, after root readiness:
+.venv/Scripts/python.exe -B tests/live/run_demo.py --run-live --scenario far_location_zero_results --scenario fictional_conflict
+# Dietary follow-up requires the previous confirmed case in this same session:
+.venv/Scripts/python.exe -B tests/live/run_demo.py --run-live --scenario confirmed_near_seochon --scenario dietary_followup
 ```
 
-The optional command repeats the four required cases before adding the fifth; do not run both commands accidentally. Default/no flag exits 2 without network or artifacts. `--check-helpers` checks only pure URL, redaction, distance and sequence helpers. It neither creates a fake service nor establishes product acceptance.
+Without `--scenario`, the default four cases are unchanged; `--include-fictional` appends the fifth. Repeated `--scenario NAME` selects only those cases, deduplicated and run in canonical order (photo → confirmed → dietary → far → fictional), regardless of argument order. Selecting fictional directly needs no additional flag; combining selections with `--include-fictional` appends it. The choices are `photo_question`, `confirmed_near_seochon`, `dietary_followup`, `far_location_zero_results`, `fictional_conflict`.
 
-Live mode uses one in-memory cookie session and uploads the actual JPEG. It sends four sequential requests: photo question → explicit user-confirmed samgyetang at selected Seochon → seafood-avoidance follow-up → selected Busan point with a 500 m radius. Points and dietary preference are synthetic test conditions, never GPS/private user data. Fictional mode is optional and must never return real map places.
+Selecting dietary without confirmed-nearby fails with a useful CLI error **before network or artifact creation**; no prerequisite/model call is silently added. The confirmed case may itself legitimately request clarification, so human review still decides whether that context is adequate. Success applies only to the selected cases, recorded in `metrics.json.selected_scenarios`, and is not a full-suite pass. Do not run the full and targeted commands accidentally.
+
+Default/no execution flag exits 2 without network or artifacts. `--check-helpers` checks only pure URL, redaction, distance, subset/prerequisite and Korean-order helpers. It neither creates a fake service nor establishes product acceptance.
+
+Live mode uses one in-memory cookie session and uploads the actual JPEG, including when running a subset. By default it sends four sequential requests: photo question → explicit user-confirmed samgyetang at selected Seochon → seafood-avoidance follow-up → selected Busan point with a 500 m radius. Points and dietary preference are synthetic test conditions, never GPS/private user data. Fictional mode is optional and must never return real map places.
 
 Submission + polling stops at **35 seconds per request**, HTTP timeout is 5 seconds, polling interval 1 second, entire run timeout is **240 seconds**. The script does not launch/restart/stop a service or worker and does not call the model endpoint directly. A failed/timed-out job stops the sequence to avoid stacking calls; root decides recovery. Already submitted work may finish after client timeout; the script does not claim to cancel server/model execution.
 
@@ -32,7 +40,7 @@ Submission + polling stops at **35 seconds per request**, HTTP timeout is 5 seco
 - [ ] Check every scenario, not just process exit code. `completed_useful` requires a completed job and useful structured result. `completed_clarification` requires a meaningful nonempty next question and is a legitimate completion, not a timeout.
 - [ ] A clarification in the confirmed-nearby case does **not** establish successful restaurant discovery. Complete its requested clarification manually before presenting the full product journey as demonstrated. All-clarification runs are not end-to-end usefulness proof.
 - [ ] For ready nearby results, catalog coordinates/version and within-radius distances match; source references are approved and present. Catalog coverage is limited; empty far results do not imply no restaurants exist.
-- [ ] Dietary follow-up contains uncertainty and a staff question. Human reads whether seafood, broth, ingredients and cross-contact are handled without a safety guarantee. No exact English sentence is required.
+- [ ] Dietary follow-up contains uncertainty and a **nonempty `order_ko` with Hangul**, for both ready and clarification results. An English `next_question` cannot substitute. The automated check establishes field presence and Hangul only; human reads whether the Korean sentence meaningfully asks about seafood, broth, ingredients and cross-contact without a safety guarantee. No exact wording is required and semantic safety remains unverified.
 - [ ] Verify downloaded JSON card equals the polled result before sanitization. The script keeps both sanitized result and downloaded card per scenario, plus `final-result.json` for the last structurally valid result.
 - [ ] If optional fictional case is ready: conflicts and itinerary exist, places are empty, and human checks which dated notice governs, travel buffers, unsupported assumptions and example labeling.
 - [ ] A meaningful next question, historical truth, fluent translation, dietary safety and utility need human review; schema/evidence-ID checks do not establish these.

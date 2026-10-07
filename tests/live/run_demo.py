@@ -85,7 +85,7 @@ def distance(a, b):
     return 6371008.8 * 2 * math.asin(min(1.0, math.sqrt(x)))
 
 
-def scenarios(optional=False):
+def scenarios(optional=False, selected=None):
     cases = [
         ("photo_question", "What might this food be? Please explain its Korean cultural context; ask if uncertain.",
          None, None, "real_place"),
@@ -96,10 +96,28 @@ def scenarios(optional=False):
         ("far_location_zero_results", "My selected location is now Busan. Find samgyetang in the curated catalog within 500 metres here, not near my previous point. Explain an empty catalog result.",
          FAR, "samgyetang", "real_place"),
     ]
-    if optional:
+    if optional or (selected and "fictional_conflict" in selected):
         cases.append(("fictional_conflict", "Using only the fictional practice documents, plan a half-day route. Reconcile conflicting operation notices, state assumptions and ask about missing visit details. Do not book anything.",
                       None, None, "fictional_task"))
+    if selected is not None:
+        wanted = set(selected)
+        if optional:
+            wanted.add("fictional_conflict")
+        available = {case[0] for case in cases}
+        if not wanted or not wanted <= available:
+            raise ValueError("Select at least one known --scenario.")
+        if "dietary_followup" in wanted and "confirmed_near_seochon" not in wanted:
+            raise ValueError(
+                "--scenario dietary_followup requires --scenario confirmed_near_seochon "
+                "in the same run to establish prior confirmation; both run in that order.")
+        cases = [case for case in cases if case[0] in wanted]
     return cases
+
+
+def require_korean_order(value):
+    require(isinstance(value, str) and bool(value.strip()), "missing_korean_order")
+    require(bool(re.search("[가-힣]", value)), "order_not_korean")
+    # Hangul presence is a structural check, not semantic/dietary safety proof.
 
 
 def check_result(result, payload, name, approved, catalog):
@@ -145,10 +163,7 @@ def check_result(result, payload, name, approved, catalog):
         require(bool(result["places"]), "nearby_ready_without_place")
     if name == "dietary_followup":
         require(bool(result["unknowns"]), "missing_dietary_uncertainty")
-        require(bool((result["order_ko"] or result["next_question"] or "").strip()),
-                "missing_staff_question")
-        if result["order_ko"]:
-            require(bool(re.search("[가-힣]", result["order_ko"])), "order_not_korean")
+        require_korean_order(result["order_ko"])
     if name in {"far_location_zero_results", "fictional_conflict"}:
         require(result["places"] == [], "unexpected_places")
     if name == "far_location_zero_results":
@@ -240,7 +255,7 @@ async def live(args, report, output, secrets):
         require(all(type(uploaded.get(k)) is int and 0 < uploaded[k] <= 1280
                     for k in ("width", "height")), "invalid_photo_dimensions")
         report["photo_uploaded"] = True
-        for name, question, location, food, mode in scenarios(args.include_fictional):
+        for name, question, location, food, mode in args.cases:
             record = {"scenario": name, "outcome": "not_started", "polls": 0,
                       "model_provider": "unverifiable_from_browser_api",
                       "model_latency_ms": None,
@@ -307,6 +322,33 @@ def check_helpers():
     assert distance(NEAR, FAR) > 100_000
     assert [case[0] for case in scenarios()] == [
         "photo_question", "confirmed_near_seochon", "dietary_followup", "far_location_zero_results"]
+
+    assert len(scenarios(optional=True)) == 5
+    assert [case[0] for case in scenarios(selected=["fictional_conflict"])] == ["fictional_conflict"]
+    assert [case[0] for case in scenarios(selected=[
+        "fictional_conflict", "far_location_zero_results", "far_location_zero_results"])] == [
+            "far_location_zero_results", "fictional_conflict"]
+    assert [case[0] for case in scenarios(selected=[
+        "dietary_followup", "confirmed_near_seochon"])] == [
+            "confirmed_near_seochon", "dietary_followup"]
+    assert [case[0] for case in scenarios(optional=True, selected=["far_location_zero_results"])] == [
+        "far_location_zero_results", "fictional_conflict"]
+    for invalid in (["dietary_followup"], ["unknown"], []):
+        try:
+            scenarios(selected=invalid)
+        except ValueError as exc:
+            if invalid == ["dietary_followup"]:
+                assert "--scenario confirmed_near_seochon" in str(exc)
+        else:
+            raise AssertionError("invalid scenario selection accepted")
+    for invalid_order in (None, "", "   ", "Please confirm ingredients with staff."):
+        try:
+            require_korean_order(invalid_order)
+        except CheckError:
+            pass
+        else:
+            raise AssertionError("missing or English-only order_ko accepted")
+    require_korean_order("해산물 재료가 들어가나요?")
     print("HELPER_CHECKS_PASS: no network, no model, no output artifacts")
 
 
@@ -316,8 +358,17 @@ def main():
     gates.add_argument("--run-live", action="store_true", help="Root must declare service ready first.")
     gates.add_argument("--check-helpers", action="store_true", help="Offline pure helper checks only.")
     parser.add_argument("--base-url", type=base_url, default="http://127.0.0.1:8000")
-    parser.add_argument("--include-fictional", action="store_true")
+    parser.add_argument("--include-fictional", action="store_true",
+                        help="Append fictional_conflict to the default or selected cases.")
+    parser.add_argument("--scenario", action="append",
+                        choices=[case[0] for case in scenarios(optional=True)],
+                        help="Repeat to select cases; runs once each in canonical order. "
+                             "Dietary requires confirmed_near_seochon in the same selection.")
     args = parser.parse_args()
+    try:
+        args.cases = scenarios(args.include_fictional, args.scenario)
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.check_helpers:
         check_helpers()
         return 0
@@ -332,14 +383,15 @@ def main():
               "status": "incomplete", "budget_seconds": 240, "poll_limit_seconds": 35,
               "latency_kind": "client_wall_clock_including_queue_tools_and_model",
               "model_provider": "unverifiable_from_browser_api", "model_latency_ms": None,
-              "openshell": "independent_proof_required", "scenarios": []}
+              "openshell": "independent_proof_required",
+              "selected_scenarios": [case[0] for case in args.cases], "scenarios": []}
     secrets = []
     started = time.monotonic()
     code = 1
     try:
         asyncio.run(asyncio.wait_for(live(args, report, output, secrets), 240.0))
         cases = report["scenarios"]
-        expected = len(scenarios(args.include_fictional))
+        expected = len(args.cases)
         if len(cases) == expected and all(c["outcome"].startswith("completed_") for c in cases):
             report["status"] = ("COMPLETED_WITH_CLARIFICATION"
                                 if any(c["outcome"] == "completed_clarification" for c in cases)
