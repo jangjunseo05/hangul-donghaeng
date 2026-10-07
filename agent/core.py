@@ -449,6 +449,94 @@ async def _answer_observed_place(request, request_id, name, available, data, mod
     }).model_dump(mode="json")
 
 
+async def _nearby_restaurants(request, request_id, job, available, data, api):
+    if request.dataset_mode != "real_place" or request.interaction_mode != "ask":
+        return None
+    question = request.question.casefold()
+    observation = job.get("last_visual_observation")
+    name = None
+    if isinstance(observation, dict) and observation.get("is_cultural_landmark") is True and observation.get("identification_supported") is True:
+        value = observation.get("landmark_name")
+        if isinstance(value, str) and value.strip() and len(value) <= 120:
+            name = value  # Broker requires exact equality with the assigned observation.
+    food_request = re.search(r"맛집|식당|음식점|먹|restaurants?|food|meal", question)
+    nearby = re.search(r"nearby|\bnear\b|around|주변|근처", question)
+    if not food_request or not (nearby or (name and re.search(r"맛집\s*추천", question))):
+        return None
+    # An explicit new target must not silently inherit the last visual landmark.
+    aliases = {_entity_key(name)} if name else set()
+    for item in available:
+        values = item.get("entity_names", [])
+        if isinstance(values, list):
+            keys = {_entity_key(value) for value in values if isinstance(value, str) and value.strip()}
+            if aliases & keys:
+                aliases.update(keys)
+    different_target = False
+    if re.search(r"내\s*(?:주변|근처)|현재\s*위치|선택한\s*(?:출발점|지점|위치)|\b(?:near|around) me\b", question):
+        name = None
+    else:
+        prefix = re.match(r"\s*(.*?)\s*(?:주변|근처)", question)
+        if prefix:
+            target = re.sub(r"^(?:(?:그럼|그러면|혹시|이제|응|네)[,\s]*)+", "", prefix[1]).strip()
+            key = _entity_key(re.sub(r"(?:의|에서)$", "", target))
+            if key and key not in {"여기", "이곳", "그곳", "거기", "이장소", "그장소"} and key not in aliases:
+                different_target = True
+        for item in [*data["places"], *available]:
+            values = item.get("entity_names", [item.get("name", ""), item.get("name_en", "")])
+            if isinstance(values, list):
+                keys = {_entity_key(value) for value in values if isinstance(value, str) and value.strip()}
+                if not aliases.intersection(keys) and any(key in _entity_key(question) for key in keys):
+                    different_target = True
+        if re.search(r"말고|아니라|instead|rather than", question):
+            different_target = True
+    if different_target:
+        name = None
+        found = {"places": [], "evidence": [], "needs_location": True}
+    else:
+        found = await api.search({"session_id": request.session_id, "request_id": request_id,
+            "food_id": None, "shop_id": None, "kind": "restaurant", "landmark_name": name, "live": True,
+            "radius_m": request.radius_m})
+    missing = bool(found.get("needs_location"))
+    error_code = found.get("error_code")
+    places = found.get("places", [])[:3] if not error_code and not missing else []
+    ko = request.response_language == "ko"
+    label = found.get("search_origin_label")
+    # A landmark search origin is not the user's GPS or proof of the photographed identity.
+    reference = label or name or ("선택한 기준점" if ko else "the selected search point")
+    next_question = None
+    if missing:
+        next_question = ("검색할 장소를 지도에서 선택하거나 위치를 공유해 주시겠어요?" if ko else
+                         "Could you select the search location on the map or share your location?")
+        speech = next_question
+    elif error_code:
+        speech = ("음식점 검색을 완료하지 못했어요. 잠시 후 다시 요청해 주세요." if ko else
+                  "The restaurant search could not be completed. Please try again shortly.")
+    elif places:
+        speech = (f"{reference} 주변 검색 결과 음식점 {len(places)}곳을 지도에 표시했어요. 평점 순위나 현재 영업 여부는 확인하지 않았어요." if ko else
+                  f"The map shows {len(places)} restaurant results near {reference}. Ratings, ranking and current opening are not verified.")
+    else:
+        speech = (f"{reference} 기준 요청 반경에서 음식점 검색 결과가 없어요. 반경이나 기준점을 바꿔 주세요." if ko else
+                  f"No restaurant results were returned within the requested radius of {reference}. Try a different radius or search point.")
+    unknowns = ["검색 결과의 현재 영업·평점·알레르기 안전은 미확인입니다." if ko else
+                "Current opening, ratings and allergy suitability of the results are unverified."]
+    if name:
+        unknowns.append(f"{name}은 앞선 사진의 잠정 식별명이며 사용자 GPS가 아닙니다." if ko else
+                        f"{name} is a tentative name from the earlier image, not the user's GPS location.")
+    return GuideResult.model_validate({
+        "schema_version": 1, "session_id": request.session_id, "request_id": request_id,
+        "captured_at": datetime.now(timezone.utc).isoformat(), "dataset_mode": request.dataset_mode,
+        "status": "need_confirmation" if missing else "ready", "speech_text": speech,
+        "response_language": request.response_language,
+        "scene": {"food_candidates": [], "place_candidates": [], "observed_place_name": name,
+                  "confirmed_food_id": request.confirmed_food_id, "confirmed_shop_id": request.confirmed_shop_id,
+                  "confirmed_place_id": request.confirmed_place_id},
+        "places": places, "evidence": found.get("evidence", []), "menus": [], "claims": [],
+        "conflicts": [], "itinerary": [], "order_ko": None, "unknowns": unknowns,
+        "next_question": next_question, "error_code": error_code,
+        "search_origin": found.get("search_origin"), "search_origin_label": label,
+    }).model_dump(mode="json")
+
+
 async def execute_job(job: dict, api, model: ModelSession) -> dict:
     try:
         request = GuideRequest.model_validate(job["request"])
@@ -479,6 +567,9 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
     if request.confirmed_place_id and request.confirmed_shop_id and request.confirmed_place_id != request.confirmed_shop_id:
         raise AgentError("conflicting_place_confirmation")
     confirmed_target = request.confirmed_place_id or request.confirmed_shop_id
+    restaurant_result = await _nearby_restaurants(request, request_id, job, available, data, api)
+    if restaurant_result is not None:
+        return restaurant_result
     observed_followup = _visual_followup_name(request, job, available)
     if observed_followup:
         return await _answer_observed_place(request, request_id, observed_followup, available, data, model)

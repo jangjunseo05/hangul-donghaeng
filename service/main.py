@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from shared.models import GuideRequest, GuideResult, Place, SearchRequest, WorkerFailure, WorkerResult
+from shared.models import Evidence, GuideRequest, GuideResult, Location, Place, SearchRequest, WorkerFailure, WorkerResult
 from service import catalog
 from service.render import html_card, markdown_card
 
@@ -282,7 +282,8 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
             store.jobs[rid] = {"request_id": rid, "request": body.model_dump(mode="json"), "status": "queued",
                                "result": None, "error_code": None, "created": time.monotonic(), "session": session,
                                "history": history, "last_visual_observation": visual_context,
-                               "search_count": 0, "searched_places": {}}
+                               "search_count": 0, "searched_places": {}, "searched_evidence": {},
+                               "search_origin": None, "search_origin_label": None}
             return {"request_id": rid, "status": "queued", "poll_url": f"/api/requests/{rid}"}
 
     @app.get("/api/requests/{request_id}")
@@ -334,9 +335,33 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
             if job["search_count"] >= 2:
                 abort(429, "SEARCH_LIMIT", "Search limit reached.")
             job["search_count"] += 1
-            found = catalog.search_places(body.food_id, body.shop_id, req["location"], body.radius_m, kind=body.kind)
+            if body.live and body.kind != "restaurant":
+                abort(422, "SEARCH_KIND", "Live lookup currently supports restaurants.")
+            visual = job.get("last_visual_observation") or {}
+            if body.live and body.landmark_name and body.landmark_name != visual.get("landmark_name"):
+                abort(422, "LANDMARK_CONTEXT_MISMATCH", "Use the landmark from the assigned conversation.")
+            location = req["location"]
+        # Public map lookups must not block polling, cancellation or other sessions.
+        if body.live:
+            from service.nearby import search_nearby
+            found = search_nearby(landmark_name=body.landmark_name, location=location, radius_m=body.radius_m)
+            if not body.landmark_name and location and found.get("search_origin"):
+                found["search_origin"] = dict(location)
+                ko = req["response_language"] == "ko"
+                found["search_origin_label"] = (("내 위치" if ko else "Your location")
+                    if location["origin"] == "gps" else ("선택한 지도 지점" if ko else "Selected map point"))
+        else:
+            found = catalog.search_places(body.food_id, body.shop_id, location, body.radius_m, kind=body.kind)
+        with store.lock:
+            job = store.active_job(body.session_id, body.request_id)
             found["places"] = [Place.model_validate(p).model_dump() for p in found["places"]]
             job["searched_places"].update({p["place_id"]: p for p in found["places"]})
+            if body.live:
+                found["evidence"] = [Evidence.model_validate(e).model_dump() for e in found.get("evidence", [])]
+                job["searched_evidence"].update({e["id"]: e for e in found["evidence"]})
+                origin = found.get("search_origin")
+                job["search_origin"] = Location.model_validate(origin).model_dump() if origin else None
+                job["search_origin_label"] = found.get("search_origin_label")
             return found
 
     def validate_grounding(result: GuideResult, job: dict):
@@ -346,6 +371,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
         if result.dataset_mode != req["dataset_mode"] or result.response_language != req["response_language"]:
             abort(422, "RESULT_MODE_MISMATCH", "Result mode or language does not match.")
         approved = {e["id"]: e for e in catalog.evidence_for_mode(req["dataset_mode"])}
+        approved.update(job.get("searched_evidence", {}))
         provided = set()
         for evidence in result.evidence:
             if evidence.id in provided or evidence.id not in approved or evidence.model_dump() != approved[evidence.id]:
@@ -369,6 +395,10 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
         for place in result.places:
             if place.model_dump() != job["searched_places"].get(place.place_id):
                 abort(422, "INVALID_PLACE", "Places must come from this job's validated search.")
+        if result.search_origin and result.search_origin.model_dump() != job.get("search_origin"):
+            abort(422, "INVALID_SEARCH_ORIGIN", "Search origin must come from this job's lookup.")
+        if result.search_origin_label and result.search_origin_label != job.get("search_origin_label"):
+            abort(422, "INVALID_SEARCH_ORIGIN", "Search origin label must match the lookup.")
 
     @app.post("/worker/results", dependencies=[Depends(worker_auth)])
     def save_result(body: WorkerResult):

@@ -79,3 +79,12 @@ React/TS/Vite, Leaflet1.9.4, white mobile-first design. API relative /api; Vite 
 - A short affirmative reply can refer to the preceding spoken suggestion even when a fresh camera frame has a new photo ID. An explicit new target/question takes priority; previous observation is not proof of a new frame's identity.
 - Observation context resets on dataset-mode changes and on a subsequent observation with no named landmark. It stays separate from visitor preferences in manual conversation history.
 - A named landmark outside the nearby-search catalogue must not be replaced with an unrelated catalogue candidate. Explanations may use approved evidence with matching entity_names; absent evidence is reported without fabricated claims, coordinates or sources.
+
+## 16:52 nearby restaurants from visual context
+
+- SearchRequest adds live:boolean=false and landmark_name:string|null. live=true is restricted to restaurant lookups; a named center must match the assigned session's latest visual landmark suggestion.
+- The trusted broker resolves the public landmark name or uses the user's chosen location, then retrieves nearby named restaurants from fixed Nominatim/Overpass endpoints. No model URLs, photos or credentials leave through this tool.
+- External network lookup runs outside the session lock. Up to three source-backed OSM places and their fetched evidence are recorded per job; result places/evidence must match the recorded tool output.
+- GuideResult adds optional search_origin:Location|null and search_origin_label:string|null, both bound to the tool result. A geocoded landmark center is a search reference, not the visitor's confirmed GPS.
+- OpenStreetMap results are nearby restaurant candidates sorted by straight-line distance; no verified ratings, popularity, opening hours or allergy claims. Lookup failure/empty coverage is explicit.
+- Browser displays live results on the map and opens OSM details for external places instead of submitting unrecognized catalogue IDs.

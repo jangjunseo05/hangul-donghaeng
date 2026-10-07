@@ -107,7 +107,8 @@ class WorkerAPI:
 
     async def call(self, method: str, path: str, **kwargs):
         try:
-            response = await self.client.request(method, path, timeout=5.0, **kwargs)
+            timeout = 22.0 if method == "POST" and path == "worker/search" else 5.0
+            response = await self.client.request(method, path, timeout=timeout, **kwargs)
             if response.status_code == 409:
                 raise AgentError("superseded")
             if response.status_code >= 300:

@@ -114,6 +114,8 @@ class GuideResult(StrictModel):
     unknowns: list[Text] = Field(max_length=20)
     next_question: Text | None
     error_code: Identifier | None
+    search_origin: Location | None = None
+    search_origin_label: str | None = Field(default=None, max_length=160)
 
 
 class SearchRequest(StrictModel):
@@ -123,6 +125,8 @@ class SearchRequest(StrictModel):
     shop_id: Identifier | None
     radius_m: Radius
     kind: Literal["restaurant", "heritage"] | None = None
+    landmark_name: str | None = Field(default=None, min_length=1, max_length=120)
+    live: bool = False
 
 
 class WorkerResult(StrictModel):

@@ -13,7 +13,9 @@ export type GuideResult = {
   schema_version: 1; session_id: string; request_id: string; captured_at: string;
   dataset_mode: DatasetMode; status: 'need_confirmation' | 'ready' | 'failed';
   speech_text: string; response_language: Language;
-  scene: { food_candidates: Candidate[]; confirmed_food_id: string | null; confirmed_shop_id: string | null; place_candidates?: Candidate[]; confirmed_place_id?: string | null };
+  scene: { food_candidates: Candidate[]; confirmed_food_id: string | null; confirmed_shop_id: string | null; place_candidates?: Candidate[]; confirmed_place_id?: string | null; observed_place_name?: string | null };
+  search_origin?: Location | null;
+  search_origin_label?: string | null;
   places: Place[];
   menus: { name_ko: string; description: string; evidence_ids: string[]; unknowns: string[] }[];
   claims: { text: string; scope: 'menu' | 'operation' | 'culture'; evidence_ids: string[] }[];
