@@ -24,6 +24,8 @@ export default function App() {
   const [mode, setMode] = useState<DatasetMode>('real_place')
   const [question, setQuestion] = useState('')
   const [photo, setPhoto] = useState<{ file: File; url: string; id: string | null } | null>(null)
+  const [photoLocked, setPhotoLocked] = useState(false)
+  const photoLockedRef = useRef(false)
   const [photoNotice, setPhotoNotice] = useState('')
   const [location, setLocation] = useState<Location | null>(null)
   const [demoLocation, setDemoLocation] = useState(false)
@@ -66,7 +68,7 @@ export default function App() {
   const camera = useCamera(language)
   const busy = ['uploading', 'submitting', 'queued', 'running'].includes(phase)
   const currentResult = result && !stale && !busy ? result : null
-  const automaticAvailable = Boolean(session && !healthFailed && health?.worker_connected && health.model_configured && photoCount < 20)
+  const automaticAvailable = Boolean(session && !healthFailed && health?.worker_connected && photoCount < 20 && !photoLocked)
   const automaticPaused = busy || Boolean(question.trim()) || speech.listening || speech.speaking || result?.status === 'need_confirmation'
   const companion = useAutoCompanion(automatic && mode === 'real_place' && camera.phase === 'live' && automaticAvailable, automaticPaused, observeFrame, () => stopAutomatic(t('Automatic guidance stopped. Please ask directly or try again later.', '자동동행을 멈췄어요. 직접 질문하거나 잠시 후 다시 시작해 주세요.')))
 
@@ -134,10 +136,10 @@ export default function App() {
     if (file && manualRevision.current === version && currentMode.current === 'real_place') choosePhoto(file)
   }
   async function observeFrame(current: () => boolean) {
-    if (!current() || requestBusy.current || question.trim() || speech.listening || document.visibilityState === 'hidden') return
+    if (!current() || photoLockedRef.current || requestBusy.current || question.trim() || speech.listening || document.visibilityState === 'hidden') return
     const version = manualRevision.current
     const file = await camera.capture()
-    const valid = () => manualRevision.current === version && automaticRef.current && currentMode.current === 'real_place' && camera.isLive() && document.visibilityState !== 'hidden'
+    const valid = () => manualRevision.current === version && !photoLockedRef.current && automaticRef.current && currentMode.current === 'real_place' && camera.isLive() && document.visibilityState !== 'hidden'
     if (!file || !current() || !valid() || requestBusy.current) return
     await submit({ frame: file, interaction: 'observe', valid, question: t('Describe the cultural or historical context of what is visible, and suggest one relevant nearby place from the collection. Ask me to confirm uncertain place or food identity. Do not identify people.', '보이는 풍경의 한국 문화·역사 맥락을 설명하고 수록된 주변 장소 한 곳을 제안해 주세요. 장소나 음식이 불확실하면 먼저 확인하고, 사람을 식별하지 마세요.') })
   }
@@ -155,7 +157,8 @@ export default function App() {
     if (!['image/jpeg', 'image/png'].includes(file.type) || !file.size || file.size > 8 * 1024 * 1024) {
       setPhotoNotice(t('Choose a JPG or PNG photo smaller than 8 MB.', '8MB 이하의 JPG 또는 PNG 사진을 선택해 주세요.')); return
     }
-    prioritizeUser(); invalidate(); readGuard.current.reset()
+    stopAutomatic(); prioritizeUser(); invalidate(); readGuard.current.reset()
+    photoLockedRef.current = true; setPhotoLocked(true)
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
     const url = URL.createObjectURL(file)
     previewUrl.current = url
@@ -163,6 +166,7 @@ export default function App() {
   }
   function removePhoto() {
     prioritizeUser(); invalidate(); readGuard.current.reset()
+    photoLockedRef.current = false; setPhotoLocked(false)
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
     previewUrl.current = null; setPhoto(null); setPhotoNotice('')
   }
@@ -204,10 +208,14 @@ export default function App() {
   async function submit(options: SubmitOptions = {}) {
     const observing = options.interaction === 'observe'
     const text = (options.question ?? question).trim()
-    if (observing && (requestBusy.current || !options.valid?.() || photoCountRef.current >= 20)) return
+    if (observing && (photoLockedRef.current || requestBusy.current || !options.valid?.() || photoCountRef.current >= 20)) return
     if (!observing) { prioritizeUser(); readGuard.current.reset() }
     if (!text) { setError(t('Ask a question to begin.', '먼저 질문을 입력해 주세요.')); return }
     if (!session) { setError(t('Please reconnect your guide before asking.', '가이드에 다시 연결한 뒤 질문해 주세요.')); return }
+    // Typed/voice questions use the view at send time. Confirmation/navigation
+    // actions retain the photo they refer to; explicit captures/uploads stay fixed.
+    const captureCurrent = !observing && options.question === undefined && mode === 'real_place' && camera.isLive() && !photoLockedRef.current
+    const manualVersion = manualRevision.current
     let selectedPhoto = photo
     if (options.frame) {
       if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
@@ -215,7 +223,7 @@ export default function App() {
       selectedPhoto = { file: options.frame, url, id: null }
       previewUrl.current = url; setPhoto(selectedPhoto)
     }
-    if (mode === 'real_place' && !selectedPhoto && !result && !anchor && !options.place) { setPhotoNotice(t('Add a photo, capture a view, or choose a cultural starting point first.', '사진을 선택·촬영하거나 문화 장소를 출발점으로 골라 주세요.')); return }
+    if (mode === 'real_place' && !selectedPhoto && !captureCurrent && !result && !anchor && !options.place) { setPhotoNotice(t('Add a photo, capture a view, or choose a cultural starting point first.', '사진을 선택·촬영하거나 문화 장소를 출발점으로 골라 주세요.')); return }
     if (!observing) lastQuestion.current = text
     const generation = ++sequence.current
     const observationVersion = observationEpoch.current
@@ -227,20 +235,30 @@ export default function App() {
     controller.current = nextController
     if (!observing) { speech.stopListening(); speech.stopReading() }
     setError(''); setCopyNotice(''); setStale(Boolean(result))
-    setPhase(selectedPhoto && !selectedPhoto.id && mode === 'real_place' ? 'uploading' : 'submitting')
+    setPhase(captureCurrent || (selectedPhoto && !selectedPhoto.id && mode === 'real_place') ? 'uploading' : 'submitting')
     const current = () => sequence.current === generation && !nextController.signal.aborted && (!observing || observationEpoch.current === observationVersion)
     try {
+      if (captureCurrent) {
+        const frame = await camera.capture()
+        if (!current()) return
+        if (!frame || manualRevision.current !== manualVersion || photoLockedRef.current) { setPhase('idle'); return }
+        if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
+        const url = URL.createObjectURL(frame)
+        selectedPhoto = { file: frame, url, id: null }
+        previewUrl.current = url; setPhoto(selectedPhoto); setPhotoNotice('')
+      }
       let photoId = mode === 'real_place' ? selectedPhoto?.id ?? null : null
       if (selectedPhoto && !photoId && mode === 'real_place') {
         const uploaded = await api.upload(selectedPhoto.file, nextController.signal)
         if (!current()) return
         photoId = uploaded.photo_id
         photoCountRef.current += 1; setPhotoCount(photoCountRef.current)
-        setPhoto(previous => previous?.url === selectedPhoto.url ? { ...previous, id: uploaded.photo_id } : previous)
+        const uploadedUrl = selectedPhoto.url
+        setPhoto(previous => previous?.url === uploadedUrl ? { ...previous, id: uploaded.photo_id } : previous)
       }
       if (!current()) return
       if (observing && !options.valid?.()) { invalidate(); return }
-      const placeId = mode === 'fictional_task' ? null : options.place !== undefined ? options.place : options.shop !== undefined ? options.shop : anchor?.place_id ?? currentResult?.scene.confirmed_place_id ?? currentResult?.scene.confirmed_shop_id ?? null
+      const placeId = mode === 'fictional_task' ? null : options.place !== undefined ? options.place : options.shop !== undefined ? options.shop : anchor?.place_id ?? (captureCurrent ? null : currentResult?.scene.confirmed_place_id ?? currentResult?.scene.confirmed_shop_id ?? null)
       const targetKind = catalog?.places.find(place => place.place_id === placeId)?.kind
       const shopId = mode === 'fictional_task' ? null : options.shop !== undefined ? options.shop : targetKind === 'heritage' ? null : placeId && (targetKind === 'restaurant' || currentResult?.scene.confirmed_shop_id === placeId) ? placeId : null
       setPhase('submitting')
@@ -248,7 +266,7 @@ export default function App() {
         schema_version: 1, session_id: session, question: text, photo_id: photoId,
         dataset_mode: mode, response_language: language, location: mode === 'fictional_task' ? null : options.location ?? location,
         radius_m: options.radius ?? radius,
-        confirmed_food_id: options.food !== undefined ? options.food : observing ? null : currentResult?.scene.confirmed_food_id ?? null,
+        confirmed_food_id: options.food !== undefined ? options.food : observing || captureCurrent ? null : currentResult?.scene.confirmed_food_id ?? null,
         confirmed_shop_id: shopId, confirmed_place_id: placeId,
         interaction_mode: observing ? 'observe' : 'ask',
       }, nextController.signal)
@@ -322,6 +340,7 @@ export default function App() {
         <section className="composer panel" aria-labelledby="start-title"><div className="section-top"><span className="step-number">01</span><div><span className="overline">{t('LET’S START HERE', '우리의 여행 시작')}</span><h2 id="start-title">{t('What caught your eye?', '어떤 풍경이 눈에 들어왔나요?')}</h2></div><Sparkles size={20} className="accent-icon"/></div>
           {mode === 'real_place' && <><input ref={fileInput} className="visually-hidden" type="file" accept="image/jpeg,image/png" aria-label={t('Choose a place, food or menu photo', '장소·음식·메뉴 사진 선택')} onChange={e => { choosePhoto(e.target.files?.[0]); e.target.value = '' }}/><input ref={cameraInput} className="visually-hidden" type="file" accept="image/jpeg,image/png" capture="environment" aria-label={t('Take a photo', '사진 촬영')} onChange={e => { choosePhoto(e.target.files?.[0]); e.target.value = '' }}/>
           <CameraPanel camera={camera} language={language} automatic={automatic} automaticAvailable={automaticAvailable} paused={automaticPaused} onAutomatic={changeAutomatic} onCapture={() => void capturePhoto()}/>{photo ? <div className="photo-preview"><img src={photo.url} alt={t('Your selected place, food or menu photo', '선택한 장소·음식·메뉴 사진')}/><span className="photo-label"><Check size={13}/>{t('Your photo', '선택한 사진')}</span><button className="icon-button remove-photo" onClick={removePhoto} aria-label={t('Remove photo', '사진 지우기')}><X size={17}/></button><button className="replace-photo" onClick={() => fileInput.current?.click()}><ImagePlus size={14}/>{t('Change photo', '사진 바꾸기')}</button></div> : <div className="photo-picker"><div className="photo-art" aria-hidden="true"><svg viewBox="0 0 100 85" fill="none"><path d="M30 11Q19 21 31 30M49 5Q37 19 50 27M67 12Q57 22 67 30" stroke="#c58a65" strokeWidth="2.4" strokeLinecap="round"/><ellipse cx="50" cy="40" rx="36" ry="12" fill="#f4e6d4" stroke="#c58a65" strokeWidth="2"/><path d="M14 40Q18 72 50 73Q82 72 86 40" fill="#fffdf8" stroke="#c58a65" strokeWidth="2"/><path d="M25 50Q32 66 50 66" stroke="#ead9c3" strokeWidth="2" strokeLinecap="round"/></svg><span><ImagePlus size={17}/></span></div><h3>{t('A photo is a lovely place to start.', '사진 한 장으로 시작해 볼까요?')}</h3><p>{t('A palace, a street, a dish or a menu.', '궁궐, 골목, 음식, 메뉴판 모두 좋아요.')}</p><div className="photo-actions"><button className="button button-soft" onClick={() => fileInput.current?.click()}><ImagePlus size={16}/>{t('Choose a photo', '사진 선택')}</button><button className="button button-light" onClick={() => cameraInput.current?.click()}><Camera size={16}/>{t('Take one', '촬영')}</button></div><small>JPG · PNG · {t('up to 8 MB', '최대 8MB')}</small></div>}</>}
+          {mode === 'real_place' && <div className="input-basis" role="status"><strong>{photoLocked ? t('Saved photo · kept for follow-up questions', '고정 사진 · 후속 질문에도 유지') : camera.phase === 'live' ? t('Current camera view · captured when you ask', '현재 카메라 장면 · 질문을 보낼 때 촬영') : photo ? t('Last photo · camera is off', '마지막 사진 · 카메라 꺼짐') : t('No photo · selected place and conversation only', '사진 없음 · 선택한 장소와 대화만 사용')} </strong>{photoLocked && <button type="button" className="button button-light" onClick={removePhoto}>{t('Use current view', '현재 장면 사용 · 고정 해제')}</button>}<small>{t('Only the latest photo and conversation are used, not a memory of the whole video.', '전체 영상의 기억 없이 마지막 사진과 대화만 사용해요.')}</small></div>}
           {automaticNotice && <p className="inline-notice automatic-notice" role="status"><Info size={14}/>{automaticNotice}</p>}{photoNotice && <p className="inline-notice" role="status"><Info size={14}/>{photoNotice}</p>}
           <form onSubmit={e => { e.preventDefault(); void submit() }}><label className="question-label" htmlFor="question">{t('Ask your little local guide', '동행 가이드에게 물어보세요')}<span>{t('or tap the mic', '마이크로 말해도 돼요')}</span></label><div className={'question-box ' + (speech.listening ? 'is-listening' : '')}><textarea id="question" value={question} onChange={e => editQuestion(e.target.value)} placeholder={mode === 'fictional_task' ? t('Plan a half-day cultural visit using the provided materials.', '제공 자료로 반나절 문화 여행을 계획해 주세요.') : t('What is the story of this place? What should I notice?', '이 장소에는 어떤 이야기가 있나요? 무엇을 살펴보면 좋을까요?')} rows={3} maxLength={4000}/><div className="question-toolbar"><span>{speech.listening ? t('Listening… you can edit the words.', '듣고 있어요… 인식된 말을 수정할 수 있어요.') : t('English & 한국어', '한국어 & English')}</span><button type="button" className={'mic-button ' + (speech.listening ? 'listening' : '')} onClick={() => { prioritizeUser(); speech.startListening() }} aria-label={speech.listening ? t('Stop listening', '음성 입력 멈추기') : t('Ask by voice', '음성으로 질문')} aria-pressed={speech.listening}>{speech.listening ? <Square size={17}/> : <Mic size={19}/>}</button></div></div>
           {!result && <div className="question-suggestions">{(mode === 'fictional_task' ? [[t('A half-day culture trip', '반나절 문화 여행'), t('Plan a half-day cultural trip using the provided visitor needs, dates, and sources.', '방문 조건과 날짜, 근거 자료를 반영해 반나절 문화 여행을 계획해 주세요.')]] : [[t('What is the story here?', '이곳의 이야기는?'), t('Help me understand the history, cultural context and visiting etiquette of what I see.', '눈앞의 장소에 담긴 역사·문화와 방문 예절을 알려 주세요.')] , [t('What should I ask?', '무엇을 확인할까요?'), t('Help me understand this menu. What ingredients should I ask about?', '이 메뉴를 이해하고 싶어요. 어떤 재료를 확인해야 하나요?')]]).map(([label, text]) => <button type="button" key={label} onClick={() => editQuestion(text)}>{label}<ArrowUpRight size={12}/></button>)}</div>}
@@ -357,6 +376,6 @@ export default function App() {
       </div>
     </main>
     <footer><span className="footer-brand">한글로 더 가까이.</span><p>{t('A Hangul Day companion for curious travelers.', '한글날, 한국을 알아가는 여행의 동행.')}</p><button onClick={() => setStatusOpen(true)}>{t('Connection & privacy', '연결 상태와 개인정보')}<ArrowUpRight size={12}/></button></footer>
-    <dialog ref={dialog} className="status-dialog" onClose={() => setStatusOpen(false)} onClick={e => { if (e.target === e.currentTarget) setStatusOpen(false) }}><div className="dialog-heading"><h2>{t('Connection & demo status', '연결 및 시연 상태')}</h2><button className="icon-button" onClick={() => setStatusOpen(false)} aria-label={t('Close status', '상태 닫기')}><X size={19}/></button></div><p>{t('These details describe the latest server report, not a completed runtime or safety test.', '아래는 서버의 최신 보고이며 실제 실행·안전 검증의 통과를 뜻하지 않아요.')}</p><dl className="health-list">{[[t('Service reachable', '서비스 연결'), Boolean(health && !healthFailed)], [t('Browser session', '브라우저 세션'), Boolean(session)], [t('Worker connected', 'worker 연결'), Boolean(!healthFailed && health?.worker_connected)], [t('Model configured', '모델 설정'), Boolean(!healthFailed && health?.model_configured)], [t('Sandbox verified by server', '서버 보고상 샌드박스 검증'), Boolean(!healthFailed && health?.sandbox_verified)]].map(([label, ok]) => <div key={String(label)}><dt>{label}</dt><dd className={ok ? 'health-ok' : 'health-wait'}>{ok ? <Check size={13}/> : <Info size={13}/>} {ok ? t('Reported', '보고됨') : t('Not confirmed', '미확인')}</dd></div>)}</dl><small>{t('Last checked', '마지막 확인')}: {checkedAt || t('Not yet', '아직 없음')}</small><button className="button button-soft dialog-reconnect" onClick={() => void reconnect()}><RotateCcw size={15}/>{t('Refresh connection', '연결 새로고침')}</button><div className="privacy-note"><ShieldCheck size={18}/><p>{t('Photos are sent only when you ask. Voice input may use your browser’s external speech service. Map tiles are requested from OpenStreetMap. Location is used after you choose or allow it.', '질문할 때만 사진을 보내요. 음성 인식은 브라우저의 외부 서비스를 사용할 수 있고, 지도는 OpenStreetMap 타일을 받아요. 위치는 직접 선택하거나 허용할 때 사용해요.')}</p></div><button className="practice-link" onClick={() => changeMode(mode === 'real_place' ? 'fictional_task' : 'real_place')}><BookOpen size={15}/>{mode === 'real_place' ? t('Try the fictional practice itinerary', '가상 자료로 연습 일정 만들기') : t('Return to real-place exploration', '실제 장소 여행으로 돌아가기')}<ArrowRight size={14}/></button></dialog>
+    <dialog ref={dialog} className="status-dialog" onClose={() => setStatusOpen(false)} onClick={e => { if (e.target === e.currentTarget) setStatusOpen(false) }}><div className="dialog-heading"><h2>{t('Connection & demo status', '연결 및 시연 상태')}</h2><button className="icon-button" onClick={() => setStatusOpen(false)} aria-label={t('Close status', '상태 닫기')}><X size={19}/></button></div><p>{t('These details describe the latest server report, not a completed runtime or safety test. A self-hosted guide can be connected without a hosted API configuration report. Configuration and sandbox reports are separate from worker connectivity.', '아래는 서버의 최신 보고이며 실제 실행·안전 검증의 통과를 뜻하지 않아요. 자체 호스팅 가이드는 호스팅 API 설정 보고 없이도 연결될 수 있어요. 설정·샌드박스 보고와 worker 연결은 별개예요.')}</p><dl className="health-list">{[[t('Service reachable', '서비스 연결'), Boolean(health && !healthFailed)], [t('Browser session', '브라우저 세션'), Boolean(session)], [t('Worker connected', 'worker 연결'), Boolean(!healthFailed && health?.worker_connected)], [t('Hosted API configuration', '호스팅 API 설정'), Boolean(!healthFailed && health?.model_configured)], [t('Sandbox verified by server', '서버 보고상 샌드박스 검증'), Boolean(!healthFailed && health?.sandbox_verified)]].map(([label, ok]) => <div key={String(label)}><dt>{label}</dt><dd className={ok ? 'health-ok' : 'health-wait'}>{ok ? <Check size={13}/> : <Info size={13}/>} {ok ? t('Reported', '보고됨') : t('Not confirmed', '미확인')}</dd></div>)}</dl><small>{t('Last checked', '마지막 확인')}: {checkedAt || t('Not yet', '아직 없음')}</small><button className="button button-soft dialog-reconnect" onClick={() => void reconnect()}><RotateCcw size={15}/>{t('Refresh connection', '연결 새로고침')}</button><div className="privacy-note"><ShieldCheck size={18}/><p>{t('When you send a question or enable automatic companion, sampled photos are sent for analysis; the camera preview stays on this device. Voice input may use your browser’s external speech service. Map tiles are requested from OpenStreetMap. Location is used after you choose or allow it.', '질문을 보내거나 자동동행을 켜면 샘플 사진을 분석을 위해 전송해요. 카메라 미리보기는 내 기기에만 남아요. 음성 인식은 브라우저의 외부 서비스를 사용할 수 있고, 지도는 OpenStreetMap 타일을 받아요. 위치는 직접 선택하거나 허용할 때 사용해요.')}</p></div><button className="practice-link" onClick={() => changeMode(mode === 'real_place' ? 'fictional_task' : 'real_place')}><BookOpen size={15}/>{mode === 'real_place' ? t('Try the fictional practice itinerary', '가상 자료로 연습 일정 만들기') : t('Return to real-place exploration', '실제 장소 여행으로 돌아가기')}<ArrowRight size={14}/></button></dialog>
   </div>
 }

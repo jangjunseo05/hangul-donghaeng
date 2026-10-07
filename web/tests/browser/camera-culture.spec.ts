@@ -7,11 +7,11 @@ test.use({ launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-
 const palace = { place_id: 'fixture-palace', name: '경복궁', name_en: 'Development Gyeongbokgung', kind: 'heritage', lat: 37.5759, lng: 126.9769, source_id: 'fixture-source', catalog_version: 'fixture-v2' }
 const gate = { ...palace, place_id: 'fixture-gate', name: '광화문', name_en: 'Development Gwanghwamun', lat: 37.5760 }
 const restaurant = { ...palace, place_id: 'fixture-restaurant', name: 'Development restaurant', name_en: 'Development restaurant', kind: 'restaurant', lat: 37.579, lng: 126.973 }
-type Probe = { calls: MediaStreamConstraints[]; streams: MediaStream[]; resolve?: () => void; hidden: boolean; stops: string[] }
+type Probe = { calls: MediaStreamConstraints[]; streams: MediaStream[]; resolve?: () => void; hidden: boolean; stops: string[]; color: string }
 
 async function cameraProbe(page: Page, options: { deny?: string; delayed?: boolean; unsupported?: boolean } = {}) {
   await page.addInitScript(options => {
-    const probe: Probe = { calls: [], streams: [], hidden: false, stops: [] }
+    const probe: Probe = { calls: [], streams: [], hidden: false, stops: [], color: '#6f875d' }
     ;(window as unknown as { cameraProbe: Probe }).cameraProbe = probe
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => probe.hidden ? 'hidden' : 'visible' })
     Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, value: options.unsupported ? undefined : async (constraints: MediaStreamConstraints) => {
@@ -22,7 +22,7 @@ async function cameraProbe(page: Page, options: { deny?: string; delayed?: boole
       const context = canvas.getContext('2d')!
       context.fillStyle = '#6f875d'; context.fillRect(0, 0, 640, 480)
       const stream = canvas.captureStream(10)
-      const draw = setInterval(() => { context.fillStyle = '#6f875d'; context.fillRect(0, 0, 640, 480) }, 100)
+      const draw = setInterval(() => { context.fillStyle = probe.color; context.fillRect(0, 0, 640, 480) }, 100)
       stream.getTracks().forEach(track => { const stop = track.stop.bind(track); track.stop = () => { clearInterval(draw); probe.stops.push(new Error('Synthetic track stop').stack || ''); stop() } })
       probe.streams.push(stream)
       if (options.delayed) await new Promise<void>(resolve => { probe.resolve = resolve })
@@ -30,17 +30,22 @@ async function cameraProbe(page: Page, options: { deny?: string; delayed?: boole
     } })
   }, options)
 }
-async function fixtureApi(page: Page, options: { pending?: boolean; confirmation?: boolean; photoLimit?: boolean; busy?: boolean } = {}) {
+async function fixtureApi(page: Page, options: { pending?: boolean; confirmation?: boolean; photoLimit?: boolean; busy?: boolean; hostedConfigured?: boolean } = {}) {
   const requests: Record<string, unknown>[] = []
+  const photos: Buffer[] = []
   let uploads = 0
   let released = false
   await page.route('**/api/**', async route => {
     const pathname = new URL(route.request().url()).pathname
     let body: unknown
     if (pathname === '/api/sessions') body = { session_id: fixture.session_id }
-    else if (pathname === '/api/health') body = { status: 'ok', worker_connected: true, model_configured: true, sandbox_verified: false, catalog_count: 3, version: 'development-camera-fixture' }
+    else if (pathname === '/api/health') body = { status: 'ok', worker_connected: true, model_configured: options.hostedConfigured ?? true, sandbox_verified: false, catalog_count: 3, version: 'development-camera-fixture' }
     else if (pathname === '/api/catalog') body = { catalog_count: 3, scope_label: 'Development fixture collection', catalog_version: 'fixture-v2', places: [palace, gate, restaurant] }
     else if (pathname === '/api/photos') {
+      const photoBody = route.request().postDataBuffer()!
+      const start = photoBody.indexOf(Buffer.from([0xff, 0xd8]))
+      const end = photoBody.lastIndexOf(Buffer.from([0xff, 0xd9]))
+      photos.push(start >= 0 && end > start ? photoBody.subarray(start, end + 2) : photoBody)
       uploads += 1
       if (options.photoLimit) { await route.fulfill({ status: 429, json: { error_code: 'PHOTO_LIMIT' } }); return }
       body = { photo_id: `fixture-photo-${uploads}`, width: 640, height: 480 }
@@ -66,7 +71,7 @@ async function fixtureApi(page: Page, options: { pending?: boolean; confirmation
     } else { await route.fulfill({ status: 404, json: { error_code: 'DEVELOPMENT_FIXTURE_ONLY' } }); return }
     await route.fulfill({ json: body })
   })
-  return { requests, uploads: () => uploads, release: () => { released = true } }
+  return { requests, photos, uploads: () => uploads, release: () => { released = true } }
 }
 async function startCamera(page: Page) {
   await page.goto('/')
@@ -83,6 +88,89 @@ async function speechProbe(page: Page) {
     Object.defineProperty(window, 'speechSynthesis', { value: { getVoices: () => [], cancel: () => {}, speak: (utterance: SpeechSynthesisUtterance) => { spoken.push(utterance.text); utterance.onend?.(new Event('end') as SpeechSynthesisEvent) } } })
   })
 }
+
+test('photo basis: manual questions capture the current changing camera view', async ({ page }) => {
+  await cameraProbe(page); const api = await fixtureApi(page)
+  await startCamera(page)
+  await expect(page.locator('.input-basis')).toContainText('Current camera view')
+  await page.locator('#question').fill('What is the history of this view?')
+  await page.locator('.ask-button').click()
+  await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()
+  await page.evaluate(() => { (window as unknown as { cameraProbe: Probe }).cameraProbe.color = '#bd4250' })
+  await page.waitForTimeout(250)
+  await page.locator('#question').fill('What is in front of me now?')
+  await page.locator('.ask-button').click()
+  await expect.poll(() => api.requests.length).toBe(2)
+  expect(api.requests.map(request => request.photo_id)).toEqual(['fixture-photo-1', 'fixture-photo-2'])
+  expect(api.photos[0].equals(api.photos[1])).toBe(false)
+})
+
+test('photo basis: explicit capture persists through follow-ups and blocks automatic replacement', async ({ page }) => {
+  await cameraProbe(page); const api = await fixtureApi(page)
+  await startCamera(page); await page.clock.install()
+  const automatic = page.getByRole('checkbox', { name: 'Automatic companion' })
+  await automatic.check()
+  await page.getByRole('button', { name: 'Capture a photo', exact: true }).click()
+  await expect(page.locator('.input-basis')).toContainText('Saved photo')
+  await expect(automatic).not.toBeChecked(); await expect(automatic).toBeDisabled()
+  await page.clock.runFor(60000)
+  expect(api.requests).toHaveLength(0)
+  await page.locator('#question').fill('Explain this saved view')
+  await page.locator('.ask-button').click()
+  await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()
+  await page.evaluate(() => { (window as unknown as { cameraProbe: Probe }).cameraProbe.color = '#bd4250' })
+  await page.clock.runFor(500)
+  await page.getByRole('button', { name: 'Stop camera', exact: true }).click()
+  await page.locator('#question').fill('Tell me more about the same view')
+  await page.locator('.ask-button').click()
+  await expect.poll(() => api.requests.length).toBe(2)
+  expect(api.uploads()).toBe(1)
+  expect(api.requests.map(request => request.photo_id)).toEqual(['fixture-photo-1', 'fixture-photo-1'])
+})
+
+test('photo basis: uploaded photo stays fixed for confirmation until current view is selected', async ({ page }) => {
+  await cameraProbe(page); const api = await fixtureApi(page, { confirmation: true })
+  await startCamera(page)
+  await page.locator('input[type=file]').first().setInputFiles({ name: 'development-fixture.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0QAAAABJRU5ErkJggg==', 'base64') })
+  await expect(page.locator('.input-basis')).toContainText('Saved photo')
+  await page.locator('#question').fill('Which cultural place is this?')
+  await page.locator('.ask-button').click()
+  await expect(page.locator('.place-confirmation')).toBeVisible()
+  await page.locator('.place-confirmation button').click()
+  await expect.poll(() => api.requests.length).toBe(2)
+  expect(api.requests[1]).toMatchObject({ photo_id: 'fixture-photo-1', confirmed_place_id: palace.place_id, confirmed_shop_id: null, location: { lat: palace.lat, lng: palace.lng, origin: 'selected' } })
+  await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()
+  expect(api.uploads()).toBe(1)
+  await page.getByRole('button', { name: 'Use current view', exact: true }).click()
+  await expect(page.locator('.input-basis')).toContainText('Current camera view')
+  await expect(page.getByRole('checkbox', { name: 'Automatic companion' })).toBeEnabled()
+  await page.locator('#question').fill('Now describe my current view')
+  await page.locator('.ask-button').click()
+  await expect.poll(() => api.requests.length).toBe(3)
+  expect(api.uploads()).toBe(2)
+  expect(api.requests[2]).toMatchObject({ photo_id: 'fixture-photo-2', confirmed_place_id: palace.place_id, location: { lat: palace.lat, lng: palace.lng, origin: 'selected' } })
+})
+
+test('self-hosted worker enables automatic guidance without hosted or sandbox flags', async ({ page }) => {
+  await cameraProbe(page)
+  const api = await fixtureApi(page, { hostedConfigured: false })
+  await startCamera(page)
+  await page.getByRole('button', { name: 'Connection', exact: true }).click()
+  await expect(page.locator('.health-list > div').filter({ hasText: 'Worker connected' })).toContainText('Reported')
+  await expect(page.locator('.health-list > div').filter({ hasText: 'Hosted API configuration' })).toContainText('Not confirmed')
+  await expect(page.locator('.health-list > div').filter({ hasText: 'Sandbox verified by server' })).toContainText('Not confirmed')
+  await expect(page.locator('.privacy-note')).toContainText('send a question or enable automatic companion')
+  await expect(page.locator('.privacy-note')).toContainText('camera preview stays on this device')
+  await page.getByRole('button', { name: 'Close status', exact: true }).click()
+  const automatic = page.getByRole('checkbox', { name: 'Automatic companion' })
+  await expect(automatic).toBeEnabled()
+  await page.clock.install()
+  await automatic.check()
+  await page.clock.runFor(20000)
+  await expect.poll(() => api.requests.length).toBe(1)
+  expect(api.requests[0].interaction_mode).toBe('observe')
+  await expect(page.locator('.result-panel:not(.is-stale) .answer-text')).toContainText('Development camera fixture')
+})
 
 test('camera requires a click, captures without sending, and stops every track', async ({ page }) => {
   await cameraProbe(page)

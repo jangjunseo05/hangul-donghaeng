@@ -176,8 +176,8 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
 
     @app.get("/api/health")
     def health():
-        # A normal model turn can occupy the single worker for up to 30 seconds.
-        return {"status": "ok", "worker_connected": time.monotonic() - store.worker_seen < 45,
+        # Keep a busy single worker connected through the bounded request deadline.
+        return {"status": "ok", "worker_connected": time.monotonic() - store.worker_seen < REQUEST_TIMEOUT_SECONDS + 5,
                 "model_configured": bool(os.getenv("NVIDIA_API_KEY")), "sandbox_verified": False,
                 "catalog_count": catalog.catalog_summary()["catalog_count"], "version": "0.1.0"}
 

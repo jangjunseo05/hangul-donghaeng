@@ -27,4 +27,6 @@ English primary; short friendly Korean. Internal infrastructure details only in 
 React/TS/Vite, Leaflet1.9.4, credentials cookies, relative API; no mock replies in product. getUserMedia requests environment preference and audio:false only after Start. Captured JPEGs use the existing upload endpoint. Cultural confirmation uses catalog coordinates. Tests use explicitly synthetic streams/API fixtures and do not establish Android or model execution.
 ## Open questions
 [ ] root: culture/camera worker revision, live model/OpenShell results and served frontend after integration; live validation waits for root GO.
-[ ] Android device tester: HTTPS camera start/capture/stop and background handling. English/Korean microphone and TTS were confirmed by user report; the new camera flow is still unverified on the phone.
+[x] Android rear-camera preview and captured image persisting after Stop: user-reported physical hardware PASS on2026-10-07; no independent replay by this frontend worker.
+[x] Actual Android Korean and English speech input: both PASS by the latest user report on2026-10-07. Earlier TTS confirmation remains separate and does not establish Android TTS.
+[ ] Android TTS, Android background handling, automatic frame analysis and the integrated culture/camera/voice-to-model journey; runtime verification waits for root GO. Confirmation stops automatic mode; the demonstrated next frame requires user confirmation and re-enabling.
