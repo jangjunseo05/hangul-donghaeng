@@ -5,6 +5,7 @@ import unittest
 from test_agent import Harness, decision, draft, job
 from test_agent_context import second_context
 from service.catalog import search_places
+from agent.core import HERITAGE_WARNINGS, REAL_WARNINGS
 
 
 PALACE = "local:gyeongbokgung"
@@ -35,9 +36,78 @@ def searches(harness):
 
 
 class AgentCultureTests(unittest.IsolatedAsyncioTestCase):
-    async def test_observe_three_grounded_claims_save_without_repair_or_second_photo(self):
+    async def test_nearby_destination_override_preserves_unconfirmed_food_question(self):
         assignment = job()
-        assignment["request"].update(interaction_mode="observe", confirmed_place_id=PALACE)
+        assignment["request"]["question"] = "Can you tell me about the food in this photo and recommend nearby heritage?"
+        selected = culture_decision()
+        selected.update(food_ids=["samgyetang"], place_ids=[PALACE], intent="culture",
+                        search_kinds=["heritage"], needs_confirmation=True)
+        harness = Harness([selected, draft()], assignment)
+        self.assertEqual(await harness.run(), "saved")
+        result = harness.submitted[0]["result"]
+        self.assertEqual(result["status"], "need_confirmation")
+        self.assertTrue(result["next_question"])
+        self.assertIn("food", result["next_question"].lower())
+        self.assertIsNone(result["scene"]["confirmed_food_id"])
+        self.assertEqual(searches(harness), [])
+        self.assertEqual(len(harness.model_requests), 1)
+        self.assertEqual(result["claims"], [])
+
+    async def test_food_to_nearby_heritage_does_not_require_scene_identity(self):
+        assignment = job()
+        assignment["request"].update(confirmed_food_id="samgyetang", question=
+            "사진의 음식은 제가 삼계탕으로 확인했습니다. 선택한 서촌 지점 1000m 안에서 식사 후 볼 문화유적을 찾아 역사와 문화 연결을 근거와 함께 설명해 주세요.")
+        selected = culture_decision()
+        selected.update(food_ids=["samgyetang"], place_ids=[PALACE, GATE], search_kinds=["heritage"], needs_confirmation=True)
+        response = culture_draft()
+        response["claims"][0].update(text="경복궁은 1395년에 지어진 궁궐입니다.")
+        harness = Harness([selected, response], assignment)
+        self.assertEqual(await harness.run(), "saved")
+        result = harness.submitted[0]["result"]
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual({p["place_id"] for p in result["places"]}, {PALACE, GATE})
+        self.assertTrue(all(p["kind"] == "heritage" for p in result["places"]))
+        self.assertIsNone(result["scene"]["confirmed_place_id"])
+        self.assertIsNone(result["next_question"])
+        context, prompt = second_context(harness)
+        self.assertTrue(context["nearby_recommendation_not_scene_identity"])
+        self.assertTrue(all("claim_scopes" in item for item in context["evidence"]))
+        self.assertNotIn("half-day draft", prompt)
+        self.assertNotIn("90 minutes is requested", prompt)
+        self.assertNotIn("route starting gates", prompt)
+        self.assertEqual(len(harness.model_requests), 2)
+
+    async def test_heritage_only_warning_is_relevant_and_does_not_accumulate(self):
+        for language in ("ko", "en"):
+            assignment = job()
+            assignment["request"].update(interaction_mode="observe", response_language=language)
+            assignment["history"] = [{"role": "assistant", "content": "Previous view. " + HERITAGE_WARNINGS[language]}]
+            response = culture_draft()
+            response["speech_text"] += " " + REAL_WARNINGS[language] + " " + HERITAGE_WARNINGS[language]
+            response["unknowns"] += [REAL_WARNINGS[language], HERITAGE_WARNINGS[language]]
+            harness = Harness([culture_decision(), response], assignment)
+            self.assertEqual(await harness.run(), "saved")
+            result = harness.submitted[0]["result"]
+            self.assertEqual(result["speech_text"].count(HERITAGE_WARNINGS[language]), 1)
+            self.assertEqual(result["unknowns"].count(HERITAGE_WARNINGS[language]), 1)
+            self.assertNotIn(REAL_WARNINGS[language], result["speech_text"])
+            self.assertNotIn(REAL_WARNINGS[language], result["unknowns"])
+            first_prompt = harness.model_requests[0]["messages"][-1]["content"][0]["text"]
+            self.assertNotIn(HERITAGE_WARNINGS[language], first_prompt)
+
+    async def test_heritage_to_restaurant_keeps_food_safety_warning(self):
+        assignment = job()
+        assignment["request"]["confirmed_place_id"] = PALACE
+        harness = Harness([culture_decision(), culture_draft()], assignment)
+        self.assertEqual(await harness.run(), "saved")
+        result = harness.submitted[0]["result"]
+        self.assertTrue(any(place["kind"] == "restaurant" for place in result["places"]))
+        self.assertIn(REAL_WARNINGS["en"], result["speech_text"])
+        self.assertNotIn(HERITAGE_WARNINGS["en"], result["speech_text"])
+
+    async def test_ask_three_grounded_claims_save_without_repair_or_second_photo(self):
+        assignment = job()
+        assignment["request"].update(interaction_mode="ask", confirmed_place_id=PALACE)
         response = culture_draft()
         response["claims"] *= 3
         harness = Harness([culture_decision(), response], assignment)
@@ -50,16 +120,14 @@ class AgentCultureTests(unittest.IsolatedAsyncioTestCase):
                              if isinstance(message["content"], list) for part in message["content"]))
         context, prompt = second_context(harness)
         self.assertEqual(context["observed_place_candidates"][0]["id"], PALACE)
-        self.assertIn("prefer ONE short cited claim; up to 3 are allowed", prompt)
-        self.assertIn("Preserve every required JSON key", prompt)
+        self.assertIn("claims at most 3", prompt)
         result = harness.submitted[0]["result"]
         self.assertEqual(result["claims"], response["claims"])
-        self.assertEqual(result["status"], "need_confirmation")
-        self.assertTrue(result["next_question"])
+        self.assertEqual(result["status"], "ready")
 
-    async def test_observe_two_grounded_claims_do_not_spend_repair(self):
+    async def test_ask_two_grounded_claims_do_not_spend_repair(self):
         assignment = job()
-        assignment["request"].update(interaction_mode="observe", confirmed_place_id=PALACE)
+        assignment["request"].update(interaction_mode="ask", confirmed_place_id=PALACE)
         response = culture_draft()
         response["claims"] *= 2
         harness = Harness([culture_decision(), response], assignment)
@@ -81,9 +149,8 @@ class AgentCultureTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual([p["id"] for p in result["scene"]["place_candidates"]], [PALACE])
                 self.assertIsNone(result["scene"]["confirmed_place_id"])
                 self.assertTrue(result["next_question"])
-                context, _ = second_context(harness)
-                self.assertTrue(context["ambiguous_identity"])
-                self.assertEqual(context["first_decision"]["place_ids"], [PALACE])
+                self.assertEqual(len(harness.model_requests), 1)
+                self.assertEqual(result["claims"], [])
 
     async def test_confirmed_heritage_two_searches_keep_anchor_and_canonical_places(self):
         assignment = job()
@@ -131,13 +198,13 @@ class AgentCultureTests(unittest.IsolatedAsyncioTestCase):
     async def test_observe_requests_require_specific_question_even_with_confirmation(self):
         assignment = job()
         assignment["request"].update(interaction_mode="observe", confirmed_place_id=PALACE)
-        response = culture_draft()
-        response["next_question"] = "Would you like the history of Gyeongbokgung Palace or nearby food?"
-        harness = Harness([culture_decision(), response], assignment)
+        harness = Harness([culture_decision()], assignment)
         self.assertEqual(await harness.run(), "saved")
         result = harness.submitted[0]["result"]
         self.assertEqual(result["status"], "need_confirmation")
-        self.assertEqual(result["next_question"], response["next_question"])
+        self.assertIn("Gyeongbokgung Palace", result["next_question"])
+        self.assertEqual(len(harness.model_requests), 1)
+        self.assertEqual(result["claims"], [])
         self.assertEqual(result["scene"]["confirmed_place_id"], PALACE)
 
     async def test_unknown_place_id_is_rejected_before_search(self):

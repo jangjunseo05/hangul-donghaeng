@@ -85,7 +85,7 @@ class LatencyTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("claims at most 3", text)
             else:
                 self.assertNotIn("speech_text at most two short sentences", text)
-                self.assertIn("retain all mandatory itinerary", text)
+                self.assertIn("Retain all mandatory itinerary", text)
             self.assertEqual(len(harness.model_requests), 2)
 
     async def test_real_claim_limit_uses_only_one_bounded_repair(self):

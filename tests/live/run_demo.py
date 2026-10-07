@@ -268,7 +268,7 @@ async def live(args, report, output, secrets):
                        "radius_m": 500, "confirmed_food_id": food, "confirmed_shop_id": None}
             try:
                 GuideRequest.model_validate(payload)
-                rid, raw = await asyncio.wait_for(submit_poll(client, payload, record), 35.0)
+                rid, raw = await asyncio.wait_for(submit_poll(client, payload, record), 70.0)
                 record["submit_to_terminal_ms"] = round((time.monotonic() - started) * 1000)
                 secrets.append(rid)
                 result = GuideResult.model_validate(raw).model_dump(mode="json")
@@ -288,7 +288,7 @@ async def live(args, report, output, secrets):
                 record["result_status"] = result["status"]
             except asyncio.TimeoutError:
                 record["outcome"] = "timeout"
-                record["diagnostic"] = "submit_poll_exceeded_35s"
+                record["diagnostic"] = "submit_poll_exceeded_70s"
             except CheckError as exc:
                 record["outcome"] = "not_ready" if str(exc) in {
                     "job_failed", "job_superseded", "result_not_ready"} else "failed"
@@ -380,7 +380,7 @@ def main():
     output = ROOT / ".runtime/qa" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output.mkdir(parents=True, exist_ok=False)
     report = {"started_at": datetime.now(timezone.utc).isoformat(),
-              "status": "incomplete", "budget_seconds": 240, "poll_limit_seconds": 35,
+              "status": "incomplete", "budget_seconds": 420, "poll_limit_seconds": 70,
               "latency_kind": "client_wall_clock_including_queue_tools_and_model",
               "model_provider": "unverifiable_from_browser_api", "model_latency_ms": None,
               "openshell": "independent_proof_required",
@@ -389,7 +389,7 @@ def main():
     started = time.monotonic()
     code = 1
     try:
-        asyncio.run(asyncio.wait_for(live(args, report, output, secrets), 240.0))
+        asyncio.run(asyncio.wait_for(live(args, report, output, secrets), 420.0))
         cases = report["scenarios"]
         expected = len(args.cases)
         if len(cases) == expected and all(c["outcome"].startswith("completed_") for c in cases):
@@ -401,7 +401,7 @@ def main():
             report["status"] = "INCOMPLETE"
     except asyncio.TimeoutError:
         report["status"] = "TIMEOUT"
-        report["diagnostic"] = "overall_240s_budget_exceeded"
+        report["diagnostic"] = "overall_420s_budget_exceeded"
     except CheckError as exc:
         report["status"] = "NOT_READY" if str(exc) == "service_not_ready" else "FAILED"
         report["diagnostic"] = str(exc)

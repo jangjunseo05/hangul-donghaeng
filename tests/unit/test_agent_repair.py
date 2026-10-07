@@ -3,11 +3,22 @@ import io
 import json
 import unittest
 
-from agent.core import Draft, RealDraft, ObserveDietaryDraft
+from agent.core import Draft, RealDraft, ObserveDietaryDraft, SemanticErrors, _repair_feedback
 from test_agent import Harness, decision, draft, job
 
 
 class RepairTests(unittest.IsolatedAsyncioTestCase):
+    def test_semantic_feedback_has_bounded_static_actionable_hints(self):
+        codes = ["historical_scope_mismatch", "historical_source_mismatch",
+                 "unrelated_conflict_sources", "itinerary_not_requested"]
+        feedback = _repair_feedback(SemanticErrors(codes), RealDraft)
+        self.assertEqual(feedback["checks"], codes)
+        self.assertEqual(len(feedback["hints"]), 4)
+        self.assertIn("culture event source", feedback["hints"][0])
+        self.assertIn("conflicts=[]", feedback["hints"][2])
+        self.assertIn("itinerary=[]", feedback["hints"][3])
+        self.assertNotIn("previous_output", feedback)
+
     async def test_specific_repair_feedback_prior_answer_and_private_safe_logs(self):
         bad = draft()
         bad["PRIVATE_EXTRA_FIELD"] = "PRIVATE_RESPONSE_VALUE"
@@ -20,7 +31,12 @@ class RepairTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('"code": "schema_validation"', repair)
         self.assertIn('"loc": ["claims"]', repair)
         self.assertIn("previous_output", repair)
-        self.assertIn("PRIVATE_RESPONSE_VALUE", repair)  # Same provider, in memory only.
+        prior = harness.model_requests[2]["messages"][-2]
+        self.assertEqual(prior["role"], "assistant")
+        self.assertIn("PRIVATE_RESPONSE_VALUE", prior["content"])  # Same provider, in memory only.
+        self.assertNotIn("PRIVATE_RESPONSE_VALUE", repair)
+        self.assertEqual([message["role"] for message in harness.model_requests[2]["messages"]],
+                         ["system", "user", "assistant", "user"])
         self.assertNotIn("PRIVATE_RESPONSE_VALUE", captured.getvalue())
         self.assertNotIn("PRIVATE_EXTRA_FIELD", captured.getvalue())
         logs = [json.loads(line) for line in captured.getvalue().splitlines()]

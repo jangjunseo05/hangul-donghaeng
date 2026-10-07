@@ -36,7 +36,7 @@ def draft(mode="real_place"):
         "conflicts": [] if mode == "real_place" else [{"evidence_ids": ["task:market-notice", "task:market-blog"],
             "decision": "Use the date-specific 10:00–14:00 opening.", "reason": "Same market and visit date; association notice applies."}],
         "itinerary": [] if mode == "real_place" else [
-            {"time": "10:00", "activity": "Fictional market visit; confirm ingredient alternatives.", "buffer_minutes": 10,
+            {"time": "After arrival, first 90 minutes", "activity": "Fictional market visit; confirm ingredient alternatives.", "buffer_minutes": 10,
              "evidence_ids": ["task:visitor", "task:market-notice", "task:food-glossary"]}],
         "unknowns": ["Complete ingredients are unknown."], "next_question": None, "order_ko": "육수나 젓갈이 들어가나요?"}
 
