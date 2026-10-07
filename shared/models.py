@@ -46,6 +46,7 @@ class Scene(StrictModel):
     confirmed_shop_id: Identifier | None
     place_candidates: list[FoodCandidate] = Field(default_factory=list, max_length=3)
     confirmed_place_id: Identifier | None = None
+    observed_place_name: str | None = Field(default=None, max_length=120)
 
 
 class Place(StrictModel):

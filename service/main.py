@@ -45,6 +45,7 @@ class Session:
     created: float = field(default_factory=time.monotonic)
     last_seen: float = field(default_factory=time.monotonic)
     history_mode: str | None = None
+    last_visual_observation: dict | None = None
 
 
 class Store:
@@ -263,16 +264,24 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                 abort(409, "JOB_BUSY", "Wait for the current question before observing another scene.")
             if len(store.jobs) >= 1500:
                 abort(503, "JOB_LIMIT", "Demo capacity reached.")
-            if body.interaction_mode == "ask" and session.history_mode != body.dataset_mode:
+            if session.history_mode != body.dataset_mode:
                 session.history.clear()
+                session.last_visual_observation = None
                 session.history_mode = body.dataset_mode
             if previous and previous["status"] not in TERMINAL:
                 previous["status"] = "superseded"
             rid = uuid.uuid4().hex
             session.active_request_id = rid
+            visual_context = None
+            if session.last_visual_observation:
+                visual_context = {**session.last_visual_observation,
+                                  "same_photo": body.photo_id == session.last_visual_observation.get("photo_id")}
+            history = list(session.history[-6:])
+            if visual_context and visual_context.get("question"):
+                history.append({"role": "assistant", "content": visual_context["question"]})
             store.jobs[rid] = {"request_id": rid, "request": body.model_dump(mode="json"), "status": "queued",
                                "result": None, "error_code": None, "created": time.monotonic(), "session": session,
-                               "history": list(session.history[-6:]) if session.history_mode == body.dataset_mode else [],
+                               "history": history, "last_visual_observation": visual_context,
                                "search_count": 0, "searched_places": {}}
             return {"request_id": rid, "status": "queued", "poll_url": f"/api/requests/{rid}"}
 
@@ -294,7 +303,8 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                     job["status"] = "running"
                     req = job["request"]
                     return {"session_id": req["session_id"], "request_id": job["request_id"], "request": req,
-                            "history": job["history"], "allowed_source_ids": [e["id"] for e in catalog.evidence_for_mode(req["dataset_mode"])]}
+                            "history": job["history"], "last_visual_observation": job.get("last_visual_observation"),
+                            "allowed_source_ids": [e["id"] for e in catalog.evidence_for_mode(req["dataset_mode"])]}
         return Response(status_code=204)
 
     @app.get("/worker/photos/{photo_id}", dependencies=[Depends(worker_auth)])
@@ -382,6 +392,16 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                 abort(500, "SAVE_FAILED", "A new result could not be saved.")
             job.update(status="completed", result=result)
             session = job["session"]
+            if job["request"].get("interaction_mode", "ask") == "observe":
+                name = body.result.scene.observed_place_name
+                if name and body.result.next_question:
+                    session.last_visual_observation = {
+                        "landmark_name": name, "is_cultural_landmark": True,
+                        "identification_supported": True, "photo_id": job["request"].get("photo_id"),
+                        "question": body.result.next_question,
+                    }
+                else:
+                    session.last_visual_observation = None
             # Automated scene checks must not displace the visitor's stated needs.
             if job["request"].get("interaction_mode", "ask") == "ask":
                 session.history.extend([{"role": "user", "content": job["request"]["question"]},

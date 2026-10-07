@@ -176,6 +176,34 @@
         "operation"
       ],
       "input_sha256": "79326ab2336fc2f75fc8fc9bcbd1f72c76f5a775ea976e880f3aafd7ae563879"
+    },
+    {
+      "id": "visitkorea:lotte-world-tower-culture",
+      "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=72115",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "text": "롯데월드타워의 디자인은 한국 도자기와 붓에서 착안했다. 타워는 지상 123층, 높이 555m다.",
+      "claim_scopes": ["culture"],
+      "place_ids": ["visual:lotte-world-tower"],
+      "entity_names": ["롯데월드타워", "롯데타워", "Lotte World Tower", "Lotte Tower"],
+      "observed_at": "2026-10-07",
+      "source_locator": "Introduction: design motif and floors/height"
+    },
+    {
+      "id": "visitkorea:n-seoul-tower-culture",
+      "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=88026",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "text": "남산서울타워는 한국 최초의 다목적 타워로 방송탑에 관광 전망대를 결합했다. 전망대에서는 서울 시내를 넓게 조망할 수 있다.",
+      "claim_scopes": ["culture"],
+      "place_ids": ["visual:n-seoul-tower"],
+      "entity_names": ["남산타워", "N서울타워", "N Seoul Tower", "Namsan Tower", "남산서울타워"],
+      "observed_at": "2026-10-07",
+      "source_locator": "Introduction: multipurpose broadcasting/observatory tower and city view"
     }
   ],
   "fictional_task": [

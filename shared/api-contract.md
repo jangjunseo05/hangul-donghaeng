@@ -71,3 +71,11 @@ Initial flow: photo+question -> actual model food/intent/uncertainty/tool decisi
 ## Frontend UX — p8
 
 React/TS/Vite, Leaflet1.9.4, white mobile-first design. API relative /api; Vite proxies to http://127.0.0.1:8000. Upload photo and editable speech transcript. en primary + ko toggle, browser speech capture/TTS with capability/error messages and text fallback. User-selectable Seochon demo point (37.5790,126.9730) visibly labeled, never fake GPS. Radius controls, map marker popup text escaped, OSM attribution retained, catalog scope label. Photo preview stays local object URL. Display current status, confirmations, evidence/menu/culture cards, Korean question, download. New request stops speech and dims old results. Device/media permissions requested on click only. API outage/auth/expired session handled visibly. Do not mark fixture data as live. Testing fixtures stay in tests/development modes.
+
+## 16:42 visual-topic continuity extension
+
+- Scene adds optional observed_place_name:string|null (default null, max120): the model's tentative freely recognized landmark name; never a confirmed identity or GPS position.
+- Broker retains the latest qualified observation in the same session and dataset mode and supplies job.last_visual_observation with landmark_name, photo_id, question, is_cultural_landmark, identification_supported and same_photo.
+- A short affirmative reply can refer to the preceding spoken suggestion even when a fresh camera frame has a new photo ID. An explicit new target/question takes priority; previous observation is not proof of a new frame's identity.
+- Observation context resets on dataset-mode changes and on a subsequent observation with no named landmark. It stays separate from visitor preferences in manual conversation history.
+- A named landmark outside the nearby-search catalogue must not be replaced with an unrelated catalogue candidate. Explanations may use approved evidence with matching entity_names; absent evidence is reported without fabricated claims, coordinates or sources.

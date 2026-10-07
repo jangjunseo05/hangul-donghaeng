@@ -329,6 +329,126 @@ def _messages(request: GuideRequest, history: list[dict], prompt: str, photo: by
             {"role": "user", "content": parts}]
 
 
+def _entity_key(value: str) -> str:
+    return re.sub(r"[\W_]", "", value).casefold()
+
+
+def _visual_followup_name(request: GuideRequest, job: dict, available: list[dict]) -> str | None:
+    observation = job.get("last_visual_observation")
+    if request.dataset_mode != "real_place" or request.interaction_mode != "ask" or not isinstance(observation, dict):
+        return None
+    if observation.get("is_cultural_landmark") is not True or observation.get("identification_supported") is not True:
+        return None
+    name = observation.get("landmark_name")
+    if not isinstance(name, str) or not name.strip() or len(name) > 120:
+        return None
+    name = " ".join(name.split())
+    question = re.sub(r"[.!?。！？,，]", "", request.question).strip().casefold()
+    continuation = re.fullmatch(
+        r"(?:(?:응|네|예|좋아|좋아요|그래|그래요|알겠어|알겠어요)\s*)?"
+        r"(?:(?:그거|그곳|거기|그 장소)(?:에 대해|에 대해서)?\s*)?"
+        r"(?:(?:더|좀|조금|계속)\s*)?(?:(?:알려|설명해|말해|이야기해|해)\s*(?:줘|주세요|줄래|줄래요)|궁금해|궁금해요)?"
+        r"|(?:yes|yeah|yep|ok|okay|sure)(?:\s+please)?(?:\s+(?:tell me|go on|continue|explain)(?:\s+more)?(?:\s+about (?:it|that))?)?"
+        r"|(?:please\s+)?(?:tell me|go on|continue|explain)(?:\s+more)?(?:\s+about (?:it|that))?", question)
+    # A voice reply can capture a fresh frame while accepting the LAST spoken topic.
+    # Only a short continuation may cross frames; it never identifies the new image.
+    if continuation and question:
+        return name
+    if request.photo_id and request.photo_id != observation.get("photo_id"):
+        return None
+    aliases = {_entity_key(name)}
+    for item in available:
+        names = item.get("entity_names", [])
+        if isinstance(names, list):
+            keys = {_entity_key(value) for value in names if isinstance(value, str) and value.strip()}
+            if _entity_key(name) in keys:
+                aliases.update(keys)
+    explicit_same = any(alias and alias in _entity_key(question) for alias in aliases)
+    if explicit_same and not re.search(r"말고|아니라|instead|rather than", question, re.I):
+        return name
+    return None
+
+
+async def _answer_observed_place(request, request_id, name, available, data, model):
+    """Continue a tentative visual topic without re-identifying it from a closed catalog."""
+    key = _entity_key(name)
+    matching_places = {item["place_id"] for item in data["places"]
+        if key in {_entity_key(item["name"]), _entity_key(item.get("name_en", item["name"]))}}
+    evidence = []
+    for item in available:
+        names = item.get("entity_names", [])
+        named_match = isinstance(names, list) and key in {
+            _entity_key(value) for value in names if isinstance(value, str)}
+        if (named_match or matching_places.intersection(item.get("place_ids", []))) and "culture" in item.get("claim_scopes", []):
+            evidence.append(item)
+    ko = request.response_language == "ko"
+    claims = []
+    if evidence:
+        by_id = {item["id"]: item for item in evidence}
+        prompt = ("Continue the visitor's question about the TENTATIVELY observed landmark, not a new identification. "
+            "An affirmative means permission to explain, NOT verified place identity. No other target, food, map, "
+            "schedule or operation claims. Give one or two short culture claims using only the matching records. "
+            "Preserve uncertainty and dates. menu_ids=[], conflicts=[], itinerary=[], next_question=null, order_ko=null. "
+            "Return the full schema: " + json.dumps(RealDraft.model_json_schema())
+            + "\n" + json.dumps({"tentative_landmark_name": name, "identity_verified": False,
+                "evidence": [{field: item[field] for field in ("id", "text", "claim_scopes", "as_of", "entity_names")
+                              if field in item} for item in evidence]}, ensure_ascii=False))
+
+        def check(draft):
+            if draft.menu_ids:
+                raise ValueError("unknown_menu")
+            if draft.itinerary:
+                raise ValueError("itinerary_not_requested")
+            if draft.conflicts:
+                raise ValueError("unrelated_conflict_sources")
+            for claim in draft.claims:
+                if not set(claim.evidence_ids) <= set(by_id):
+                    raise ValueError("ungrounded_evidence")
+                if claim.scope != "culture":
+                    raise ValueError("evidence_scope_mismatch")
+                source_text = " ".join(by_id[source]["text"] for source in claim.evidence_ids)
+                if not set(YEAR.findall(claim.text)) <= set(YEAR.findall(source_text)):
+                    raise ValueError("historical_source_mismatch")
+
+        context_request = request.model_copy(update={"confirmed_food_id": None,
+            "confirmed_shop_id": None, "confirmed_place_id": None})
+        draft = await model.structured(_messages(context_request, [], prompt, None), RealDraft, check)
+        seen = set()
+        for claim in draft.claims:
+            group = tuple(sorted(set(claim.evidence_ids)))
+            if group in seen:
+                continue
+            seen.add(group)
+            claims.append(Claim(text=" ".join(by_id[source]["text"] for source in group) if ko else claim.text,
+                                scope="culture", evidence_ids=list(group)))
+    identity_note = (f"앞서 보인 장소를 {name}으로 추정했으며, 실제 장소 확인은 필요합니다." if ko else
+                     f"The earlier view was tentatively identified as {name}; its identity is not verified.")
+    if claims:
+        prefix = f"앞서 본 장소가 {name}이 맞다면, " if ko else f"If the earlier place was {name}, "
+        speech = prefix
+        for claim in claims[:2]:
+            if len(speech + claim.text) + len(identity_note) + 2 <= 2000:
+                speech += claim.text + " "
+        speech = speech.strip() + " " + identity_note
+    else:
+        speech = (f"앞서 {name}으로 보인 장소에 대한 질문으로 이해했어요. 현재 승인된 근거로 설명할 수 있는 역사·문화 정보가 부족합니다." if ko else
+                  f"I understand you mean the place tentatively recognized as {name}. I do not have enough approved evidence to explain its history or culture.")
+    used = {source for claim in claims for source in claim.evidence_ids}
+    return GuideResult.model_validate({
+        "schema_version": 1, "session_id": request.session_id, "request_id": request_id,
+        "captured_at": datetime.now(timezone.utc).isoformat(), "dataset_mode": request.dataset_mode,
+        "status": "ready", "speech_text": speech, "response_language": request.response_language,
+        "scene": {"food_candidates": [], "place_candidates": [], "observed_place_name": name,
+                  "confirmed_food_id": request.confirmed_food_id, "confirmed_shop_id": request.confirmed_shop_id,
+                  "confirmed_place_id": request.confirmed_place_id},
+        "places": [], "menus": [], "claims": [claim.model_dump() for claim in claims],
+        "evidence": [{field: item[field] for field in ("id", "source", "as_of", "type", "dataset_id")}
+                     for item in evidence if item["id"] in used],
+        "conflicts": [], "itinerary": [], "order_ko": None, "unknowns": [identity_note],
+        "next_question": None, "error_code": None,
+    }).model_dump(mode="json")
+
+
 async def execute_job(job: dict, api, model: ModelSession) -> dict:
     try:
         request = GuideRequest.model_validate(job["request"])
@@ -359,6 +479,9 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
     if request.confirmed_place_id and request.confirmed_shop_id and request.confirmed_place_id != request.confirmed_shop_id:
         raise AgentError("conflicting_place_confirmation")
     confirmed_target = request.confirmed_place_id or request.confirmed_shop_id
+    observed_followup = _visual_followup_name(request, job, available)
+    if observed_followup:
+        return await _answer_observed_place(request, request_id, observed_followup, available, data, model)
     photo = None
     if mode == "real_place" and request.photo_id:
         photo = await api.photo(request.photo_id, request_id)
@@ -436,6 +559,7 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
             "status": "need_confirmation" if cultural else "ready",
             "speech_text": question or "", "response_language": request.response_language,
             "scene": {"food_candidates": [], "place_candidates": [place_labels[item] for item in decision.place_ids],
+                      "observed_place_name": visual.landmark_name if supported else None,
                       "confirmed_food_id": request.confirmed_food_id,
                       "confirmed_shop_id": request.confirmed_shop_id,
                       "confirmed_place_id": request.confirmed_place_id},
