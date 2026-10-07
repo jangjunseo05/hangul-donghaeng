@@ -1,0 +1,1 @@
+{"event": "model_call", "stage": "draft", "schema": "ChallengeAnswer", "call": 1, "error_code": "ok", "validation": null, "finish_reason": "stop", "usage": {"prompt_tokens": 3149, "completion_tokens": 38, "total_tokens": 3187}, "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16", "response_model_match": true, "elapsed_s": 2.334}

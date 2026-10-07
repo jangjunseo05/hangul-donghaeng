@@ -1,0 +1,29 @@
+{
+  "name": "hangul-eval-01",
+  "prepared_at": "2026-10-07T08:08:33.929924+00:00",
+  "base_image_id": "sha256:396c99cdb378d4b9b9d4523291623814073c9350ba228e68ab22321f88ca5206",
+  "input_files": 20,
+  "runner_sha256": "6c725e8c415d9ea33d224ac0801c5d9905d8a47654a2445297924c47646143b8",
+  "policy_file_sha256": "6bab0aa6c37e9db608f78e5d0b79cbeea157aaa1894937200780c9b410b6c3f2",
+  "execution": "failed",
+  "model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+  "product_worker_modified": false,
+  "image_id": "sha256:701d4746d76d51deaad86ca7dd8285f3aaf508bdd7cdb3a93fdf237af9831da3",
+  "effective_policy_hash": "254523d0aaf17b83d74fc0ab795c741e40fb4de11573c88030a3c0ebb6db0c5b",
+  "policy_verified": true,
+  "exit_code": 2,
+  "elapsed_seconds": 25.566,
+  "semantic_acceptance": "FAILED_INVALID_MODEL_OUTPUT",
+  "initial_pre_model_exit_code": 1,
+  "windows_reparse_guard": "passed",
+  "output_write_probe": {
+    "exit_code": 0,
+    "fixture_only": true,
+    "model_answer": false
+  },
+  "scope": "Single common-input question; not full TASK or product acceptance",
+  "model_calls": 2,
+  "configured_response_model_matches": 2,
+  "answer_files_generated": false,
+  "actual_forbidden_paths_accessed": false
+}

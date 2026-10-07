@@ -1,0 +1,65 @@
+{
+  "active_version": 2,
+  "config_revision": 17561967208581090124,
+  "hash": "254523d0aaf17b83d74fc0ab795c741e40fb4de11573c88030a3c0ebb6db0c5b",
+  "policy": {
+    "filesystem_policy": {
+      "include_workdir": false,
+      "read_only": [
+        "/app",
+        "/usr",
+        "/lib",
+        "/lib64",
+        "/etc",
+        "/proc",
+        "/dev/urandom",
+        "/hackathon/input",
+        "/var/log"
+      ],
+      "read_write": [
+        "/tmp",
+        "/dev/null",
+        "/hackathon/output"
+      ]
+    },
+    "landlock": {
+      "compatibility": "hard_requirement"
+    },
+    "network_policies": {
+      "local_model": {
+        "binaries": [
+          {
+            "path": "/usr/local/bin/python3.11"
+          }
+        ],
+        "endpoints": [
+          {
+            "enforcement": "enforce",
+            "host": "host.openshell.internal",
+            "port": 8001,
+            "protocol": "rest",
+            "rules": [
+              {
+                "allow": {
+                  "method": "POST",
+                  "path": "/v1/chat/completions"
+                }
+              }
+            ]
+          }
+        ],
+        "name": "local_model"
+      }
+    },
+    "process": {
+      "run_as_group": "1000",
+      "run_as_user": "1000"
+    },
+    "version": 1
+  },
+  "policy_source": "sandbox",
+  "sandbox": "hangul-eval-02",
+  "scope": "sandbox",
+  "status": "effective",
+  "version": 2
+}

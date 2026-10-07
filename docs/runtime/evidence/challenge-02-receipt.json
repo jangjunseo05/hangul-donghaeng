@@ -1,0 +1,51 @@
+{
+  "name": "hangul-eval-02",
+  "prepared_at": "2026-10-07T08:12:59.467529+00:00",
+  "base_image_id": "sha256:396c99cdb378d4b9b9d4523291623814073c9350ba228e68ab22321f88ca5206",
+  "input_files": 20,
+  "runner_sha256": "bcef618da7a36e8483e7303ec7f8b8cca15b79cff215e37cbc4e4157b20d24c4",
+  "policy_file_sha256": "6bab0aa6c37e9db608f78e5d0b79cbeea157aaa1894937200780c9b410b6c3f2",
+  "execution": "completed",
+  "model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+  "product_worker_modified": false,
+  "image_id": "sha256:afceb9f0c75728d227f8b9ba7bf8d8d7eb3c63ebba7764a340e8102d834e490b",
+  "effective_policy_hash": "254523d0aaf17b83d74fc0ab795c741e40fb4de11573c88030a3c0ebb6db0c5b",
+  "policy_verified": true,
+  "exit_code": 0,
+  "elapsed_seconds": 3.135,
+  "semantic_acceptance": "NARROW_ABSTENTION_ACCEPTED",
+  "output_files": [
+    {
+      "path": "challenge-20261007T081308Z-4098dda9fa2b/answer.json",
+      "sha256": "ce40632a15d639450f60d9eef4b48788e2eaba4fddcb5177caa8cbc2f535fe65",
+      "bytes": 6193
+    },
+    {
+      "path": "challenge-20261007T081308Z-4098dda9fa2b/answer.md",
+      "sha256": "96d7d5ee81ff7cc0435664f2868adbb5ff81466f53848042e7bed77fa6ada2d9",
+      "bytes": 2676
+    }
+  ],
+  "output_export": "bounded_exec",
+  "original_download_error": "outside_sandbox_workspace",
+  "scope": "One authorized source-grounding question; not the full official TASK",
+  "model_calls": 1,
+  "configured_response_model_matches": 1,
+  "answer_status": "insufficient_evidence",
+  "actual_forbidden_paths_accessed": false,
+  "public_answer_files": [
+    "challenge-02-answer.json",
+    "challenge-02-answer.md"
+  ],
+  "input_hash_basis": "Actual local CRLF bytes; not upstream LF manifest hashes",
+  "process_verdict": "PASS",
+  "output_verdict": "PASS",
+  "exported_answer_file_count": 2,
+  "semantic_reviewers": [
+    "root",
+    "pM"
+  ],
+  "broader_task": "NOT_RUN",
+  "sourced_fact_answer": "NOT_DEMONSTRATED",
+  "conflict_resolution": "NOT_DEMONSTRATED"
+}
