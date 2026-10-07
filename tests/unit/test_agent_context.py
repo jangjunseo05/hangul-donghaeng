@@ -61,10 +61,12 @@ class DraftContextTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(context["user_confirmed"]["food_id"], "samgyetang")
         self.assertEqual(harness.submitted[0]["result"]["scene"]["confirmed_food_id"], "samgyetang")
 
-    async def test_unselected_menu_evidence_removes_menu_ids_and_rejects_draft(self):
+    async def test_unapproved_menu_evidence_removes_menu_ids_and_rejects_draft(self):
         selected = decision()
         selected["source_ids"].remove("visitkorea:tosokchon-menu")
-        harness = Harness([selected, draft(), draft()])
+        assignment = job()
+        assignment["allowed_source_ids"].remove("visitkorea:tosokchon-menu")
+        harness = Harness([selected, draft(), draft()], assignment)
         self.assertEqual(await harness.run(), "invalid_model_output")
         context, _ = second_context(harness)
         self.assertEqual(context["available_menus"], [])

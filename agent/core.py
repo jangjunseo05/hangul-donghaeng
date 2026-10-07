@@ -120,6 +120,7 @@ VALIDATION_TYPES = {"missing", "extra_forbidden", "too_long", "too_short", "stri
                     "string_too_long", "string_too_short", "list_type", "model_type", "literal_error",
                     "int_parsing", "int_type", "bool_parsing", "bool_type", "string_pattern_mismatch"}
 REPAIR_HINTS = {
+    "unknown_menu": "Use only exact IDs from allowed_menu_ids, not food/place names or source IDs. If allowed_menu_ids is empty, return menu_ids=[]. Do not invent menu items or evidence.",
     "evidence_scope_mismatch": "For each claim use ONLY allowed_claim_evidence_ids for that exact scope and the same place. Source selection alone does not authorize a claim. If its scope list is empty, omit the claim (claims=[] if all are empty) and ask for the place identity. Culture/history needs a culture source; hours/access needs operation. Do not relabel an unsupported fact just to pass.",
     "historical_scope_mismatch": "Historical construction/restoration is culture. Cite the culture event source containing the year, or omit the unsupported fact.",
     "historical_source_mismatch": "Cite the culture event source containing each historical year, or omit that year from both claim and speech.",
@@ -435,6 +436,14 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
             item = place_map[place_id]
             selected_ids.extend(source for field in ("culture_evidence_ids", "operation_evidence_ids")
                                 for source in item.get(field, []) if source in allowed)
+        # Menu listings need their own approved source, just as searched places
+        # need canonical location evidence. A Decision omission is not a ban on
+        # reading an assigned source for the relevant catalog restaurant.
+        approved_menu_sources = {item["id"] for item in available
+            if "menu" in item.get("claim_scopes", []) and set(item.get("place_ids", [])) & relevant_places}
+        for menu in data["menus"]:
+            if menu["evidence_ids"] and set(menu["evidence_ids"]) <= approved_menu_sources:
+                selected_ids.extend(menu["evidence_ids"])
     evidence = read_evidence(mode, list(dict.fromkeys(selected_ids)), allowed)
     known_ids = {item["id"] for item in evidence}
     allowed_claim_sources = {scope: [item["id"] for item in evidence

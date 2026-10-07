@@ -168,6 +168,11 @@ def start():
         log_path = runtime / (name + "-" + stamp + ".log")
         child_env = os.environ.copy()
         if name == "broker":
+            # WSLENV can forward unset Windows values as empty strings. Let
+            # service load existing .env values instead of masking them.
+            for key in ("GUIDE_ALLOWED_ORIGINS", "GUIDE_COOKIE_SECURE"):
+                if not child_env.get(key, "").strip():
+                    child_env.pop(key, None)
             # Match confirmed root runtime for OpenShell Docker host access.
             child_env["GUIDE_BIND"] = "0.0.0.0"
             child_env["GUIDE_PORT"] = "8000"
