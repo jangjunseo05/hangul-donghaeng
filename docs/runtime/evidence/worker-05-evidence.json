@@ -1,0 +1,124 @@
+{
+  "captured_at": "2026-10-07T05:55:37.385901+00:00",
+  "worker": "hangul-worker-05",
+  "source_core_sha256": "f5fed75eb399a82c9be6ba74e6af1d1e27bfdf9d5ee289021b63948718dcfa80",
+  "contract_sha256": "3a9e159f793a53cf46ba62a65772515a314170980bd97989212de3bc83ee9bfa",
+  "image_id": "sha256:77ec37b7612ec5eeea82853c0c60ad3fb1e2a2d355ead13b8543c34fafcc8db4",
+  "effective_policy_hash": "41aa7dd72e0e4bd68743430577cc23fe03c51e4a90d52607316bb9e3fdf3decb",
+  "effective_policy_file_sha256": "590a78f20c549a0dc05043121bdaee1e856beadcd0977e5e7dd646e207307b50",
+  "input_event_snapshot_sha256": "a179617a40e9f014af5feebdd0a6eab9311d55759bcc1940d7d55bac36f9b9d8",
+  "public_event_sha256": "4f5979e5aacd411cd8e1a4e5b115044b8dce4c6df42f3a02fcd3b6e418749e31",
+  "policy_runtime_sha256": "aa45a9270e58841b4d40bc13ad849f80ed5cd8f9216e2bc7debb07383ca64390",
+  "actual_response_model_exact_matches": 5,
+  "jobs": [
+    {
+      "sequence": 1,
+      "calls": [
+        {
+          "event": "model_call",
+          "stage": "decision",
+          "schema": "Decision",
+          "call": 1,
+          "error_code": "ok",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 4688,
+            "completion_tokens": 152,
+            "total_tokens": 4840
+          },
+          "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+          "response_model_match": true,
+          "elapsed_s": 6.016
+        },
+        {
+          "event": "model_call",
+          "stage": "draft",
+          "schema": "ObserveDraft",
+          "call": 2,
+          "error_code": "schema_validation",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 3002,
+            "completion_tokens": 347,
+            "total_tokens": 3349
+          },
+          "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+          "response_model_match": true,
+          "elapsed_s": 16.788
+        },
+        {
+          "event": "model_call",
+          "stage": "draft",
+          "schema": "ObserveDraft",
+          "call": 3,
+          "error_code": "schema_validation",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 3477,
+            "completion_tokens": 351,
+            "total_tokens": 3828
+          },
+          "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+          "response_model_match": true,
+          "elapsed_s": 12.119
+        }
+      ],
+      "outcome": "invalid_model_output",
+      "model_calls": 3
+    },
+    {
+      "sequence": 2,
+      "calls": [
+        {
+          "event": "model_call",
+          "stage": "decision",
+          "schema": "FictionalDecision",
+          "call": 1,
+          "error_code": "ok",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 1040,
+            "completion_tokens": 116,
+            "total_tokens": 1156
+          },
+          "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+          "response_model_match": true,
+          "elapsed_s": 4.096
+        },
+        {
+          "event": "model_call",
+          "stage": "draft",
+          "schema": "FictionalDraft",
+          "call": 2,
+          "error_code": "ok",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 2832,
+            "completion_tokens": 766,
+            "total_tokens": 3598
+          },
+          "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+          "response_model_match": true,
+          "elapsed_s": 24.845
+        }
+      ],
+      "outcome": "saved",
+      "model_calls": 2
+    }
+  ],
+  "fictional_qa": {
+    "scenario": "fictional_conflict",
+    "outcome": "completed_clarification",
+    "last_job_state": "completed",
+    "submit_to_terminal_ms": 32453,
+    "scenario_elapsed_ms": 32468,
+    "download_matches_result": true,
+    "result_status": "need_confirmation"
+  },
+  "fictional_qa_metrics_sha256": "8b57fd80eb30f5a9cee484f80ee6246ca9ba463c0e8e400aad10b2f25554b49d",
+  "observation": "ObserveDraft schema_validation on calls 2 and 3; repair attempted. No model_timeout in this captured run.",
+  "root_reported_constraint": "ObserveDraft claims exceeded maximum 1; model body not captured here.",
+  "correlation": "Root isolated sequential QA; worker logs have no request IDs. Captured saved artifacts only, no runtime commands or new inference.",
+  "heritage_source_change": "Root reports a trailing blank removed after worker05 build; this is not a worker05 code or factual content update.",
+  "limits": "Clarification saved is not complete factual validation. Existing evidence records worker05 historical state, not worker06 readiness."
+}

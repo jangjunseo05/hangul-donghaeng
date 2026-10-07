@@ -1,0 +1,18 @@
+{
+  "captured_at": "2026-10-07T05:45:40.642252+00:00",
+  "worker": "hangul-worker-04",
+  "source_core_sha256": "191551f60fe9949935069ad0736dc34ebd7fccbd8bb4818e74d34f65829910bc",
+  "qa_metrics_sha256": "ae154b7189b76b0ac4c1794c0b79437cf9eee15332c5f3ef85b0c2e576f052b2",
+  "qa_started_at": "2026-10-07T05:44:16.227644+00:00",
+  "scenario": "fictional_conflict",
+  "qa_elapsed_ms": 11234,
+  "worker_error_code": "invalid_model_output",
+  "diagnosis": "Decision validation fictional_search_forbidden on initial and repair calls; no Draft, no timeout",
+  "model_call_elapsed_s": [
+    4.466,
+    4.26
+  ],
+  "response_model_exact_match": true,
+  "correlation": "First completed worker04 job; root QA run was isolated. Worker events do not contain request IDs.",
+  "poll_warning": "Earlier service_unavailable event precedes this job; timing/cause not recorded."
+}

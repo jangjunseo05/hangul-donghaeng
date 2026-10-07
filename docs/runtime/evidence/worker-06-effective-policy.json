@@ -1,0 +1,142 @@
+{
+  "active_version": 2,
+  "config_revision": 14443612945582491430,
+  "hash": "495924cfb52ca201da36e97543a790446648bfcb219c17b6a3d4eb46bdeded46",
+  "policy": {
+    "filesystem_policy": {
+      "include_workdir": false,
+      "read_only": [
+        "/app",
+        "/usr",
+        "/lib",
+        "/lib64",
+        "/etc",
+        "/proc",
+        "/dev/urandom",
+        "/var/log"
+      ],
+      "read_write": [
+        "/tmp",
+        "/dev/null"
+      ]
+    },
+    "landlock": {
+      "compatibility": "hard_requirement"
+    },
+    "network_policies": {
+      "_provider_hangul_worker_06_guide": {
+        "binaries": [
+          {
+            "path": "/usr/local/bin/python3.11"
+          }
+        ],
+        "endpoints": [
+          {
+            "enforcement": "enforce",
+            "host": "host.openshell.internal",
+            "path": "/worker/**",
+            "port": 8000,
+            "protocol": "rest",
+            "rules": [
+              {
+                "allow": {
+                  "method": "GET",
+                  "path": "/worker/jobs/next"
+                }
+              },
+              {
+                "allow": {
+                  "method": "GET",
+                  "path": "/worker/photos/*"
+                }
+              },
+              {
+                "allow": {
+                  "method": "POST",
+                  "path": "/worker/search"
+                }
+              },
+              {
+                "allow": {
+                  "method": "POST",
+                  "path": "/worker/results"
+                }
+              },
+              {
+                "allow": {
+                  "method": "POST",
+                  "path": "/worker/fail"
+                }
+              }
+            ]
+          }
+        ],
+        "name": "_provider_hangul_worker_06_guide"
+      },
+      "local_model": {
+        "binaries": [
+          {
+            "path": "/usr/local/bin/python3.11"
+          }
+        ],
+        "endpoints": [
+          {
+            "enforcement": "enforce",
+            "host": "host.openshell.internal",
+            "port": 8001,
+            "protocol": "rest",
+            "rules": [
+              {
+                "allow": {
+                  "method": "GET",
+                  "path": "/v1/models"
+                }
+              },
+              {
+                "allow": {
+                  "method": "POST",
+                  "path": "/v1/chat/completions"
+                }
+              }
+            ]
+          }
+        ],
+        "name": "local_model"
+      },
+      "service_health": {
+        "binaries": [
+          {
+            "path": "/usr/local/bin/python3.11"
+          }
+        ],
+        "endpoints": [
+          {
+            "enforcement": "enforce",
+            "host": "host.openshell.internal",
+            "port": 8000,
+            "protocol": "rest",
+            "rules": [
+              {
+                "allow": {
+                  "method": "GET",
+                  "path": "/api/health"
+                }
+              }
+            ]
+          }
+        ],
+        "name": "service_health"
+      }
+    },
+    "process": {
+      "run_as_group": "1000",
+      "run_as_user": "1000"
+    },
+    "version": 1
+  },
+  "policy_source": "sandbox",
+  "sandbox": "hangul-worker-06",
+  "scope": "sandbox",
+  "status": "effective",
+  "version": 2
+}

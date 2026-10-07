@@ -1,0 +1,181 @@
+{
+  "captured_at": "2026-10-07T06:01:29.937751+00:00",
+  "worker": "hangul-worker-06",
+  "source_core_sha256": "01dca797ba85bec2957f566fd9e1f1191c6aae034db05a7e7ef7d4949fa8d17d",
+  "contract_sha256": "3a9e159f793a53cf46ba62a65772515a314170980bd97989212de3bc83ee9bfa",
+  "image_id": "sha256:3e3d547c8564f4c0f2d034ffa26adbfcf1f62dd73e6eda2f8feaf050bb149811",
+  "effective_policy_hash": "495924cfb52ca201da36e97543a790446648bfcb219c17b6a3d4eb46bdeded46",
+  "same_validated_allowlist": true,
+  "policy_file_sha256": "32ff55ae4a29f7a76f274732e1aee1a3cb922f204d25126b443991f04b05cc53",
+  "model_events_sha256": "785f682ae52328c56db5c6f48de49101b712fa383c68148fc4c5b1092302df62",
+  "runtime_excerpt_sha256": "02a845fe8255e37386162347e2b130394605a0b871da84197f0504ba7b6f83b3",
+  "response_model_exact_matches": 6,
+  "jobs": [
+    {
+      "sequence": 1,
+      "calls": [
+        {
+          "event": "model_call",
+          "stage": "decision",
+          "schema": "Decision",
+          "call": 1,
+          "error_code": "ok",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 4688,
+            "completion_tokens": 170,
+            "total_tokens": 4858
+          },
+          "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+          "response_model_match": true,
+          "elapsed_s": 6.549
+        },
+        {
+          "event": "model_call",
+          "stage": "draft",
+          "schema": "ObserveDraft",
+          "call": 2,
+          "error_code": "ok",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 3028,
+            "completion_tokens": 383,
+            "total_tokens": 3411
+          },
+          "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+          "response_model_match": true,
+          "elapsed_s": 12.674
+        }
+      ],
+      "outcome": "saved",
+      "model_calls": 2
+    },
+    {
+      "sequence": 2,
+      "calls": [
+        {
+          "event": "model_call",
+          "stage": "decision",
+          "schema": "Decision",
+          "call": 1,
+          "error_code": "ok",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 4697,
+            "completion_tokens": 228,
+            "total_tokens": 4925
+          },
+          "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+          "response_model_match": true,
+          "elapsed_s": 8.184
+        },
+        {
+          "event": "model_call",
+          "stage": "draft",
+          "schema": "RealDraft",
+          "call": 2,
+          "error_code": "ok",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 3900,
+            "completion_tokens": 593,
+            "total_tokens": 4493
+          },
+          "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+          "response_model_match": true,
+          "elapsed_s": 19.559
+        }
+      ],
+      "outcome": "saved",
+      "model_calls": 2
+    },
+    {
+      "sequence": 3,
+      "calls": [
+        {
+          "event": "model_call",
+          "stage": "decision",
+          "schema": "Decision",
+          "call": 1,
+          "error_code": "ok",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 2126,
+            "completion_tokens": 161,
+            "total_tokens": 2287
+          },
+          "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+          "response_model_match": true,
+          "elapsed_s": 5.929
+        },
+        {
+          "event": "model_call",
+          "stage": "draft",
+          "schema": "RealDraft",
+          "call": 2,
+          "error_code": "ok",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 2843,
+            "completion_tokens": 553,
+            "total_tokens": 3396
+          },
+          "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+          "response_model_match": true,
+          "elapsed_s": 18.071
+        }
+      ],
+      "outcome": "saved",
+      "model_calls": 2
+    }
+  ],
+  "root_qa": [
+    {
+      "started_at": "2026-10-07T05:54:54.541644+00:00",
+      "metrics_sha256": "0df0b37c03f5db14096e9e9d25cf72ec3c813130a4d579b27032da610439e66d",
+      "status": "INCOMPLETE",
+      "scenarios": [
+        {
+          "scenario": "culture_observe",
+          "outcome": "completed_clarification",
+          "last_job_state": "completed",
+          "submit_to_terminal_ms": 22281,
+          "download_matches_result": true,
+          "historical_truth_and_narrative_grounding": "human_review_required",
+          "result_status": "need_confirmation",
+          "scenario_elapsed_ms": 22329
+        },
+        {
+          "scenario": "heritage_to_restaurant",
+          "outcome": "failed",
+          "last_job_state": "completed",
+          "submit_to_terminal_ms": 31437,
+          "download_matches_result": true,
+          "diagnostic": "history_claim_wrong_scope",
+          "scenario_elapsed_ms": 31468
+        }
+      ]
+    },
+    {
+      "started_at": "2026-10-07T05:56:49.693308+00:00",
+      "metrics_sha256": "8154df6a24ae0183445f13c1cb8f9c6c7418422b84681fbd8403cd37443a5361",
+      "status": "INCOMPLETE",
+      "scenarios": [
+        {
+          "scenario": "food_to_heritage",
+          "outcome": "failed",
+          "last_job_state": "completed",
+          "submit_to_terminal_ms": 26406,
+          "download_matches_result": true,
+          "diagnostic": "bidirectional_result_not_ready",
+          "scenario_elapsed_ms": 26437
+        }
+      ]
+    }
+  ],
+  "runtime_result": "3 saved jobs; 6 successful model calls in captured snapshot.",
+  "semantic_result": "Not PASS: heritage_to_restaurant history_claim_wrong_scope; food_to_heritage bidirectional_result_not_ready; culture_observe clarification requires user confirmation.",
+  "correlation": "Sequential isolated root QA by operator; worker events lack request IDs. Client wall time and per-call model duration are separate measurements.",
+  "privacy": "Only event metadata and policy retained; no model response body, raw photo, location, credential or private GPU address.",
+  "capture_scope": "Read-only existing worker log and saved deployment evidence; no inference or resource change."
+}

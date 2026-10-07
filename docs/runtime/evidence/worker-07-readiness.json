@@ -1,0 +1,13 @@
+{
+  "captured_at": "2026-10-07T06:16:20.968439+00:00",
+  "worker": "hangul-worker-07",
+  "scope": "Historical readiness only; separate from model/semantic results",
+  "core_sha256": "4f4fdd028bb57fdb7ff41a788562e77dc423068a1fdbb0a3c8e8c372a8c5758b",
+  "contract_sha256": "3a9e159f793a53cf46ba62a65772515a314170980bd97989212de3bc83ee9bfa",
+  "image_id": "sha256:fde226aa2f697565dc4d9ad34e0324ebcdcbbb02f1e68aad3b5f44213f10e66d",
+  "effective_policy_hash": "bc9da8167fef4e0b66fb48d95e92e0a676555379fcaacd176b4785da8eca0da5",
+  "policy_file_sha256": "cca6902b83f2719fa5e59a02885630ac1b50d9013671dce65b36f2d9cdf5f27a",
+  "runtime_excerpt_sha256": "8ccee939277d3d75fe7c92888df7007ff0ac65f161c9c0341b6701a7f56eb5f0",
+  "same_validated_allowlist": true,
+  "readiness_receipt_sha256": "a11f1490656f5b41c82f531e49fff1b1295f8a811f328916454c453df1e16cf7"
+}

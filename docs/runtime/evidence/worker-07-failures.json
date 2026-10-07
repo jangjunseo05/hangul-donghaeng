@@ -1,0 +1,45 @@
+{
+  "captured_at": "2026-10-07T06:16:20.968439+00:00",
+  "worker": "hangul-worker-07",
+  "core_sha256": "4f4fdd028bb57fdb7ff41a788562e77dc423068a1fdbb0a3c8e8c372a8c5758b",
+  "qa": [
+    {
+      "started_at": "2026-10-07T06:10:09.845664+00:00",
+      "metrics_sha256": "f9969d0a5cb3ec1727778458b70171b97b3354e33e4447a8e6690ecd6eba10a9",
+      "status": "INCOMPLETE",
+      "scenarios": [
+        {
+          "scenario": "culture_observe",
+          "outcome": "not_ready",
+          "last_job_state": "failed",
+          "worker_error_code": "invalid_model_output",
+          "diagnostic": "job_failed",
+          "scenario_elapsed_ms": 33516
+        }
+      ]
+    },
+    {
+      "started_at": "2026-10-07T06:12:56.067109+00:00",
+      "metrics_sha256": "977b4708d95495d9fe0d6e5962bcdaf872fc3009878c972b4ad633216939558b",
+      "status": "INCOMPLETE",
+      "scenarios": [
+        {
+          "scenario": "heritage_to_restaurant",
+          "outcome": "not_ready",
+          "last_job_state": "failed",
+          "worker_error_code": "invalid_model_output",
+          "diagnostic": "job_failed",
+          "scenario_elapsed_ms": 39500
+        }
+      ]
+    }
+  ],
+  "observed_browser_error": "invalid_model_output",
+  "root_reported_model_error": "evidence_scope_mismatch repeated in observe and heritage",
+  "post_qa_model_events_available": false,
+  "event_gap": "Only startup worker-events.jsonl is available in saved artifacts and is zero bytes. No post-QA event file located; no runtime call made while root replaces worker07.",
+  "per_call_latency_and_response_model": "unverified in this worker07 public snapshot",
+  "semantic_pass": false,
+  "separation": "Readiness/model success/semantic acceptance are distinct. These failures remain separate from worker08.",
+  "privacy": "No model body, raw photograph, credential or personal address retained."
+}

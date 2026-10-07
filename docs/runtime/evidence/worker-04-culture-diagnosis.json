@@ -1,0 +1,41 @@
+{
+  "captured_at": "2026-10-07T05:48:38.852384+00:00",
+  "worker": "hangul-worker-04",
+  "source_core_sha256": "191551f60fe9949935069ad0736dc34ebd7fccbd8bb4818e74d34f65829910bc",
+  "qa_metrics_sha256": "3a68bf3b1143a48a3548ec7f7eac70c5711bcd66bcfce12f9d93e21759cc48fe",
+  "qa_started_at": "2026-10-07T05:45:06.549876+00:00",
+  "scenario": "culture_observe",
+  "qa_elapsed_ms": 31422,
+  "calls": [
+    {
+      "event": "model_call",
+      "stage": "decision",
+      "schema": "Decision",
+      "call": 1,
+      "error_code": "ok",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 4688,
+        "completion_tokens": 170,
+        "total_tokens": 4858
+      },
+      "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16",
+      "response_model_match": true,
+      "elapsed_s": 6.91
+    },
+    {
+      "event": "model_call",
+      "stage": "draft",
+      "schema": "RealDraft",
+      "call": 2,
+      "error_code": "model_timeout",
+      "finish_reason": null,
+      "usage": {},
+      "elapsed_s": 20.02
+    }
+  ],
+  "outcome": "model_timeout",
+  "repair_attempted": false,
+  "correlation": "Second completed worker04 job; root isolated culture QA. Worker logs do not contain request IDs.",
+  "boundary": "No response/usage/model identity returned for timed out Draft; decision response matched BF16 model. No additional model call for diagnosis."
+}
