@@ -3,10 +3,14 @@ import { ArrowRight, ArrowUpRight, BookOpen, Camera, Check, ChevronDown, Compass
 import MapView, { SEOCHON } from './MapView'
 import { api, ApiError, safeSourceUrl, waitForResult } from './api'
 import { useSpeech } from './useSpeech'
-import type { DatasetMode, Evidence, GuideResult, Health, Language, Location, Place, Radius } from './types'
+import { useCamera } from './useCamera'
+import CameraPanel from './CameraPanel'
+import { useAutoCompanion } from './useAutoCompanion'
+import { ObservationSpeechGuard } from './autoCompanion'
+import type { Catalog, CatalogPlace, DatasetMode, Evidence, GuideResult, Health, InteractionMode, Language, Location, Place, Radius } from './types'
 
 type Phase = 'idle' | 'uploading' | 'submitting' | 'queued' | 'running' | 'ready' | 'need_confirmation' | 'failed'
-type SubmitOptions = { question?: string; food?: string | null; shop?: string | null; radius?: Radius; location?: Location }
+type SubmitOptions = { question?: string; food?: string | null; shop?: string | null; place?: string | null; radius?: Radius; location?: Location; frame?: File; interaction?: InteractionMode; valid?: () => boolean }
 const EMPTY_PLACES: Place[] = []
 
 export default function App() {
@@ -32,6 +36,22 @@ export default function App() {
   const [error, setError] = useState('')
   const [copyNotice, setCopyNotice] = useState('')
   const [autoRead, setAutoRead] = useState(true)
+  const autoReadRef = useRef(autoRead)
+  autoReadRef.current = autoRead
+  const [catalog, setCatalog] = useState<Catalog | null>(null)
+  const [catalogFailed, setCatalogFailed] = useState(false)
+  const [anchor, setAnchor] = useState<CatalogPlace | null>(null)
+  const [automatic, setAutomatic] = useState(false)
+  const [automaticNotice, setAutomaticNotice] = useState('')
+  const [photoCount, setPhotoCount] = useState(0)
+  const photoCountRef = useRef(0)
+  const manualRevision = useRef(0)
+  const observationEpoch = useRef(0)
+  const requestBusy = useRef(false)
+  const activeInteraction = useRef<InteractionMode | null>(null)
+  const automaticRef = useRef(automatic)
+  automaticRef.current = automatic
+  const readGuard = useRef(new ObservationSpeechGuard())
   const sequence = useRef(0)
   const currentMode = useRef(mode)
   currentMode.current = mode
@@ -42,14 +62,22 @@ export default function App() {
   const cameraInput = useRef<HTMLInputElement>(null)
   const dialog = useRef<HTMLDialogElement>(null)
   const answer = useRef<HTMLDivElement>(null)
-  const speech = useSpeech(language, setQuestion)
+  const speech = useSpeech(language, editQuestion)
+  const camera = useCamera(language)
   const busy = ['uploading', 'submitting', 'queued', 'running'].includes(phase)
   const currentResult = result && !stale && !busy ? result : null
+  const automaticAvailable = Boolean(session && !healthFailed && health?.worker_connected && health.model_configured && photoCount < 20)
+  const automaticPaused = busy || Boolean(question.trim()) || speech.listening || speech.speaking || result?.status === 'need_confirmation'
+  const companion = useAutoCompanion(automatic && mode === 'real_place' && camera.phase === 'live' && automaticAvailable, automaticPaused, observeFrame, () => stopAutomatic(t('Automatic guidance stopped. Please ask directly or try again later.', '자동동행을 멈췄어요. 직접 질문하거나 잠시 후 다시 시작해 주세요.')))
 
   useEffect(() => {
     let active = true
     api.session().then(value => { if (active && typeof value.session_id === 'string') setSession(value.session_id) })
       .catch(() => { if (active) setHealthFailed(true) })
+    api.catalog().then(value => {
+      if (!Array.isArray(value.places)) throw new ApiError('INVALID_RESPONSE')
+      if (active) { setCatalog(value); setCatalogFailed(false) }
+    }).catch(() => { if (active) setCatalogFailed(true) })
     const refresh = () => { api.health().then(value => { if (active) { setHealth(value); setHealthFailed(false); setCheckedAt(new Date().toLocaleTimeString()) } }).catch(() => { if (active) setHealthFailed(true) }) }
     refresh()
     const timer = window.setInterval(refresh, 15000)
@@ -57,12 +85,22 @@ export default function App() {
   }, [])
   useEffect(() => { document.documentElement.lang = language }, [language])
   useEffect(() => {
+    const hide = () => { if (document.visibilityState === 'hidden') { stopAutomatic(t('Automatic companion stopped when you left this page.', '다른 화면으로 이동해 자동동행을 멈췄어요.')); if (activeInteraction.current === 'observe') invalidate() } }
+    document.addEventListener('visibilitychange', hide)
+    return () => document.removeEventListener('visibilitychange', hide)
+  }, [])
+  useEffect(() => {
+    if (automatic && (camera.phase !== 'live' || !automaticAvailable)) stopAutomatic(t('Automatic companion stopped. Check the camera, connection and photo limit.', '자동동행을 멈췄어요. 카메라·연결·사진 한도를 확인해 주세요.'))
+  }, [automatic, camera.phase, automaticAvailable])
+  useEffect(() => {
     if (statusOpen && dialog.current && !dialog.current.open) dialog.current.showModal()
     if (!statusOpen && dialog.current?.open) dialog.current.close()
   }, [statusOpen])
 
   function invalidate() {
     sequence.current += 1
+    requestBusy.current = false
+    activeInteraction.current = null
     setLocating(false)
     controller.current?.abort()
     speech.stopReading()
@@ -70,34 +108,68 @@ export default function App() {
     setPhase('idle')
     setError('')
   }
+  function stopAutomatic(notice = '', cancelPending = true) {
+    observationEpoch.current += 1
+    automaticRef.current = false
+    setAutomatic(false)
+    companion.interrupt()
+    if (cancelPending && activeInteraction.current === 'observe') invalidate()
+    if (notice) setAutomaticNotice(notice)
+  }
+  function prioritizeUser() {
+    manualRevision.current += 1
+    companion.interrupt()
+    if (activeInteraction.current === 'observe') invalidate()
+  }
+  function editQuestion(text: string) { prioritizeUser(); setQuestion(text) }
+  function changeAutomatic(enabled: boolean) {
+    if (enabled && !automaticAvailable) return
+    automaticRef.current = enabled; setAutomatic(enabled); setAutomaticNotice('')
+    if (!enabled) stopAutomatic()
+  }
+  async function capturePhoto() {
+    stopAutomatic(); prioritizeUser()
+    const version = manualRevision.current
+    const file = await camera.capture()
+    if (file && manualRevision.current === version && currentMode.current === 'real_place') choosePhoto(file)
+  }
+  async function observeFrame(current: () => boolean) {
+    if (!current() || requestBusy.current || question.trim() || speech.listening || document.visibilityState === 'hidden') return
+    const version = manualRevision.current
+    const file = await camera.capture()
+    const valid = () => manualRevision.current === version && automaticRef.current && currentMode.current === 'real_place' && camera.isLive() && document.visibilityState !== 'hidden'
+    if (!file || !current() || !valid() || requestBusy.current) return
+    await submit({ frame: file, interaction: 'observe', valid, question: t('Describe the cultural or historical context of what is visible, and suggest one relevant nearby place from the collection. Ask me to confirm uncertain place or food identity. Do not identify people.', '보이는 풍경의 한국 문화·역사 맥락을 설명하고 수록된 주변 장소 한 곳을 제안해 주세요. 장소나 음식이 불확실하면 먼저 확인하고, 사람을 식별하지 마세요.') })
+  }
   async function reconnect() {
     setError('')
     try {
       const [freshSession, freshHealth] = await Promise.all([api.session(), api.health()])
-      if (freshSession.session_id !== session) { invalidate(); setPhoto(previous => previous ? { ...previous, id: null } : null); setResult(null); lastQuestion.current = '' }
+      if (freshSession.session_id !== session) { invalidate(); stopAutomatic(); photoCountRef.current = 0; setPhotoCount(0); setPhoto(previous => previous ? { ...previous, id: null } : null); setResult(null); lastQuestion.current = '' }
       setSession(freshSession.session_id); setHealth(freshHealth); setHealthFailed(false); setCheckedAt(new Date().toLocaleTimeString())
     } catch { setHealthFailed(true); setError(t('Your guide could not connect. Please try again shortly.', '아직 가이드에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.')) }
   }
   function choosePhoto(file?: File) {
-    if (!file) return
+    if (!file || currentMode.current !== 'real_place') return
     setPhotoNotice('')
     if (!['image/jpeg', 'image/png'].includes(file.type) || !file.size || file.size > 8 * 1024 * 1024) {
       setPhotoNotice(t('Choose a JPG or PNG photo smaller than 8 MB.', '8MB 이하의 JPG 또는 PNG 사진을 선택해 주세요.')); return
     }
-    invalidate()
+    prioritizeUser(); invalidate(); readGuard.current.reset()
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
     const url = URL.createObjectURL(file)
     previewUrl.current = url
     setPhoto({ file, url, id: null })
   }
   function removePhoto() {
-    invalidate()
+    prioritizeUser(); invalidate(); readGuard.current.reset()
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
     previewUrl.current = null; setPhoto(null); setPhotoNotice('')
   }
   function selectLocation(next: Location, demo = false) {
+    prioritizeUser(); setAnchor(null)
     setLocation(next); setDemoLocation(demo); setLocationNotice('')
-    if (lastQuestion.current && (result || busy)) void submit({ location: next, question: lastQuestion.current })
+    if (lastQuestion.current && (result || busy)) void submit({ location: next, place: null, shop: null, question: lastQuestion.current })
   }
   function useMyLocation() {
     if (currentMode.current !== 'real_place') return
@@ -113,12 +185,14 @@ export default function App() {
     }, () => { if (!current()) return; setLocating(false); setLocationNotice(t('Location permission was unavailable. Tap the map or choose the Seochon demo point.', '위치를 확인하지 못했어요. 지도를 누르거나 서촌 시연 위치를 선택해 주세요.')) }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 })
   }
   function changeRadius(next: Radius) {
-    setRadius(next)
+    prioritizeUser(); setRadius(next)
     if (lastQuestion.current && (result || busy)) void submit({ radius: next, question: lastQuestion.current })
   }
   function describeError(value: unknown): string {
     if (value instanceof ApiError) {
       if (value.status === 401 || value.status === 403) { setSession(null); setPhoto(previous => previous ? { ...previous, id: null } : null); return t('Your session needs to reconnect. Reconnect, then send your question again.', '다시 연결한 뒤 질문을 보내 주세요.') }
+      if (value.code === 'PHOTO_LIMIT') return t('This session has reached its20-photo limit. Automatic companion has stopped. You can continue asking about the current photo.', '이 세션의 사진 20장 한도에 도달해 자동동행을 멈췄어요. 현재 사진에 대한 질문은 계속할 수 있어요.')
+      if (value.code === 'JOB_BUSY') return t('Your own question comes first. Automatic companion has stopped while that question finishes.', '직접 보낸 질문이 우선이에요. 답변을 기다리며 자동동행을 멈췄어요.')
       if (value.code === 'TIMEOUT') return t('That took longer than expected. Please try again; your previous answer is not being reused.', '답변이 오래 걸리고 있어요. 다시 질문해 주세요. 이전 답변을 새 답변으로 사용하지 않아요.')
       if (value.code === 'SUPERSEDED') return t('A newer question replaced this one. Please continue with your latest question.', '새 질문으로 바뀌었어요. 가장 최근 질문을 확인해 주세요.')
       if (value.code === 'OFFLINE' || value.status >= 500) return t('Your guide is unavailable right now. Please reconnect or try again.', '지금은 가이드를 이용할 수 없어요. 다시 연결하거나 잠시 후 시도해 주세요.')
@@ -128,59 +202,107 @@ export default function App() {
     return t('The guide could not finish this question. Please try again or check the connection.', '질문을 완료하지 못했어요. 다시 시도하거나 연결 상태를 확인해 주세요.')
   }
   async function submit(options: SubmitOptions = {}) {
+    const observing = options.interaction === 'observe'
     const text = (options.question ?? question).trim()
+    if (observing && (requestBusy.current || !options.valid?.() || photoCountRef.current >= 20)) return
+    if (!observing) { prioritizeUser(); readGuard.current.reset() }
     if (!text) { setError(t('Ask a question to begin.', '먼저 질문을 입력해 주세요.')); return }
     if (!session) { setError(t('Please reconnect your guide before asking.', '가이드에 다시 연결한 뒤 질문해 주세요.')); return }
-    if (mode === 'real_place' && !photo && !result) { setPhotoNotice(t('Add a food or menu photo for your first question.', '첫 질문에는 음식이나 메뉴 사진을 추가해 주세요.')); return }
-    lastQuestion.current = text
+    let selectedPhoto = photo
+    if (options.frame) {
+      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
+      const url = URL.createObjectURL(options.frame)
+      selectedPhoto = { file: options.frame, url, id: null }
+      previewUrl.current = url; setPhoto(selectedPhoto)
+    }
+    if (mode === 'real_place' && !selectedPhoto && !result && !anchor && !options.place) { setPhotoNotice(t('Add a photo, capture a view, or choose a cultural starting point first.', '사진을 선택·촬영하거나 문화 장소를 출발점으로 골라 주세요.')); return }
+    if (!observing) lastQuestion.current = text
     const generation = ++sequence.current
+    const observationVersion = observationEpoch.current
+    requestBusy.current = true
+    activeInteraction.current = observing ? 'observe' : 'ask'
     setLocating(false)
     controller.current?.abort()
     const nextController = new AbortController()
     controller.current = nextController
-    speech.stopListening(); speech.stopReading()
+    if (!observing) { speech.stopListening(); speech.stopReading() }
     setError(''); setCopyNotice(''); setStale(Boolean(result))
-    setPhase(photo && !photo.id && mode === 'real_place' ? 'uploading' : 'submitting')
-    const current = () => sequence.current === generation && !nextController.signal.aborted
+    setPhase(selectedPhoto && !selectedPhoto.id && mode === 'real_place' ? 'uploading' : 'submitting')
+    const current = () => sequence.current === generation && !nextController.signal.aborted && (!observing || observationEpoch.current === observationVersion)
     try {
-      let photoId = mode === 'real_place' ? photo?.id ?? null : null
-      if (photo && !photoId && mode === 'real_place') {
-        const uploaded = await api.upload(photo.file, nextController.signal)
+      let photoId = mode === 'real_place' ? selectedPhoto?.id ?? null : null
+      if (selectedPhoto && !photoId && mode === 'real_place') {
+        const uploaded = await api.upload(selectedPhoto.file, nextController.signal)
         if (!current()) return
         photoId = uploaded.photo_id
-        setPhoto(previous => previous?.url === photo.url ? { ...previous, id: uploaded.photo_id } : previous)
+        photoCountRef.current += 1; setPhotoCount(photoCountRef.current)
+        setPhoto(previous => previous?.url === selectedPhoto.url ? { ...previous, id: uploaded.photo_id } : previous)
       }
       if (!current()) return
+      if (observing && !options.valid?.()) { invalidate(); return }
+      const placeId = mode === 'fictional_task' ? null : options.place !== undefined ? options.place : options.shop !== undefined ? options.shop : anchor?.place_id ?? currentResult?.scene.confirmed_place_id ?? currentResult?.scene.confirmed_shop_id ?? null
+      const targetKind = catalog?.places.find(place => place.place_id === placeId)?.kind
+      const shopId = mode === 'fictional_task' ? null : options.shop !== undefined ? options.shop : targetKind === 'heritage' ? null : placeId && (targetKind === 'restaurant' || currentResult?.scene.confirmed_shop_id === placeId) ? placeId : null
       setPhase('submitting')
       const queued = await api.submit({
         schema_version: 1, session_id: session, question: text, photo_id: photoId,
         dataset_mode: mode, response_language: language, location: mode === 'fictional_task' ? null : options.location ?? location,
         radius_m: options.radius ?? radius,
-        confirmed_food_id: options.food !== undefined ? options.food : currentResult?.scene.confirmed_food_id ?? null,
-        confirmed_shop_id: options.shop !== undefined ? options.shop : currentResult?.scene.confirmed_shop_id ?? null,
+        confirmed_food_id: options.food !== undefined ? options.food : observing ? null : currentResult?.scene.confirmed_food_id ?? null,
+        confirmed_shop_id: shopId, confirmed_place_id: placeId,
+        interaction_mode: observing ? 'observe' : 'ask',
       }, nextController.signal)
       if (!current()) return
       if (typeof queued.request_id !== 'string' || !queued.request_id) throw new ApiError('INVALID_RESPONSE')
       setPhase('queued')
-      lastQuestion.current = text
+      if (!observing) lastQuestion.current = text
       const received = await waitForResult(queued.request_id, session, nextController.signal, state => { if (current() && (state === 'queued' || state === 'running')) setPhase(state) })
       if (!current()) return
+      if (observing && (!options.valid?.() || !camera.isLive())) { stopAutomatic(); return }
       if (received.dataset_mode !== mode || (mode === 'fictional_task' && received.places.length > 0)) throw new ApiError('INVALID_RESPONSE')
       if (received.status === 'failed') throw new ApiError(received.error_code || 'JOB_FAILED')
-      setResult(received); setStale(false); setPhase(received.status === 'need_confirmation' ? 'need_confirmation' : 'ready'); setQuestion('')
-      if (autoRead && received.speech_text) speech.read(received.speech_text, received.response_language)
-      window.setTimeout(() => { if (current()) answer.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }) }, 100)
+      setResult(received); setStale(false); setPhase(received.status === 'need_confirmation' ? 'need_confirmation' : 'ready')
+      if (!observing) setQuestion(previous => previous.trim() === text ? '' : previous)
+      if (received.status === 'need_confirmation') stopAutomatic(t('Automatic companion stopped so you can confirm what you see.', '보이는 대상을 확인할 수 있도록 자동동행을 멈췄어요.'), false)
+      const suggestions = [...(!received.scene.confirmed_food_id ? received.scene.food_candidates.map(item => item.id) : []), ...(!received.scene.confirmed_place_id ? (received.scene.place_candidates ?? []).map(item => item.id) : []), ...received.places.map(place => place.place_id)]
+      if (autoReadRef.current && received.speech_text && (!observing || readGuard.current.shouldRead(received.speech_text, suggestions))) speech.read(received.speech_text, received.response_language)
+      if (!observing) window.setTimeout(() => { if (current()) answer.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }) }, 100)
     } catch (value) {
       if (!current()) return
-      setError(describeError(value)); setPhase('failed')
+      const description = describeError(value)
+      if (observing || value instanceof ApiError && value.code === 'PHOTO_LIMIT') stopAutomatic(description)
+      setError(description); setPhase('failed')
+    } finally {
+      if (sequence.current === generation) {
+        requestBusy.current = false; activeInteraction.current = null
+        if (photoCountRef.current >= 20) stopAutomatic(t('The20-photo session limit has been reached. Automatic companion is off; you can keep asking about the current photo.', '세션 사진 20장 한도에 도달해 자동동행을 껐어요. 현재 사진에 대한 질문은 계속할 수 있어요.'))
+      }
     }
   }
-  function choosePlace(place: Place) { void submit({ shop: place.place_id, question: t('Tell me about the menu and local culture at ', '이곳의 메뉴와 지역 문화를 알려 주세요: ') + place.name }) }
+  function selectAnchor(place: CatalogPlace, ask = false) {
+    prioritizeUser(); readGuard.current.reset()
+    const next: Location = { lat: place.lat, lng: place.lng, origin: 'selected' }
+    setAnchor(place); setLocation(next); setDemoLocation(false); setLocationNotice('')
+    if (ask || result || busy) void submit({ place: place.place_id, shop: place.kind === 'restaurant' ? place.place_id : null, food: null, location: next, question: t('Tell me about the history, culture and visiting etiquette of ', '이 장소의 역사·문화와 방문 예절을 알려 주세요: ') + place.name })
+  }
+  function confirmPlace(id: string) {
+    const place = catalog?.places.find(item => item.place_id === id)
+    if (!place) { setLocationNotice(t('This place is not in the available collection. Choose a starting point from the list.', '현재 수록 목록에서 확인할 수 없어요. 목록에서 출발점을 선택해 주세요.')); return }
+    selectAnchor(place, true)
+  }
+  function choosePlace(place: Place) {
+    if (place.kind === 'heritage') { selectAnchor(catalog?.places.find(item => item.place_id === place.place_id) ?? { ...place, kind: 'heritage', name_en: place.name }, true); return }
+    const selected = catalog?.places.find(item => item.place_id === place.place_id) ?? { ...place, kind: 'restaurant' as const, name_en: place.name }
+    const next: Location = { lat: place.lat, lng: place.lng, origin: 'selected' }
+    setAnchor(selected); setLocation(next); setDemoLocation(false)
+    void submit({ place: place.place_id, shop: place.place_id, location: next, question: t('Tell me about the menu and local culture at ', '이곳의 메뉴와 지역 문화를 알려 주세요: ') + place.name })
+  }
   async function copyKorean() {
     try { await navigator.clipboard.writeText(currentResult?.order_ko || ''); setCopyNotice(t('Copied!', '복사했어요!')) }
     catch { setCopyNotice(t('Please select and copy the sentence.', '문장을 선택해 복사해 주세요.')) }
   }
   function changeMode(next: DatasetMode) {
+    prioritizeUser(); stopAutomatic(); camera.stop()
     currentMode.current = next
     invalidate(); setMode(next); setResult(null); setQuestion(''); lastQuestion.current = ''; setStatusOpen(false)
   }
@@ -193,23 +315,23 @@ export default function App() {
   return <div className="app-shell">
     <header className="site-header"><a className="brand" href="#" aria-label="Hangul Donghaeng home"><span className="brand-mark">한</span><span className="brand-word">한글동행<small>HANGUL DONGHAENG</small></span></a><div className="header-actions"><button className="connection-button" aria-label={t('Connection', '연결 상태')} onClick={() => setStatusOpen(true)}><span className={'connection-dot ' + (health && !healthFailed && health.worker_connected ? 'online' : '')} /><span>{healthFailed || !health ? t('Offline', '연결 필요') : health.worker_connected ? t('Guide connected', '가이드 연결됨') : t('Guide connecting', '가이드 준비 중')}</span></button><div className="language-toggle" aria-label={t('Language', '언어')}><button className={language === 'en' ? 'selected' : ''} onClick={() => { speech.stopListening(); speech.stopReading(); setLanguage('en') }} aria-pressed={language === 'en'}>EN</button><button className={language === 'ko' ? 'selected' : ''} onClick={() => { speech.stopListening(); speech.stopReading(); setLanguage('ko') }} aria-pressed={language === 'ko'}>한글</button></div></div></header>
     <main>
-      <section className="intro"><div className="intro-copy"><div className="eyebrow"><span />{t('A LITTLE HANGUL. A LITTLE CLOSER.', '한글로, 한 걸음 더 가까이.')}</div><h1>{t('Find a taste.', '새로운 맛을 만나고,')}<br/><span>{t('Meet a little Korea.', '한국을 조금 더 알아가요.')}</span></h1><p>{t('Show us a dish. Ask what matters. Discover the food, the place, and the story — one thoughtful conversation at a time.', '음식 사진을 보여 주고 궁금한 것을 물어보세요. 메뉴와 장소, 그 안의 이야기를 차근차근 함께 살펴봐요.')}</p></div><div className="intro-stamp" aria-hidden="true"><span className="stamp-sun" /><svg viewBox="0 0 200 120" fill="none"><path d="M20 58 Q55 55 100 20 Q145 55 180 58L169 66H31Z" fill="#e6d7be"/><path d="M35 58Q67 50 100 26Q133 50 165 58" stroke="#716a58" strokeWidth="3"/><path d="M47 66V105M153 66V105M66 66V100M134 66V100M40 105H160M77 75H123V104M100 75V104" stroke="#716a58" strokeWidth="3"/><path d="M16 111H184" stroke="#c9bea8" strokeWidth="2"/></svg><small>함께 걷는 한국 여행</small></div></section>
+      <section className="intro"><div className="intro-copy"><div className="eyebrow"><span />{t('A LITTLE HANGUL. A LITTLE CLOSER.', '한글로, 한 걸음 더 가까이.')}</div><h1>{t('Walk through history.', '역사 속을 걷고,')}<br/><span>{t('Meet a little Korea.', '한국을 조금 더 알아가요.')}</span></h1><p>{t('A palace, a street, a story. Look around, ask what matters, and discover Korean culture — with a meal nearby when you need one.', '궁궐과 골목에 담긴 이야기를 물어보세요. 눈앞의 한국 문화와 역사를 함께 알아가고, 필요하면 주변 식사까지 이어봐요.')}</p></div><div className="intro-stamp" aria-hidden="true"><span className="stamp-sun" /><svg viewBox="0 0 200 120" fill="none"><path d="M20 58 Q55 55 100 20 Q145 55 180 58L169 66H31Z" fill="#e6d7be"/><path d="M35 58Q67 50 100 26Q133 50 165 58" stroke="#716a58" strokeWidth="3"/><path d="M47 66V105M153 66V105M66 66V100M134 66V100M40 105H160M77 75H123V104M100 75V104" stroke="#716a58" strokeWidth="3"/><path d="M16 111H184" stroke="#c9bea8" strokeWidth="2"/></svg><small>함께 걷는 한국 여행</small></div></section>
       {mode === 'fictional_task' && <div className="practice-banner"><BookOpen size={16}/><span>{t('Practice itinerary · fictional places, no real-world map.', '연습 일정 · 가상의 장소이며 실제 지도와 연결하지 않아요.')}</span><button onClick={() => changeMode('real_place')}>{t('Back to explore', '여행으로 돌아가기')}</button></div>}
       {(healthFailed || !session) && <div className="connection-notice" role="status"><WifiOff size={16}/><span>{t('Your guide is not connected yet. Your photo stays on this device until you ask.', '아직 가이드에 연결되지 않았어요. 질문하기 전에는 사진을 보내지 않아요.')}</span><button onClick={() => void reconnect()}><RotateCcw size={13}/>{t('Reconnect', '다시 연결')}</button></div>}
       <div className="workspace">
-        <section className="composer panel" aria-labelledby="start-title"><div className="section-top"><span className="step-number">01</span><div><span className="overline">{t('LET’S START HERE', '우리의 여행 시작')}</span><h2 id="start-title">{t('What caught your eye?', '어떤 음식이 눈에 들어왔나요?')}</h2></div><Sparkles size={20} className="accent-icon"/></div>
-          {mode === 'real_place' && <><input ref={fileInput} className="visually-hidden" type="file" accept="image/jpeg,image/png" aria-label={t('Choose a food or menu photo', '음식이나 메뉴 사진 선택')} onChange={e => { choosePhoto(e.target.files?.[0]); e.target.value = '' }}/><input ref={cameraInput} className="visually-hidden" type="file" accept="image/jpeg,image/png" capture="environment" aria-label={t('Take a photo', '사진 촬영')} onChange={e => { choosePhoto(e.target.files?.[0]); e.target.value = '' }}/>
-          {photo ? <div className="photo-preview"><img src={photo.url} alt={t('Your selected food or menu photo', '선택한 음식 또는 메뉴 사진')}/><span className="photo-label"><Check size={13}/>{t('Your photo', '선택한 사진')}</span><button className="icon-button remove-photo" onClick={removePhoto} aria-label={t('Remove photo', '사진 지우기')}><X size={17}/></button><button className="replace-photo" onClick={() => fileInput.current?.click()}><ImagePlus size={14}/>{t('Change photo', '사진 바꾸기')}</button></div> : <div className="photo-picker"><div className="photo-art" aria-hidden="true"><svg viewBox="0 0 100 85" fill="none"><path d="M30 11Q19 21 31 30M49 5Q37 19 50 27M67 12Q57 22 67 30" stroke="#c58a65" strokeWidth="2.4" strokeLinecap="round"/><ellipse cx="50" cy="40" rx="36" ry="12" fill="#f4e6d4" stroke="#c58a65" strokeWidth="2"/><path d="M14 40Q18 72 50 73Q82 72 86 40" fill="#fffdf8" stroke="#c58a65" strokeWidth="2"/><path d="M25 50Q32 66 50 66" stroke="#ead9c3" strokeWidth="2" strokeLinecap="round"/></svg><span><ImagePlus size={17}/></span></div><h3>{t('A photo is a lovely place to start.', '사진 한 장으로 시작해 볼까요?')}</h3><p>{t('A dish, a menu, or a shop sign.', '음식, 메뉴판, 가게 간판 모두 좋아요.')}</p><div className="photo-actions"><button className="button button-soft" onClick={() => fileInput.current?.click()}><ImagePlus size={16}/>{t('Choose a photo', '사진 선택')}</button><button className="button button-light" onClick={() => cameraInput.current?.click()}><Camera size={16}/>{t('Take one', '촬영')}</button></div><small>JPG · PNG · {t('up to 8 MB', '최대 8MB')}</small></div>}</>}
-          {photoNotice && <p className="inline-notice" role="status"><Info size={14}/>{photoNotice}</p>}
-          <form onSubmit={e => { e.preventDefault(); void submit() }}><label className="question-label" htmlFor="question">{t('Ask your little local guide', '동행 가이드에게 물어보세요')}<span>{t('or tap the mic', '마이크로 말해도 돼요')}</span></label><div className={'question-box ' + (speech.listening ? 'is-listening' : '')}><textarea id="question" value={question} onChange={e => setQuestion(e.target.value)} placeholder={mode === 'fictional_task' ? t('Plan a half-day cultural visit using the provided materials.', '제공 자료로 반나절 문화 여행을 계획해 주세요.') : t('What is this dish? Where can I try it nearby?', '이 음식은 뭔가요? 근처에서 먹을 수 있을까요?')} rows={3} maxLength={4000}/><div className="question-toolbar"><span>{speech.listening ? t('Listening… you can edit the words.', '듣고 있어요… 인식된 말을 수정할 수 있어요.') : t('English & 한국어', '한국어 & English')}</span><button type="button" className={'mic-button ' + (speech.listening ? 'listening' : '')} onClick={speech.startListening} aria-label={speech.listening ? t('Stop listening', '음성 입력 멈추기') : t('Ask by voice', '음성으로 질문')} aria-pressed={speech.listening}>{speech.listening ? <Square size={17}/> : <Mic size={19}/>}</button></div></div>
-          {!result && <div className="question-suggestions">{(mode === 'fictional_task' ? [[t('A half-day culture trip', '반나절 문화 여행'), t('Plan a half-day cultural trip using the provided visitor needs, dates, and sources.', '방문 조건과 날짜, 근거 자료를 반영해 반나절 문화 여행을 계획해 주세요.')]] : [[t('What is this dish?', '어떤 음식인가요?'), t('What is this dish, and where can I try it nearby?', '이 음식이 무엇인지, 근처 어디서 먹을 수 있는지 알려 주세요.')], [t('What should I ask?', '무엇을 확인할까요?'), t('Help me understand this menu. What ingredients should I ask about?', '이 메뉴를 이해하고 싶어요. 어떤 재료를 확인해야 하나요?')]]).map(([label, text]) => <button type="button" key={label} onClick={() => setQuestion(text)}>{label}<ArrowUpRight size={12}/></button>)}</div>}
+        <section className="composer panel" aria-labelledby="start-title"><div className="section-top"><span className="step-number">01</span><div><span className="overline">{t('LET’S START HERE', '우리의 여행 시작')}</span><h2 id="start-title">{t('What caught your eye?', '어떤 풍경이 눈에 들어왔나요?')}</h2></div><Sparkles size={20} className="accent-icon"/></div>
+          {mode === 'real_place' && <><input ref={fileInput} className="visually-hidden" type="file" accept="image/jpeg,image/png" aria-label={t('Choose a place, food or menu photo', '장소·음식·메뉴 사진 선택')} onChange={e => { choosePhoto(e.target.files?.[0]); e.target.value = '' }}/><input ref={cameraInput} className="visually-hidden" type="file" accept="image/jpeg,image/png" capture="environment" aria-label={t('Take a photo', '사진 촬영')} onChange={e => { choosePhoto(e.target.files?.[0]); e.target.value = '' }}/>
+          <CameraPanel camera={camera} language={language} automatic={automatic} automaticAvailable={automaticAvailable} paused={automaticPaused} onAutomatic={changeAutomatic} onCapture={() => void capturePhoto()}/>{photo ? <div className="photo-preview"><img src={photo.url} alt={t('Your selected place, food or menu photo', '선택한 장소·음식·메뉴 사진')}/><span className="photo-label"><Check size={13}/>{t('Your photo', '선택한 사진')}</span><button className="icon-button remove-photo" onClick={removePhoto} aria-label={t('Remove photo', '사진 지우기')}><X size={17}/></button><button className="replace-photo" onClick={() => fileInput.current?.click()}><ImagePlus size={14}/>{t('Change photo', '사진 바꾸기')}</button></div> : <div className="photo-picker"><div className="photo-art" aria-hidden="true"><svg viewBox="0 0 100 85" fill="none"><path d="M30 11Q19 21 31 30M49 5Q37 19 50 27M67 12Q57 22 67 30" stroke="#c58a65" strokeWidth="2.4" strokeLinecap="round"/><ellipse cx="50" cy="40" rx="36" ry="12" fill="#f4e6d4" stroke="#c58a65" strokeWidth="2"/><path d="M14 40Q18 72 50 73Q82 72 86 40" fill="#fffdf8" stroke="#c58a65" strokeWidth="2"/><path d="M25 50Q32 66 50 66" stroke="#ead9c3" strokeWidth="2" strokeLinecap="round"/></svg><span><ImagePlus size={17}/></span></div><h3>{t('A photo is a lovely place to start.', '사진 한 장으로 시작해 볼까요?')}</h3><p>{t('A palace, a street, a dish or a menu.', '궁궐, 골목, 음식, 메뉴판 모두 좋아요.')}</p><div className="photo-actions"><button className="button button-soft" onClick={() => fileInput.current?.click()}><ImagePlus size={16}/>{t('Choose a photo', '사진 선택')}</button><button className="button button-light" onClick={() => cameraInput.current?.click()}><Camera size={16}/>{t('Take one', '촬영')}</button></div><small>JPG · PNG · {t('up to 8 MB', '최대 8MB')}</small></div>}</>}
+          {automaticNotice && <p className="inline-notice automatic-notice" role="status"><Info size={14}/>{automaticNotice}</p>}{photoNotice && <p className="inline-notice" role="status"><Info size={14}/>{photoNotice}</p>}
+          <form onSubmit={e => { e.preventDefault(); void submit() }}><label className="question-label" htmlFor="question">{t('Ask your little local guide', '동행 가이드에게 물어보세요')}<span>{t('or tap the mic', '마이크로 말해도 돼요')}</span></label><div className={'question-box ' + (speech.listening ? 'is-listening' : '')}><textarea id="question" value={question} onChange={e => editQuestion(e.target.value)} placeholder={mode === 'fictional_task' ? t('Plan a half-day cultural visit using the provided materials.', '제공 자료로 반나절 문화 여행을 계획해 주세요.') : t('What is the story of this place? What should I notice?', '이 장소에는 어떤 이야기가 있나요? 무엇을 살펴보면 좋을까요?')} rows={3} maxLength={4000}/><div className="question-toolbar"><span>{speech.listening ? t('Listening… you can edit the words.', '듣고 있어요… 인식된 말을 수정할 수 있어요.') : t('English & 한국어', '한국어 & English')}</span><button type="button" className={'mic-button ' + (speech.listening ? 'listening' : '')} onClick={() => { prioritizeUser(); speech.startListening() }} aria-label={speech.listening ? t('Stop listening', '음성 입력 멈추기') : t('Ask by voice', '음성으로 질문')} aria-pressed={speech.listening}>{speech.listening ? <Square size={17}/> : <Mic size={19}/>}</button></div></div>
+          {!result && <div className="question-suggestions">{(mode === 'fictional_task' ? [[t('A half-day culture trip', '반나절 문화 여행'), t('Plan a half-day cultural trip using the provided visitor needs, dates, and sources.', '방문 조건과 날짜, 근거 자료를 반영해 반나절 문화 여행을 계획해 주세요.')]] : [[t('What is the story here?', '이곳의 이야기는?'), t('Help me understand the history, cultural context and visiting etiquette of what I see.', '눈앞의 장소에 담긴 역사·문화와 방문 예절을 알려 주세요.')] , [t('What should I ask?', '무엇을 확인할까요?'), t('Help me understand this menu. What ingredients should I ask about?', '이 메뉴를 이해하고 싶어요. 어떤 재료를 확인해야 하나요?')]]).map(([label, text]) => <button type="button" key={label} onClick={() => editQuestion(text)}>{label}<ArrowUpRight size={12}/></button>)}</div>}
           <button className="button button-primary ask-button" type="submit" disabled={!session || !question.trim()}>{busy ? <LoaderCircle className="spin" size={18}/> : <Compass size={19}/>}<span>{busy ? t('Ask a new question', '새 질문 보내기') : result ? t('Keep exploring', '이어서 물어보기') : t('Explore with me', '함께 알아보기')}</span><ArrowRight size={18}/></button></form>
           <div className="composer-bottom"><span><ShieldCheck size={13}/>{t('No bookings. No orders. Just a little guidance.', '예약·주문 없이, 필요한 안내만 함께해요.')}</span><label><input type="checkbox" checked={autoRead} onChange={e => setAutoRead(e.target.checked)}/>{t('Read answers aloud', '답변 읽어주기')}</label></div>
           {speech.notice && <p className="inline-notice" role="status"><VolumeX size={14}/>{speech.notice}</p>}
         </section>
         {mode === 'real_place' && <section className="location-panel panel" aria-labelledby="location-title"><div className="section-top"><span className="step-number green">02</span><div><span className="overline">{t('A PLACE TO WANDER', '어디에서 시작할까요')}</span><h2 id="location-title">{t('A little closer to you', '내 주변에서 찾아봐요')}</h2></div><MapPin size={20} className="green-icon"/></div><div className="location-actions"><button className="button button-light" onClick={useMyLocation} disabled={locating}>{locating ? <LoaderCircle size={15} className="spin"/> : <Navigation size={15}/>} {t('Use my location', '내 위치 사용')}</button><button className={'button button-light ' + (demoLocation ? 'active-demo' : '')} onClick={() => selectLocation(SEOCHON, true)}><MapPin size={15}/>{t('Seochon demo', '서촌 시연 위치')}</button></div>
-          <MapView location={location} places={currentResult?.places ?? EMPTY_PLACES} language={language} onLocation={next => selectLocation(next)} onChoosePlace={choosePlace}/>
-          <div className="map-caption"><span className={'location-dot ' + (location ? 'chosen' : '')}/>{location ? demoLocation ? t('Demo starting point · Seochon, Seoul', '시연 출발점 · 서울 서촌') : location.origin === 'gps' ? t('Starting from your location', '내 위치에서 출발') : t('Starting from your selected point', '선택한 지점에서 출발') : t('Your starting point is not selected yet.', '아직 출발점을 선택하지 않았어요.')}</div>
+          <div className="anchor-picker"><label htmlFor="place-anchor">{t("Choose a cultural starting point", "문화 장소를 출발점으로 선택")}</label><select id="place-anchor" value={anchor?.place_id ?? ""} onChange={event => { const next = catalog?.places.find(place => place.place_id === event.target.value); if (next) selectAnchor(next) }}><option value="">{t("Choose from our collection", "수록 장소에서 선택해 주세요")}</option>{(["heritage", "restaurant"] as const).map(kind => <optgroup key={kind} label={kind === "heritage" ? t("History & culture", "역사·문화") : t("Nearby meals", "주변 식사")}>{catalog?.places.filter(place => place.kind === kind).map(place => <option value={place.place_id} key={place.place_id}>{language === "en" ? place.name_en + " · " + place.name : place.name}</option>)}</optgroup>)}</select>{catalogFailed && <p role="status">{t("The place collection is not available yet. You can choose a point on the map or use a photo.", "장소 목록을 아직 불러오지 못했어요. 지도에서 지점을 고르거나 사진을 이용해 주세요.")}</p>}{catalog?.places.some(place => place.name.includes("광화문")) && catalog.places.some(place => place.name.includes("경복궁")) && <small>{t("Gwanghwamun is the main gate of Gyeongbokgung, within the same palace complex. These nearby points are not separate palaces.", "광화문은 경복궁의 정문으로 같은 궁궐 단지 안에 있어요. 가까운 두 지점이며 별개의 궁궐이 아니에요.")}</small>}</div><MapView location={location} places={currentResult?.places ?? EMPTY_PLACES} language={language} onLocation={next => selectLocation(next)} onChoosePlace={choosePlace}/>
+          <div className="map-caption"><span className={'location-dot ' + (location ? 'chosen' : '')}/>{location ? anchor ? t('Selected starting point · ', '선택한 출발점 · ') + anchor.name : demoLocation ? t('Demo starting point · Seochon, Seoul', '시연 출발점 · 서울 서촌') : location.origin === 'gps' ? t('Starting from your location', '내 위치에서 출발') : t('Starting from your selected point', '선택한 지점에서 출발') : t('Your starting point is not selected yet.', '아직 출발점을 선택하지 않았어요.')}</div>
           <div className="radius-row"><span>{t('Look within', '검색 반경')}</span><div className="radius-control" aria-label={t('Search radius', '검색 반경')}>{([500, 1000, 2000, 3000] as Radius[]).map(value => <button key={value} aria-pressed={radius === value} className={radius === value ? 'selected' : ''} onClick={() => changeRadius(value)}>{value / 1000} km</button>)}</div></div><p className="scope-note">{health ? t('Our curated collection: ' + health.catalog_count + ' place' + (health.catalog_count === 1 ? '' : 's') + '. Distances are straight-line estimates, not walking times.', '수록 장소 ' + health.catalog_count + '곳 기준이에요. 직선거리이며 도보 시간이 아니에요.') : t('Search is limited to our curated collection. Distance is measured in a straight line.', '직접 정리한 수록 장소에서만 찾아요. 거리는 직선거리예요.')}</p>
           {locationNotice && <p className="inline-notice" role="status"><Info size={14}/>{locationNotice}</p>}
         </section>}
@@ -222,8 +344,8 @@ export default function App() {
           <p className="answer-text">{result.speech_text}</p>
           <div className="answer-meta"><Check size={13}/>{t('Last answer', '마지막 답변')} · {Number.isFinite(Date.parse(result.captured_at)) ? new Date(result.captured_at).toLocaleString(language === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : t('Time unavailable', '시각 미상')}</div>
           {result.scene.food_candidates.length > 0 && !result.scene.confirmed_food_id && <div className="confirmation-box"><strong>{t('Which one looks right?', '어떤 음식인가요?')}</strong><div>{result.scene.food_candidates.map(food => <button key={food.id} disabled={!currentResult} onClick={() => void submit({ food: food.id, question: t('Yes, I mean ', '이 음식이 맞아요: ') + food.name_ko })}><span>{food.name_ko}</span><small>{food.name_en}</small><ArrowRight size={15}/></button>)}</div></div>}
-          {result.places.length > 0 && <div className="place-list">{result.places.map((place, index) => <button className="place-card" key={place.place_id} disabled={!currentResult} onClick={() => choosePlace(place)}><span className="place-number">{index + 1}</span><div><strong>{place.name}</strong><small><MapPin size={12}/>{Math.round(place.distance_m)} m · {t('straight-line distance', '직선거리')}</small></div><ArrowUpRight size={20}/></button>)}</div>}
-          {result.menus.length > 0 && <div className="menus-grid">{result.menus.map((menu, index) => <article className="menu-card" key={menu.name_ko + index}><span className="menu-icon"><Utensils size={19}/></span><span className="menu-index">0{index + 1}</span><h3>{menu.name_ko}</h3><p>{menu.description}</p><div className="menu-source-ids">{menu.evidence_ids.join(' · ')}</div>{menu.unknowns.length > 0 && <div className="menu-unknowns"><Info size={14}/><span>{menu.unknowns.join(' · ')}</span></div>}</article>)}</div>}
+          {(result.scene.place_candidates ?? []).length > 0 && !result.scene.confirmed_place_id && <div className="confirmation-box place-confirmation"><strong>{t("Could this be the place? Please confirm.", "이 장소가 맞나요? 먼저 확인해 주세요.")}</strong><div>{result.scene.place_candidates?.map(place => <button key={place.id} disabled={!currentResult || !catalog?.places.some(item => item.place_id === place.id)} onClick={() => confirmPlace(place.id)}><span>{place.name_ko}</span><small>{place.name_en}</small><ArrowRight size={15}/></button>)}</div><small>{t("A photo alone does not establish the location. Confirming chooses the collection’s map point.", "사진만으로 위치를 확정하지 않아요. 확인하면 수록된 지도 지점을 출발점으로 선택해요.")}</small></div>}{result.places.length > 0 && <div className="place-list">{result.places.map((place, index) => <button className="place-card" key={place.place_id} disabled={!currentResult} onClick={() => choosePlace(place)}><span className="place-number">{index + 1}</span><div><span className="place-kind">{place.kind === "heritage" ? t("History & culture", "역사·문화") : t("Restaurant", "음식점")}</span><strong>{place.name}</strong><small><MapPin size={12}/>{Math.round(place.distance_m)} m · {t('straight-line distance', '직선거리')}</small></div><ArrowUpRight size={20}/></button>)}</div>}
+          {mode === "real_place" && (result.scene.confirmed_place_id || result.scene.confirmed_shop_id) && <div className="discovery-actions"><button className="button button-soft" disabled={!currentResult} onClick={() => void submit({ food: null, question: t("Find a restaurant near my selected starting point. Keep the cultural place as the starting point, not as a restaurant.", "선택한 출발점 주변의 음식점을 찾아 주세요. 문화 장소를 식당으로 바꾸지 말고 출발점으로 유지해 주세요.") })}><Utensils size={15}/>{t("Find a meal nearby", "주변 식사로 이어보기")}</button><button className="button button-light" disabled={!currentResult} onClick={() => void submit({ food: null, question: t("Find a cultural or historical place near my selected starting point. Explain its context and what is uncertain.", "선택한 출발점 주변의 역사·문화 장소를 찾아 맥락과 미확인을 알려 주세요.") })}><BookOpen size={15}/>{t("Explore nearby history", "주변 역사로 이어보기")}</button></div>}{result.menus.length > 0 && <div className="menus-grid">{result.menus.map((menu, index) => <article className="menu-card" key={menu.name_ko + index}><span className="menu-icon"><Utensils size={19}/></span><span className="menu-index">0{index + 1}</span><h3>{menu.name_ko}</h3><p>{menu.description}</p><div className="menu-source-ids">{menu.evidence_ids.join(' · ')}</div>{menu.unknowns.length > 0 && <div className="menu-unknowns"><Info size={14}/><span>{menu.unknowns.join(' · ')}</span></div>}</article>)}</div>}
           {result.claims.filter(claim => claim.scope === 'culture').length > 0 && <div className="culture-card"><BookOpen size={21}/><div><span className="overline">{t('A LITTLE CULTURE', '한 걸음 더, 문화 이야기')}</span>{result.claims.filter(claim => claim.scope === 'culture').map((claim, index) => <p key={index}>{claim.text}<small>{claim.evidence_ids.join(' · ')}</small></p>)}</div></div>}
           {result.itinerary.length > 0 && <div className="itinerary"><h3>{t('Your practice itinerary', '연습 여행 일정')}</h3><p className="scope-note">{t('Fictional places from the practice materials.', '연습 자료의 가상 장소예요.')}</p>{result.itinerary.map((item, index) => <div className="itinerary-stop" key={index}><time>{item.time}</time><div>{item.activity}<small>{item.buffer_minutes === null ? t('Travel buffer not confirmed', '이동 여유 미확인') : t('Buffer: ', '여유: ') + item.buffer_minutes + t(' minutes', '분')} · {item.evidence_ids.join(' · ')}</small></div></div>)}</div>}
           {(result.unknowns.length > 0 || result.next_question) && <div className="unknown-box"><Info size={19}/><div><h3>{t('A little more to check', '조금 더 확인할 점')}</h3>{result.unknowns.map((unknown, index) => <p key={index}>{unknown}</p>)}{result.next_question && <p className="next-question">{result.next_question}</p>}</div></div>}

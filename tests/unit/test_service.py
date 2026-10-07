@@ -126,7 +126,8 @@ def test_timeout_and_search_limits(app):
         assert client.post("/worker/search", headers=AUTH, json=body).status_code == 200
         assert client.post("/worker/search", headers=AUTH, json=body).status_code == 200
         assert client.post("/worker/search", headers=AUTH, json=body).status_code == 429
-        app.state.store.jobs[rid]["created"] -= 31
+        from service.main import REQUEST_TIMEOUT_SECONDS
+        app.state.store.jobs[rid]["created"] -= REQUEST_TIMEOUT_SECONDS + 1
         assert client.get(f"/api/requests/{rid}").json()["status"] == "failed"
         assert save(client, sid, rid).status_code == 409
 

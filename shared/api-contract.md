@@ -1,5 +1,18 @@
 # API contract v1 — 2026-10-07
 
+## 14:26 additive culture/camera extension — authoritative over earlier food-only wording
+
+- Request adds `interaction_mode: 'ask'|'observe'` (default `ask`) and `confirmed_place_id: string|null` (default null). Legacy `confirmed_shop_id` remains accepted; if both are present they must agree. A camera preview is local; only sampled/captured JPEGs use the existing photo route. Observe requests are explicit opt-in, single-flight and subordinate to manual requests. Do not claim continuous video model inference.
+- Scene adds `place_candidates: {id,name_ko,name_en}[]` (default `[]`, maximum 3) and `confirmed_place_id: string|null` (default null). Candidate identity is uncertain until confirmed; no photo-derived GPS or unsupported heritage identification.
+- Place adds `kind: 'restaurant'|'heritage'` (default restaurant). Coordinates/source/version still come only from validated catalog search. Maximum total places remains 3.
+- `GET /api/catalog` returns `{catalog_count,scope_label,catalog_version,places:[{place_id,name,name_en,kind,lat,lng,source_id,catalog_version}]}` for user-selectable curated anchors. Selecting an anchor explicitly sets `location.origin='selected'`; do not call it device GPS.
+- Worker search adds optional `kind: 'restaurant'|'heritage'|null`; `shop_id` remains the legacy target ID field and may name an approved cultural place. Catalog helper signature becomes `search_places(food_id,shop_id,location,radius_m,kind=None)`. pN implements `public_catalog()` matching the browser catalog response. `get_place()` returns the canonical Place fields except distance, including kind, with no extra name_en field.
+- Two searches may combine restaurant and heritage results. Broker accumulates validated results from both searches; all distances remain relative to the request's chosen location. To search around a cultural place, user selects/accepts that catalog anchor in the UI first.
+- pE supplies `data/heritage-proposal.json` plus official sources; pN merges reviewed records into catalog/evidence. Culture claims may cite approved culture records for the corresponding place; a source ID alone is not semantic verification. Preserve uncertain identity, dated operation information and site etiquette.
+- Automatic camera mode samples no more often than 20 seconds after the previous request finishes, pauses for manual editing/questions, hidden tab, denied permission and pending confirmation, and stops on user request. No face/person identification. Repeat proposals are suppressed. Reaching the existing 20-photo session bound pauses auto mode with a visible message; do not silently rotate/delete user captures in this change.
+- p8 owns web; pN owns agent/catalog/data; root owns shared/service/render and integration. Add defaults to preserve existing request/response fixtures. The culture/camera runtime is unverified until its own live tests.
+- Runtime budget update after measured draft timeouts: model call at most 35 seconds, worker job at most 60 seconds, broker request at most 65 seconds, browser/live poll at most 70 seconds. These are failure bounds, not promised response times. Keep at most 3 model calls including one repair and 2 searches. This supersedes the initial 30-second job budget below.
+
 Owner root. All routes are same-origin JSON unless stated. Browser fetch uses credentials. Root implements server; p8 frontend; pN agent/catalog; pM OpenShell environment. This is the implementation contract; feedback goes to root before incompatible edits.
 
 ## Browser routes

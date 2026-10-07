@@ -3,7 +3,7 @@ import io
 import json
 import unittest
 
-from agent.core import Draft, RealDraft
+from agent.core import Draft, RealDraft, ObserveDietaryDraft
 from test_agent import Harness, decision, draft, job
 
 
@@ -51,6 +51,10 @@ class RepairTests(unittest.IsolatedAsyncioTestCase):
     def test_real_claim_schema_matches_validator(self):
         self.assertEqual(RealDraft.model_json_schema()["properties"]["claims"]["maxItems"], 3)
         self.assertEqual(Draft.model_json_schema()["properties"]["claims"]["maxItems"], 15)
+        observe = ObserveDietaryDraft.model_json_schema()
+        self.assertEqual(observe["properties"]["claims"]["maxItems"], 1)
+        self.assertIn("order_ko", observe["required"])
+        self.assertEqual(observe["properties"]["order_ko"]["minLength"], 1)
 
     async def test_confirmed_food_preserves_required_clarification(self):
         assignment = job()

@@ -88,7 +88,7 @@ test('unsupported speech, invalid photo, Korean toggle and tile failure have vis
   await expect(page.getByText('Choose a JPG or PNG photo smaller than 8 MB.')).toBeVisible()
   await expect(page.locator('.map-error')).toContainText('could not load')
   await page.getByRole('button', { name: '한글', exact: true }).click()
-  await expect(page.getByRole('heading', { name: '어떤 음식이 눈에 들어왔나요?' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '어떤 풍경이 눈에 들어왔나요?' })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('lang', 'ko')
 })
 test('server outage stays an error rather than a synthetic answer', async ({ page }) => {

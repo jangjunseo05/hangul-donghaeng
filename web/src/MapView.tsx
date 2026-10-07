@@ -40,14 +40,16 @@ export default function MapView({ location, places, language, onLocation, onChoo
       const popup = document.createElement('div')
       const title = document.createElement('strong')
       title.textContent = place.name
+      const kind = document.createElement('small')
+      kind.textContent = place.kind === 'heritage' ? (language === 'ko' ? '역사·문화' : 'History & culture') : (language === 'ko' ? '음식점' : 'Restaurant')
       const distance = document.createElement('p')
       distance.textContent = Math.round(place.distance_m) + ' m · ' + (language === 'ko' ? '직선거리' : 'straight-line distance')
       const button = document.createElement('button')
       button.type = 'button'
       button.textContent = language === 'ko' ? '이곳 자세히 보기' : 'Explore this place'
       button.addEventListener('click', () => callbacks.current.onChoosePlace(place))
-      popup.append(title, distance, button)
-      L.marker([place.lat, place.lng], { icon: L.divIcon({ className: 'place-marker', html: '<span>' + (index + 1) + '</span>', iconSize: [34, 40], iconAnchor: [17, 40] }) }).bindPopup(popup).addTo(layer.current!)
+      popup.append(title, kind, distance, button)
+      L.marker([place.lat, place.lng], { icon: L.divIcon({ className: 'place-marker' + (place.kind === 'heritage' ? ' heritage-marker' : ''), html: '<span>' + (index + 1) + '</span>', iconSize: [34, 40], iconAnchor: [17, 40] }) }).bindPopup(popup).addTo(layer.current!)
     })
     if (places.length) {
       const points: L.LatLngTuple[] = places.map(p => [p.lat, p.lng])

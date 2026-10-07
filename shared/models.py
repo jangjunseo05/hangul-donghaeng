@@ -30,6 +30,8 @@ class GuideRequest(StrictModel):
     radius_m: Radius
     confirmed_food_id: Identifier | None
     confirmed_shop_id: Identifier | None
+    confirmed_place_id: Identifier | None = None
+    interaction_mode: Literal["ask", "observe"] = "ask"
 
 
 class FoodCandidate(StrictModel):
@@ -42,6 +44,8 @@ class Scene(StrictModel):
     food_candidates: list[FoodCandidate] = Field(max_length=3)
     confirmed_food_id: Identifier | None
     confirmed_shop_id: Identifier | None
+    place_candidates: list[FoodCandidate] = Field(default_factory=list, max_length=3)
+    confirmed_place_id: Identifier | None = None
 
 
 class Place(StrictModel):
@@ -52,6 +56,7 @@ class Place(StrictModel):
     distance_m: float = Field(ge=0, le=3000)
     source_id: Identifier
     catalog_version: Identifier
+    kind: Literal["restaurant", "heritage"] = "restaurant"
 
 
 class Menu(StrictModel):
@@ -116,6 +121,7 @@ class SearchRequest(StrictModel):
     food_id: Identifier | None
     shop_id: Identifier | None
     radius_m: Radius
+    kind: Literal["restaurant", "heritage"] | None = None
 
 
 class WorkerResult(StrictModel):

@@ -24,6 +24,7 @@ def job(mode="real_place"):
 def decision(mode="real_place"):
     return {"intent": "guide" if mode == "real_place" else "itinerary",
             "food_ids": ["samgyetang"] if mode == "real_place" else [],
+            "place_ids": [], "search_kinds": [], "observation_summary": "",
             "needs_confirmation": False, "search_places": mode == "real_place",
             "source_ids": job(mode)["allowed_source_ids"]}
 
@@ -63,7 +64,7 @@ class Harness:
             if self.stale:
                 return httpx.Response(409, json={"error_code": "superseded"})
             data = json.loads(request.content)
-            found = search_places(data["food_id"], data["shop_id"], self.assignment["request"]["location"], data["radius_m"])
+            found = search_places(data["food_id"], data["shop_id"], self.assignment["request"]["location"], data["radius_m"], kind=data.get("kind"))
             return httpx.Response(200, json=found)
         if path == "/worker/results":
             if self.stale:

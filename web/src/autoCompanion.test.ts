@@ -1,0 +1,75 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { FrameScheduler, ObservationSpeechGuard } from './autoCompanion'
+
+beforeEach(() => vi.useFakeTimers())
+afterEach(() => vi.useRealTimers())
+describe('automatic frame timing and manual priority', () => {
+  it('waits20seconds, never overlaps, and waits20seconds after the response finishes', async () => {
+    let finish!: () => void
+    const observe = vi.fn(() => new Promise<void>(resolve => { finish = resolve }))
+    const scheduler = new FrameScheduler(observe)
+    scheduler.setState(true, false)
+    await vi.advanceTimersByTimeAsync(19999)
+    expect(observe).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(observe).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(observe).toHaveBeenCalledTimes(1)
+    finish(); await vi.advanceTimersByTimeAsync(19999)
+    expect(observe).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(observe).toHaveBeenCalledTimes(2)
+    scheduler.dispose(); finish()
+  })
+  it('invalidates a pending capture when the user takes priority', async () => {
+    let captured!: () => void
+    const sent = vi.fn()
+    const scheduler = new FrameScheduler(async current => {
+      await new Promise<void>(resolve => { captured = resolve })
+      if (current()) sent()
+    })
+    scheduler.setState(true, false)
+    await vi.advanceTimersByTimeAsync(20000)
+    scheduler.setState(true, true)
+    captured(); await vi.advanceTimersByTimeAsync(60000)
+    expect(sent).not.toHaveBeenCalled()
+    scheduler.setState(true, false)
+    await vi.advanceTimersByTimeAsync(20000)
+    captured(); await vi.advanceTimersByTimeAsync(0)
+    expect(sent).toHaveBeenCalledTimes(1)
+    scheduler.dispose()
+  })
+  it('stops future frames when disabled or disposed, including a late capture', async () => {
+    let finish!: () => void
+    const sent = vi.fn()
+    const observe = vi.fn(async (current: () => boolean) => {
+      await new Promise<void>(resolve => { finish = resolve })
+      if (current()) sent()
+    })
+    const scheduler = new FrameScheduler(observe)
+    scheduler.setState(true, false)
+    await vi.advanceTimersByTimeAsync(20000)
+    scheduler.setState(false, false)
+    finish(); await vi.advanceTimersByTimeAsync(60000)
+    expect(sent).not.toHaveBeenCalled()
+    expect(observe).toHaveBeenCalledTimes(1)
+    scheduler.setState(true, false); scheduler.dispose()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(observe).toHaveBeenCalledTimes(1)
+  })
+})
+describe('automatic read-aloud deduplication', () => {
+  it('does not reread the same proposed place when wording changes', () => {
+    const guard = new ObservationSpeechGuard()
+    expect(guard.shouldRead('Shall we explore this palace?', ['palace'])).toBe(true)
+    expect(guard.shouldRead('This palace is nearby. Shall we visit?', ['palace'])).toBe(false)
+    expect(guard.shouldRead('Try this restaurant?', ['restaurant'])).toBe(true)
+    guard.reset()
+    expect(guard.shouldRead('Shall we explore this palace?', ['palace'])).toBe(true)
+  })
+  it('normalizes repeated text without a proposed place', () => {
+    const guard = new ObservationSpeechGuard()
+    expect(guard.shouldRead('Look at this gate!', [])).toBe(true)
+    expect(guard.shouldRead(' Look at this gate. ', [])).toBe(false)
+  })
+})

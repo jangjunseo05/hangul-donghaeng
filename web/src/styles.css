@@ -7,3 +7,27 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition:none!important;scroll-behavior:auto!important}}
 
 .map-loading{position:absolute;z-index:1;left:50%;top:50%;transform:translate(-50%,-50%);background:#fffdf4ef;border:1px solid #e8e2d4;border-radius:7px;padding:9px 13px;font-size:11px;color:#8a7b64;white-space:nowrap}
+
+.camera-panel{margin:17px 0;padding:16px;background:#f5f7f1;border:1px solid #dfe6d7;border-radius:11px}
+.camera-heading{display:flex;align-items:center;gap:8px;color:#526c4b;font-size:13px}
+.camera-panel>p,.companion-options>p{font-size:11px;color:#64725d;line-height:1.7;margin:8px 0}
+.camera-video{display:block;width:100%;max-height:280px;aspect-ratio:4/3;object-fit:contain;background:#20271e;border-radius:9px;margin:12px 0}
+.camera-hidden{display:none}
+.camera-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.camera-actions .button{min-height:44px;font-size:11px;flex:1}
+.companion-options{margin-top:12px;border-top:1px solid #dfe6d7;padding-top:12px}
+.companion-options label{display:flex;align-items:center;gap:8px;min-height:40px;font-size:12px;font-weight:600;color:#526c4b}
+.companion-options input{accent-color:#647e57;width:17px;height:17px}
+.companion-options small{display:block;color:#6f7869;font-size:10px;line-height:1.75}
+.anchor-picker{margin:8px 0 15px}
+.anchor-picker label{display:block;font-size:12px;font-weight:600;margin:0 0 7px;color:#68775a}
+.anchor-picker select{font:inherit;font-size:12px;width:100%;min-height:44px;padding:9px;border:1px solid #dedacb;border-radius:8px;color:var(--ink);background:#fffefa}
+.anchor-picker small,.anchor-picker>p{display:block;font-size:10px;line-height:1.7;margin-top:8px;color:#817a69}
+.place-kind{display:block;font-size:9px;color:#6d805b;margin-bottom:4px;letter-spacing:.04em}
+.place-card strong{display:block}
+.leaflet-popup-content>div>small{display:block;margin-top:4px;color:#5f734f}
+.heritage-marker span{background:#627755}
+.place-confirmation>small{display:block;font-size:11px;line-height:1.7;color:#857b65;margin-top:10px}
+.discovery-actions{display:flex;flex-wrap:wrap;gap:9px;margin:18px 0}
+.discovery-actions .button{min-height:44px;font-size:11px}
+@media(max-width:680px){.camera-panel{padding:13px}.camera-panel>p,.companion-options>p{font-size:12px}.companion-options small,.anchor-picker small{font-size:11px}.camera-heading{font-size:12px}.camera-actions .button{padding:10px}.discovery-actions .button{flex:1}.anchor-picker select{font-size:13px}.place-kind{font-size:10px}}

@@ -1,0 +1,198 @@
+{
+  "proposal_version": "heritage-20261007.1",
+  "status": "proposed_for_pN_integration",
+  "checked_at": "2026-10-07",
+  "mission_version": "day-of-v1-20261007",
+  "scope_label": "경복궁·광화문 문화 지점 2개와 기존 토속촌 1곳; 광화문은 경복궁의 정문",
+  "schema_note": "Existing catalog fields retained. evidence.text and dataset_id match data/evidence.json; content duplicates text for this proposal only. No catalog/evidence/service integration performed.",
+  "places": [
+    {
+      "place_id": "local:gyeongbokgung",
+      "name": "경복궁",
+      "name_ko": "경복궁",
+      "name_en": "Gyeongbokgung Palace",
+      "kind": "heritage",
+      "address_ko": "서울특별시 종로구 사직로 161",
+      "address_en": "161, Sajik-ro, Jongno-gu, Seoul",
+      "lat": 37.57590409118165,
+      "lng": 126.97684292625048,
+      "source_id": "visitseoul:gyeongbokgung-location",
+      "coordinate_note": "Visit Seoul interactive map / f_open_route_map point; not a surveyed entrance or palace centroid. The same page's JSON-LD differs; see coordinate_provenance.",
+      "coordinate_provenance": {
+        "source": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+        "locator": "f_open_route_map arguments, var lat/lng and data-map-y/data-map-x",
+        "observed_at": "2026-10-07",
+        "status": "official_map_point_with_conflicting_jsonld",
+        "alternative_jsonld": {
+          "lat": 37.583307,
+          "lng": 126.977286
+        },
+        "selection_reason": "Retain the page's interactive routing/map marker; do not silently average or treat the alternative as measured geography."
+      },
+      "food_ids": [],
+      "related_place_ids": [
+        "local:gwanghwamun",
+        "local:tosokchon"
+      ],
+      "visit_complex_id": "gyeongbokgung-complex",
+      "culture_evidence_ids": [
+        "visitseoul:gyeongbokgung-culture"
+      ],
+      "operation_evidence_ids": [
+        "visitseoul:gyeongbokgung-operation"
+      ],
+      "currently_open": null,
+      "admission_fee": null
+    },
+    {
+      "place_id": "local:gwanghwamun",
+      "name": "광화문",
+      "name_ko": "광화문",
+      "name_en": "Gwanghwamun Gate",
+      "kind": "heritage",
+      "address_ko": "서울특별시 종로구 사직로 161",
+      "address_en": "161 Sajik-ro, Jongno-gu, Seoul",
+      "lat": 37.5760179589004,
+      "lng": 126.976788008924,
+      "source_id": "visitkorea:gwanghwamun-location",
+      "coordinate_note": "KTO page JSON-LD latitude/longitude agrees with map variables lat/lot; official map marker, not surveyed entrance GPS.",
+      "coordinate_provenance": {
+        "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+        "locator": "JSON-LD latitude/longitude and var lat/lot",
+        "observed_at": "2026-10-07",
+        "status": "official_page_map_and_jsonld_agree"
+      },
+      "food_ids": [],
+      "related_place_ids": [
+        "local:gyeongbokgung",
+        "local:tosokchon"
+      ],
+      "parent_place_id": "local:gyeongbokgung",
+      "visit_complex_id": "gyeongbokgung-complex",
+      "culture_evidence_ids": [
+        "visitkorea:gwanghwamun-culture"
+      ],
+      "operation_evidence_ids": [
+        "visitkorea:gwanghwamun-operation"
+      ],
+      "currently_open": null,
+      "admission_fee": null
+    }
+  ],
+  "evidence": [
+    {
+      "id": "visitseoul:gyeongbokgung-location",
+      "scope": "operation",
+      "source": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+      "as_of": "2026-10-07",
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "Title, Address; HTML f_open_route_map / var lat,lng; conflicting JSON-LD geo",
+      "text": "공식 표기는 Gyeongbokgung Palace, 주소는 서울 종로구 사직로 161이다. 지도 지점과 JSON-LD 지점이 다르므로 지도용 좌표의 용도를 제한한다.",
+      "content": "공식 표기는 Gyeongbokgung Palace, 주소는 서울 종로구 사직로 161이다. 지도 지점과 JSON-LD 지점이 다르므로 지도용 좌표의 용도를 제한한다."
+    },
+    {
+      "id": "visitseoul:gyeongbokgung-culture",
+      "scope": "culture",
+      "source": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+      "as_of": "2026-10-07",
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "Travel Info introductory paragraphs and Yeongchumun paragraph",
+      "text": "경복궁은 1395년에 지어진 조선의 궁궐이다. 조선의 중심 궁궐로 쓰였다. 서쪽 문 영추문은 2018년 12월 일반에 개방되어 서촌과의 왕래를 연결했다.",
+      "content": "경복궁은 1395년에 지어진 조선의 궁궐이다. 조선의 중심 궁궐로 쓰였다. 서쪽 문 영추문은 2018년 12월 일반에 개방되어 서촌과의 왕래를 연결했다."
+    },
+    {
+      "id": "visitseoul:gyeongbokgung-operation",
+      "scope": "operation",
+      "source": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+      "as_of": "2026-10-07",
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "FAQ closure exceptions; Hours/Holidays/Fee; displayed Edited Date",
+      "text": "정기 휴궁은 화요일로 안내되며 공휴일과 겹치면 예외가 있다. 계절별 관람시간·입장마감·요금 안내는 방문일 재확인이 필요하다. 현재 개방·매표·특별행사 여부는 미확인이다.",
+      "content": "정기 휴궁은 화요일로 안내되며 공휴일과 겹치면 예외가 있다. 계절별 관람시간·입장마감·요금 안내는 방문일 재확인이 필요하다. 현재 개방·매표·특별행사 여부는 미확인이다."
+    },
+    {
+      "id": "visitkorea:gwanghwamun-location",
+      "scope": "operation",
+      "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "Title, Address; HTML JSON-LD latitude/longitude and var lat/lot",
+      "text": "공식 표기는 Gwanghwamun Gate (광화문), 주소는 서울특별시 종로구 사직로 161이다. 좌표는 한국관광공사 페이지의 지도 표시 지점이다.",
+      "content": "공식 표기는 Gwanghwamun Gate (광화문), 주소는 서울특별시 종로구 사직로 161이다. 좌표는 한국관광공사 페이지의 지도 표시 지점이다."
+    },
+    {
+      "id": "visitkorea:gwanghwamun-culture",
+      "scope": "culture",
+      "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "Introduction: position/arches/restoration paragraphs",
+      "text": "광화문은 경복궁 남쪽의 정문이다. 세 홍예문 중 가운데는 왕이, 양옆은 왕세자와 신하들이 이용했다고 안내한다. 복원 공사를 거쳐 2010년 8월 15일 다시 공개되었다.",
+      "content": "광화문은 경복궁 남쪽의 정문이다. 세 홍예문 중 가운데는 왕이, 양옆은 왕세자와 신하들이 이용했다고 안내한다. 복원 공사를 거쳐 2010년 8월 15일 다시 공개되었다."
+    },
+    {
+      "id": "visitkorea:gwanghwamun-operation",
+      "scope": "operation",
+      "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "Operating hours / Holiday; scope limitation from palace-gate identity",
+      "text": "페이지는 계절별 관람시간과 화요일 휴무를 안내한다. 궁궐 입장·문 통과·외부에서 보는 행위의 허용범위가 같다고 단정하지 않는다. 방문일 통제·수문장 행사·요금 적용은 미확인이다.",
+      "content": "페이지는 계절별 관람시간과 화요일 휴무를 안내한다. 궁궐 입장·문 통과·외부에서 보는 행위의 허용범위가 같다고 단정하지 않는다. 방문일 통제·수문장 행사·요금 적용은 미확인이다."
+    }
+  ],
+  "links": [
+    {
+      "from_place_id": "local:gyeongbokgung",
+      "to_place_id": "local:tosokchon",
+      "bidirectional": true,
+      "relation": "optional_nearby_food_culture_pairing",
+      "basis": "Product proposal using curated map positions; not an official cultural or commercial affiliation.",
+      "route_verified": false,
+      "walking_minutes": null
+    },
+    {
+      "from_place_id": "local:gwanghwamun",
+      "to_place_id": "local:tosokchon",
+      "bidirectional": true,
+      "relation": "optional_nearby_food_culture_pairing",
+      "basis": "Product proposal using curated map positions; not an official cultural or commercial affiliation.",
+      "route_verified": false,
+      "walking_minutes": null
+    }
+  ],
+  "integration_notes": [
+    "Append only the two proposed places and six evidence records after pN review; preserve existing local:tosokchon, menus and fictional_task data.",
+    "kind=heritage and food_ids=[] prevent assigning restaurant dishes to palace/gate.",
+    "Use related_place_ids / bidirectional links to support heritage-to-restaurant and restaurant-to-heritage retrieval; do not change Tosokchon in this proposal.",
+    "Gwanghwamun Gate is not Gwanghwamun Square or station. Share visit_complex_id to avoid two palace admissions/duplicate visit duration.",
+    "Do not imply samgyetang or Tosokchon has royal-cuisine provenance or an official association with these heritage sites.",
+    "Coordinates support marked map points and straight-line filtering only; walking directions, gate access and accessibility remain unverified.",
+    "as_of is the source's displayed edit date if present, otherwise null; observed_at is our access date. Neither proves current operation.",
+    "Proposed data only: runtime, policy enforcement, user value and bidirectional service behavior remain unverified."
+  ]
+}

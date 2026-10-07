@@ -25,7 +25,7 @@ class LatencyTests(unittest.IsolatedAsyncioTestCase):
                 harness.model = timeout
                 self.assertEqual(await harness.run(), "model_timeout")
                 self.assertEqual(len(requests), 1)
-                self.assertEqual(requests[0].extensions["timeout"]["read"], 20.0)
+                self.assertEqual(requests[0].extensions["timeout"]["read"], 35.0)
                 self.assertEqual(harness.submitted, [])
                 self.assertEqual(harness.failures, [{"session_id": "s1", "request_id": "r1",
                     "error_code": "model_timeout", "detail": "model_timeout"}])
@@ -95,9 +95,24 @@ class LatencyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await harness.run(), "invalid_model_output")
         self.assertEqual(len(harness.model_requests), 3)
         self.assertEqual(harness.submitted, [])
-        self.assertEqual(MODEL_CALL_TIMEOUT_SECONDS, 20.0)
-        self.assertEqual(JOB_TIMEOUT_SECONDS, 30.0)
+        self.assertEqual(MODEL_CALL_TIMEOUT_SECONDS, 35.0)
+        self.assertEqual(JOB_TIMEOUT_SECONDS, 60.0)
         self.assertEqual(MODEL_MAX_TOKENS, 2200)
+
+    async def test_fictional_four_item_cap_and_compact_evidence_preserve_requirements(self):
+        answer = draft("fictional_task")
+        answer["itinerary"] *= 5
+        harness = Harness([decision("fictional_task"), answer, draft("fictional_task")], job("fictional_task"))
+        self.assertEqual(await harness.run(), "saved")
+        context, prompt = second_context(harness)
+        self.assertEqual(len(context["evidence"]), 9)
+        self.assertTrue(all(item.get("text") and "as_of" in item for item in context["evidence"]))
+        self.assertTrue(all("source" not in item for item in context["evidence"]))
+        self.assertIn("at most 4 itinerary items", prompt)
+        self.assertIn("90 minutes is requested as mandatory", prompt)
+        self.assertIn("Do not equate different route starting gates", prompt)
+        self.assertEqual(len(harness.model_requests), 3)
+        self.assertIn("schema_validation", harness.model_requests[2]["messages"][-1]["content"])
 
 
 if __name__ == "__main__":

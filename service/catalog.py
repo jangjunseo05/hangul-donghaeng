@@ -27,12 +27,25 @@ def valid_food_ids() -> set[str]:
     return {food["id"] for food in food_candidates()}
 
 
+def _place_base(place: dict, catalog_version: str) -> dict:
+    return {**{key: place[key] for key in ("place_id", "name", "lat", "lng", "source_id")},
+            "catalog_version": catalog_version, "kind": place.get("kind", "restaurant")}
+
+
+def public_catalog() -> dict:
+    data = _load("catalog.json")
+    return {"catalog_count": len(data["places"]), "scope_label": data["scope_label"],
+            "catalog_version": data["catalog_version"],
+            "places": [{**_place_base(place, data["catalog_version"]),
+                        "name_en": place.get("name_en", place["name"])}
+                       for place in data["places"]]}
+
+
 def get_place(place_id: str) -> dict | None:
     data = _load("catalog.json")
     for place in data["places"]:
         if place["place_id"] == place_id:
-            return {**{key: place[key] for key in ("place_id", "name", "lat", "lng", "source_id")},
-                    "catalog_version": data["catalog_version"]}
+            return _place_base(place, data["catalog_version"])
     return None
 
 
@@ -49,7 +62,9 @@ def _distance_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return 6371008.8 * 2 * math.asin(min(1.0, math.sqrt(a)))
 
 
-def search_places(food_id, shop_id, location, radius_m) -> dict:
+def search_places(food_id, shop_id, location, radius_m, kind=None) -> dict:
+    if kind is not None and kind not in ("restaurant", "heritage"):
+        raise ValueError("invalid_kind")
     if type(radius_m) is not int or radius_m not in {500, 1000, 2000, 3000}:
         raise ValueError("invalid_radius")
     if food_id is not None and food_id not in valid_food_ids():
@@ -68,12 +83,15 @@ def search_places(food_id, shop_id, location, radius_m) -> dict:
             or not -90 <= lat <= 90 or not -180 <= lng <= 180):
         raise ValueError("invalid_location")
     for place in _load("catalog.json")["places"]:
+        if kind is not None and place.get("kind", "restaurant") != kind:
+            continue
         if shop_id is not None and place["place_id"] != shop_id:
             continue
-        if food_id is not None and food_id not in place["food_ids"]:
+        if food_id is not None and food_id not in place.get("food_ids", []):
             continue
         distance = _distance_m(lat, lng, place["lat"], place["lng"])
         if distance <= radius_m:
             result["places"].append({**get_place(place["place_id"]), "distance_m": round(distance, 1)})
     result["places"].sort(key=lambda place: place["distance_m"])
+    result["places"] = result["places"][:3]
     return result

@@ -1,4 +1,4 @@
-import type { GuideRequest, GuideResult, Health, Job } from './types'
+import type { Catalog, GuideRequest, GuideResult, Health, Job } from './types'
 
 export class ApiError extends Error {
   constructor(public code: string, public status = 0) { super(code); this.name = 'ApiError' }
@@ -30,6 +30,7 @@ const jsonPost = (body: unknown, signal?: AbortSignal): RequestInit => ({ method
 export const api = {
   session: (signal?: AbortSignal) => request<{ session_id: string }>('/api/sessions', jsonPost({}, signal)),
   health: () => request<Health>('/api/health'),
+  catalog: () => request<Catalog>('/api/catalog'),
   upload: (file: File, signal?: AbortSignal) => { const form = new FormData(); form.append('file', file); return request<{ photo_id: string; width: number; height: number }>('/api/photos', { method: 'POST', body: form, signal }) },
   submit: (body: GuideRequest, signal?: AbortSignal) => request<{ request_id: string; status: 'queued'; poll_url: string }>('/api/requests', jsonPost(body, signal)),
   job: (id: string, signal?: AbortSignal) => request<Job>('/api/requests/' + encodeURIComponent(id), { signal }),

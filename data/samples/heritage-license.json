@@ -1,0 +1,61 @@
+{
+    "status":  "license_verified_official_thumbnail_downloaded",
+    "checked_at":  "2026-10-07",
+    "downloaded_at_utc":  "2026-10-07T05:33:06.7746442Z",
+    "local_file":  "data/samples/heritage-demo.jpg",
+    "subject":  "Gwanghwamun Gate at night; historical public photograph used as a screen/phone-camera demo target",
+    "source_title":  "Gwanghwamun 20181007 192148.jpg",
+    "source_page":  "https://commons.wikimedia.org/wiki/File:Gwanghwamun_20181007_192148.jpg",
+    "source_revision":  "1199625416",
+    "source_revision_url":  "https://commons.wikimedia.org/w/index.php?title=File:Gwanghwamun_20181007_192148.jpg\u0026oldid=1199625416",
+    "original_url":  "https://upload.wikimedia.org/wikipedia/commons/b/b5/Gwanghwamun_20181007_192148.jpg",
+    "download_url":  "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b5/Gwanghwamun_20181007_192148.jpg/960px-Gwanghwamun_20181007_192148.jpg",
+    "author":  "H. Y. Shin 000",
+    "image_date_as_declared":  "2018-10-07T19:21:48",
+    "source_kind":  "Official Commons-generated thumbnail of uploader-declared own-work photograph",
+    "license":  "CC0-1.0",
+    "license_url":  "https://creativecommons.org/publicdomain/zero/1.0/",
+    "license_verification":  "Directly read the photograph Summary and Licensing sections on the Commons file page; CC0 applies to this photograph, not merely structured metadata. Page footer revision 1199625416.",
+    "attribution":  "Gwanghwamun 20181007 192148.jpg — H. Y. Shin 000 — CC0 1.0 — Wikimedia Commons",
+    "source_sha256":  "9a3c9161f932934430d0f1b8ad9f342cfd5d052de9e79937000c2e225ec62959",
+    "source_sha256_scope":  "Bytes served by download_url: official 960px thumbnail; not full-resolution original.",
+    "sha256":  "9a3c9161f932934430d0f1b8ad9f342cfd5d052de9e79937000c2e225ec62959",
+    "original_sha256":  null,
+    "original_sha1_reported_by_commons":  "031a9b67426433ebee3bade194adf405369f7390",
+    "original_bytes_hash_verified":  false,
+    "byte_size":  165145,
+    "mime_type":  "image/jpeg",
+    "width":  960,
+    "height":  720,
+    "transformations":  [
+                            "Commons provided a 960 x 720 derivative of its 4128 x 3096 original.",
+                            "Local filename changed to heritage-demo.jpg; downloaded thumbnail bytes preserved without local crop, resize, recompression, metadata editing or generation."
+                        ],
+    "download_http_status":  200,
+    "download_user_agent":  "HangulDonghaengDemo/0.1 (one-time Commons thumbnail fallback after original HTTP429; OpenAI Codex-assisted)",
+    "attempts":  [
+                     {
+                         "downloaded":  false,
+                         "variant":  "original",
+                         "http_status":  429
+                     },
+                     {
+                         "downloaded":  true,
+                         "variant":  "official_960px_thumbnail",
+                         "http_status":  200
+                     }
+                 ],
+    "capture_context":  "Public archive sample; not captured by this team on site. A phone photographing the displayed image is a controlled demo rephotograph.",
+    "location_verified_by_demo":  false,
+    "gps_evidence":  false,
+    "current_site_appearance_verified":  false,
+    "camera_inference_test_performed":  false,
+    "model_recognition_verified":  false,
+    "intended_use":  "Display the photo on a screen and capture it through the product camera flow; retain sample provenance with later test evidence.",
+    "limitations":  [
+                        "Historical night view does not establish current signage, lighting, opening status or on-site presence.",
+                        "Download success does not prove camera capture, model recognition, heritage identification or GPS accuracy.",
+                        "Archive metadata must not be interpreted as current user location.",
+                        "Original download returned HTTP429; original SHA256 is intentionally null. No further retries."
+                    ]
+}

@@ -11,7 +11,13 @@
       "dataset_id": "real_place",
       "observed_at": "2026-10-07",
       "valid_from": null,
-      "valid_to": null
+      "valid_to": null,
+      "place_ids": [
+        "local:tosokchon"
+      ],
+      "claim_scopes": [
+        "operation"
+      ]
     },
     {
       "id": "visitkorea:tosokchon-menu",
@@ -24,7 +30,13 @@
       "dataset_id": "real_place",
       "observed_at": "2026-10-07",
       "valid_from": null,
-      "valid_to": null
+      "valid_to": null,
+      "place_ids": [
+        "local:tosokchon"
+      ],
+      "claim_scopes": [
+        "menu"
+      ]
     },
     {
       "id": "koreanet:samgyetang-culture",
@@ -37,7 +49,133 @@
       "dataset_id": "real_place",
       "observed_at": "2026-10-07",
       "valid_from": null,
-      "valid_to": null
+      "valid_to": null,
+      "place_ids": [
+        "local:tosokchon"
+      ],
+      "claim_scopes": [
+        "culture"
+      ]
+    },
+    {
+      "id": "visitseoul:gyeongbokgung-location",
+      "scope": "operation",
+      "source": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+      "as_of": "2026-10-07",
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "Title, Address; HTML f_open_route_map / var lat,lng; conflicting JSON-LD geo",
+      "text": "공식 표기는 Gyeongbokgung Palace, 주소는 서울 종로구 사직로 161이다. 지도 지점과 JSON-LD 지점이 다르므로 지도용 좌표의 용도를 제한한다.",
+      "place_ids": [
+        "local:gyeongbokgung"
+      ],
+      "claim_scopes": [
+        "operation"
+      ],
+      "input_sha256": "79326ab2336fc2f75fc8fc9bcbd1f72c76f5a775ea976e880f3aafd7ae563879"
+    },
+    {
+      "id": "visitseoul:gyeongbokgung-culture",
+      "scope": "culture",
+      "source": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+      "as_of": "2026-10-07",
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "Travel Info introductory paragraphs and Yeongchumun paragraph",
+      "text": "경복궁은 1395년에 지어진 조선의 궁궐이다. 조선의 중심 궁궐로 쓰였다. 서쪽 문 영추문은 2018년 12월 일반에 개방되어 서촌과의 왕래를 연결했다.",
+      "place_ids": [
+        "local:gyeongbokgung"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "input_sha256": "79326ab2336fc2f75fc8fc9bcbd1f72c76f5a775ea976e880f3aafd7ae563879"
+    },
+    {
+      "id": "visitseoul:gyeongbokgung-operation",
+      "scope": "operation",
+      "source": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+      "as_of": "2026-10-07",
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "FAQ closure exceptions; Hours/Holidays/Fee; displayed Edited Date",
+      "text": "정기 휴궁은 화요일로 안내되며 공휴일과 겹치면 예외가 있다. 계절별 관람시간·입장마감·요금 안내는 방문일 재확인이 필요하다. 현재 개방·매표·특별행사 여부는 미확인이다.",
+      "place_ids": [
+        "local:gyeongbokgung"
+      ],
+      "claim_scopes": [
+        "operation"
+      ],
+      "input_sha256": "79326ab2336fc2f75fc8fc9bcbd1f72c76f5a775ea976e880f3aafd7ae563879"
+    },
+    {
+      "id": "visitkorea:gwanghwamun-location",
+      "scope": "operation",
+      "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "Title, Address; HTML JSON-LD latitude/longitude and var lat/lot",
+      "text": "공식 표기는 Gwanghwamun Gate (광화문), 주소는 서울특별시 종로구 사직로 161이다. 좌표는 한국관광공사 페이지의 지도 표시 지점이다.",
+      "place_ids": [
+        "local:gwanghwamun"
+      ],
+      "claim_scopes": [
+        "operation"
+      ],
+      "input_sha256": "79326ab2336fc2f75fc8fc9bcbd1f72c76f5a775ea976e880f3aafd7ae563879"
+    },
+    {
+      "id": "visitkorea:gwanghwamun-culture",
+      "scope": "culture",
+      "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "Introduction: position/arches/restoration paragraphs",
+      "text": "광화문은 경복궁 남쪽의 정문이다. 세 홍예문 중 가운데는 왕이, 양옆은 왕세자와 신하들이 이용했다고 안내한다. 복원 공사를 거쳐 2010년 8월 15일 다시 공개되었다.",
+      "place_ids": [
+        "local:gwanghwamun"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "input_sha256": "79326ab2336fc2f75fc8fc9bcbd1f72c76f5a775ea976e880f3aafd7ae563879"
+    },
+    {
+      "id": "visitkorea:gwanghwamun-operation",
+      "scope": "operation",
+      "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "Operating hours / Holiday; scope limitation from palace-gate identity",
+      "text": "페이지는 계절별 관람시간과 화요일 휴무를 안내한다. 궁궐 입장·문 통과·외부에서 보는 행위의 허용범위가 같다고 단정하지 않는다. 방문일 통제·수문장 행사·요금 적용은 미확인이다.",
+      "place_ids": [
+        "local:gwanghwamun"
+      ],
+      "claim_scopes": [
+        "operation"
+      ],
+      "input_sha256": "79326ab2336fc2f75fc8fc9bcbd1f72c76f5a775ea976e880f3aafd7ae563879"
     }
   ],
   "fictional_task": [

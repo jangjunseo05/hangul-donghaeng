@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from shared.models import GuideRequest, GuideResult, SearchRequest, WorkerFailure, WorkerResult
+from shared.models import GuideRequest, GuideResult, Place, SearchRequest, WorkerFailure, WorkerResult
 from service import catalog
 from service.render import html_card, markdown_card
 
@@ -29,6 +29,7 @@ COOKIE = "guide_session"
 TERMINAL = {"completed", "failed", "superseded"}
 SESSION_MAX_AGE = 6 * 3600
 SESSION_IDLE_AGE = 3600
+REQUEST_TIMEOUT_SECONDS = 65.0
 
 
 def abort(status: int, code: str, message: str):
@@ -76,7 +77,7 @@ class Store:
                                  if (recent := [t for t in attempts if now - t < 60])}
 
     def expire(self, job: dict):
-        if job["status"] not in TERMINAL and time.monotonic() - job["created"] > 30:
+        if job["status"] not in TERMINAL and time.monotonic() - job["created"] > REQUEST_TIMEOUT_SECONDS:
             job["error_code"] = "WORKER_UNAVAILABLE" if job["status"] == "queued" else "REQUEST_TIMEOUT"
             job["status"] = "failed"
 
@@ -175,9 +176,14 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
 
     @app.get("/api/health")
     def health():
-        return {"status": "ok", "worker_connected": time.monotonic() - store.worker_seen < 15,
+        # A normal model turn can occupy the single worker for up to 30 seconds.
+        return {"status": "ok", "worker_connected": time.monotonic() - store.worker_seen < 45,
                 "model_configured": bool(os.getenv("NVIDIA_API_KEY")), "sandbox_verified": False,
                 "catalog_count": catalog.catalog_summary()["catalog_count"], "version": "0.1.0"}
+
+    @app.get("/api/catalog")
+    def public_catalog():
+        return catalog.public_catalog()
 
     @app.post("/api/sessions")
     def start_session(request: Request, response: Response):
@@ -246,19 +252,28 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                 abort(422, "UNKNOWN_FOOD", "Choose one of the available food candidates.")
             if body.confirmed_shop_id and not catalog.get_place(body.confirmed_shop_id):
                 abort(422, "UNKNOWN_PLACE", "Choose a listed place.")
+            if body.confirmed_place_id and not catalog.get_place(body.confirmed_place_id):
+                abort(422, "UNKNOWN_PLACE", "Choose a listed place.")
+            if body.confirmed_place_id and body.confirmed_shop_id and body.confirmed_place_id != body.confirmed_shop_id:
+                abort(422, "PLACE_CONFIRMATION_MISMATCH", "Use one confirmed place.")
+            previous = store.jobs.get(session.active_request_id)
+            if previous:
+                store.expire(previous)
+            if body.interaction_mode == "observe" and previous and previous["status"] not in TERMINAL:
+                abort(409, "JOB_BUSY", "Wait for the current question before observing another scene.")
             if len(store.jobs) >= 1500:
                 abort(503, "JOB_LIMIT", "Demo capacity reached.")
-            if session.history_mode != body.dataset_mode:
+            if body.interaction_mode == "ask" and session.history_mode != body.dataset_mode:
                 session.history.clear()
                 session.history_mode = body.dataset_mode
-            previous = store.jobs.get(session.active_request_id)
             if previous and previous["status"] not in TERMINAL:
                 previous["status"] = "superseded"
             rid = uuid.uuid4().hex
             session.active_request_id = rid
             store.jobs[rid] = {"request_id": rid, "request": body.model_dump(mode="json"), "status": "queued",
                                "result": None, "error_code": None, "created": time.monotonic(), "session": session,
-                               "history": list(session.history[-6:]), "search_count": 0, "searched_places": {}}
+                               "history": list(session.history[-6:]) if session.history_mode == body.dataset_mode else [],
+                               "search_count": 0, "searched_places": {}}
             return {"request_id": rid, "status": "queued", "poll_url": f"/api/requests/{rid}"}
 
     @app.get("/api/requests/{request_id}")
@@ -309,8 +324,9 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
             if job["search_count"] >= 2:
                 abort(429, "SEARCH_LIMIT", "Search limit reached.")
             job["search_count"] += 1
-            found = catalog.search_places(body.food_id, body.shop_id, req["location"], body.radius_m)
-            job["searched_places"] = {p["place_id"]: p for p in found["places"]}
+            found = catalog.search_places(body.food_id, body.shop_id, req["location"], body.radius_m, kind=body.kind)
+            found["places"] = [Place.model_validate(p).model_dump() for p in found["places"]]
+            job["searched_places"].update({p["place_id"]: p for p in found["places"]})
             return found
 
     def validate_grounding(result: GuideResult, job: dict):
@@ -331,6 +347,15 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                     abort(422, "MISSING_EVIDENCE", "Every claim must cite supplied approved evidence.")
         if req["dataset_mode"] == "fictional_task" and result.places:
             abort(422, "MODE_BOUNDARY", "Fictional itineraries must not contain real map places.")
+        if result.scene.confirmed_place_id != req.get("confirmed_place_id"):
+            abort(422, "PLACE_CONFIRMATION_MISMATCH", "A scene cannot invent user confirmation.")
+        if result.scene.confirmed_shop_id != req.get("confirmed_shop_id"):
+            abort(422, "PLACE_CONFIRMATION_MISMATCH", "A scene cannot invent legacy place confirmation.")
+        for candidate in result.scene.place_candidates:
+            if not catalog.get_place(candidate.id):
+                abort(422, "UNKNOWN_PLACE", "Scene candidates must use approved catalog IDs.")
+        if req["dataset_mode"] == "fictional_task" and result.scene.place_candidates:
+            abort(422, "MODE_BOUNDARY", "Fictional scenes cannot contain real place candidates.")
         for place in result.places:
             if place.model_dump() != job["searched_places"].get(place.place_id):
                 abort(422, "INVALID_PLACE", "Places must come from this job's validated search.")
@@ -348,7 +373,8 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
             try:
                 directory.mkdir()
                 for suffix, content in (("json", json.dumps(result, ensure_ascii=False, indent=2)),
-                                        ("html", html_card(result)), ("md", markdown_card(result))):
+                                        ("html", html_card(result, job["request"].get("location"))),
+                                        ("md", markdown_card(result, job["request"].get("location")))):
                     with (directory / f"travel-card.{suffix}").open("x", encoding="utf-8", newline="\n") as handle:
                         handle.write(content)
             except (OSError, FileExistsError):
@@ -356,9 +382,11 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                 abort(500, "SAVE_FAILED", "A new result could not be saved.")
             job.update(status="completed", result=result)
             session = job["session"]
-            session.history.extend([{"role": "user", "content": job["request"]["question"]},
-                                    {"role": "assistant", "content": result["speech_text"]}])
-            session.history = session.history[-6:]
+            # Automated scene checks must not displace the visitor's stated needs.
+            if job["request"].get("interaction_mode", "ask") == "ask":
+                session.history.extend([{"role": "user", "content": job["request"]["question"]},
+                                        {"role": "assistant", "content": result["speech_text"]}])
+                session.history = session.history[-6:]
             return {"saved": True, "result_id": rid}
 
     @app.post("/worker/fail", dependencies=[Depends(worker_auth)])

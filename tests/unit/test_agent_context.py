@@ -28,7 +28,7 @@ class DraftContextTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(context["first_decision"], selected)
             self.assertEqual(context["observed_food_candidates"][0]["id"], food_id)
             self.assertEqual(context["observed_food_candidates"][0]["name_ko"], names[food_id])
-            self.assertEqual(context["user_confirmed"], {"food_id": None, "shop_id": None})
+            self.assertEqual(context["user_confirmed"], {"food_id": None, "shop_id": None, "place_id": None})
             self.assertEqual(context["allowed_menu_ids"], ["samgyetang", "roast-chicken", "haemul-pajeon"])
             self.assertEqual({m["id"]: m["name_ko"] for m in context["available_menus"]}, names)
             self.assertTrue(all(m["evidence_ids"] == ["visitkorea:tosokchon-menu"] for m in context["available_menus"]))
@@ -82,7 +82,7 @@ class DraftContextTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(context["observed_food_candidates"], [])
         self.assertEqual(context["available_menus"], [])
         self.assertEqual(context["allowed_menu_ids"], [])
-        self.assertEqual(context["user_confirmed"], {"food_id": None, "shop_id": None})
+        self.assertEqual(context["user_confirmed"], {"food_id": None, "shop_id": None, "place_id": None})
         self.assertEqual(len(harness.model_requests), 2)
 
 

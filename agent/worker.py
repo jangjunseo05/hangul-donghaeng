@@ -20,7 +20,7 @@ ID = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
 NVIDIA_HOST = "integrate.api.nvidia.com"
 OPENSHELL_GATEWAY = "host.openshell.internal"
 LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
-JOB_TIMEOUT_SECONDS = 30.0
+JOB_TIMEOUT_SECONDS = 60.0
 
 
 def _endpoint(url: str):

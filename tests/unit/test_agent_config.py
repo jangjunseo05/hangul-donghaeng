@@ -104,7 +104,7 @@ class OutboundCredentialTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(payload["max_tokens"], 2200)
         for request in requests:
             if request.url.host == "model.example":
-                self.assertEqual(request.extensions["timeout"]["read"], 20.0)
+                self.assertEqual(request.extensions["timeout"]["read"], 35.0)
 
     async def test_unauthenticated_modes_never_forward_nvidia_key(self):
         cases = [settings(NVIDIA_BASE_URL="http://127.0.0.1:8001/v1", NVIDIA_ALLOW_UNAUTHENTICATED_LOCAL="true"),

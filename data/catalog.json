@@ -1,6 +1,6 @@
 {
-  "catalog_version": "2026-10-07.1",
-  "scope_label": "수록 식당 1곳 기준 · 직선거리 / One curated restaurant; straight-line distance",
+  "catalog_version": "2026-10-07.2",
+  "scope_label": "경복궁·광화문 문화 지점 2개와 기존 토속촌 1곳; 광화문은 경복궁의 정문; 직선거리 기준 / Two heritage anchors and one restaurant; straight-line distance",
   "places": [
     {
       "place_id": "local:tosokchon",
@@ -14,7 +14,85 @@
         "samgyetang",
         "roast-chicken",
         "haemul-pajeon"
+      ],
+      "kind": "restaurant",
+      "name_en": "Tosokchon Samgyetang",
+      "related_place_ids": [
+        "local:gyeongbokgung",
+        "local:gwanghwamun"
       ]
+    },
+    {
+      "place_id": "local:gyeongbokgung",
+      "name": "경복궁",
+      "name_ko": "경복궁",
+      "name_en": "Gyeongbokgung Palace",
+      "kind": "heritage",
+      "address_ko": "서울특별시 종로구 사직로 161",
+      "address_en": "161, Sajik-ro, Jongno-gu, Seoul",
+      "lat": 37.57590409118165,
+      "lng": 126.97684292625048,
+      "source_id": "visitseoul:gyeongbokgung-location",
+      "coordinate_note": "Visit Seoul interactive map / f_open_route_map point; not a surveyed entrance or palace centroid. The same page's JSON-LD differs; see coordinate_provenance.",
+      "coordinate_provenance": {
+        "source": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+        "locator": "f_open_route_map arguments, var lat/lng and data-map-y/data-map-x",
+        "observed_at": "2026-10-07",
+        "status": "official_map_point_with_conflicting_jsonld",
+        "alternative_jsonld": {
+          "lat": 37.583307,
+          "lng": 126.977286
+        },
+        "selection_reason": "Retain the page's interactive routing/map marker; do not silently average or treat the alternative as measured geography."
+      },
+      "food_ids": [],
+      "related_place_ids": [
+        "local:gwanghwamun",
+        "local:tosokchon"
+      ],
+      "visit_complex_id": "gyeongbokgung-complex",
+      "culture_evidence_ids": [
+        "visitseoul:gyeongbokgung-culture"
+      ],
+      "operation_evidence_ids": [
+        "visitseoul:gyeongbokgung-operation"
+      ],
+      "currently_open": null,
+      "admission_fee": null
+    },
+    {
+      "place_id": "local:gwanghwamun",
+      "name": "광화문",
+      "name_ko": "광화문",
+      "name_en": "Gwanghwamun Gate",
+      "kind": "heritage",
+      "address_ko": "서울특별시 종로구 사직로 161",
+      "address_en": "161 Sajik-ro, Jongno-gu, Seoul",
+      "lat": 37.5760179589004,
+      "lng": 126.976788008924,
+      "source_id": "visitkorea:gwanghwamun-location",
+      "coordinate_note": "KTO page JSON-LD latitude/longitude agrees with map variables lat/lot; official map marker, not surveyed entrance GPS.",
+      "coordinate_provenance": {
+        "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+        "locator": "JSON-LD latitude/longitude and var lat/lot",
+        "observed_at": "2026-10-07",
+        "status": "official_page_map_and_jsonld_agree"
+      },
+      "food_ids": [],
+      "related_place_ids": [
+        "local:gyeongbokgung",
+        "local:tosokchon"
+      ],
+      "parent_place_id": "local:gyeongbokgung",
+      "visit_complex_id": "gyeongbokgung-complex",
+      "culture_evidence_ids": [
+        "visitkorea:gwanghwamun-culture"
+      ],
+      "operation_evidence_ids": [
+        "visitkorea:gwanghwamun-operation"
+      ],
+      "currently_open": null,
+      "admission_fee": null
     }
   ],
   "foods": [
@@ -62,5 +140,41 @@
         "visitkorea:tosokchon-menu"
       ]
     }
-  ]
+  ],
+  "links": [
+    {
+      "from_place_id": "local:gyeongbokgung",
+      "to_place_id": "local:tosokchon",
+      "bidirectional": true,
+      "relation": "optional_nearby_food_culture_pairing",
+      "basis": "Product proposal using curated map positions; not an official cultural or commercial affiliation.",
+      "route_verified": false,
+      "walking_minutes": null
+    },
+    {
+      "from_place_id": "local:gwanghwamun",
+      "to_place_id": "local:tosokchon",
+      "bidirectional": true,
+      "relation": "optional_nearby_food_culture_pairing",
+      "basis": "Product proposal using curated map positions; not an official cultural or commercial affiliation.",
+      "route_verified": false,
+      "walking_minutes": null
+    }
+  ],
+  "heritage_integration": {
+    "proposal_version": "heritage-20261007.1",
+    "input_sha256": "79326ab2336fc2f75fc8fc9bcbd1f72c76f5a775ea976e880f3aafd7ae563879",
+    "mission_version": "day-of-v1-20261007",
+    "reviewed_at": "2026-10-07",
+    "notes": [
+      "Append only the two proposed places and six evidence records after pN review; preserve existing local:tosokchon, menus and fictional_task data.",
+      "kind=heritage and food_ids=[] prevent assigning restaurant dishes to palace/gate.",
+      "Use related_place_ids / bidirectional links to support heritage-to-restaurant and restaurant-to-heritage retrieval; do not change Tosokchon in this proposal.",
+      "Gwanghwamun Gate is not Gwanghwamun Square or station. Share visit_complex_id to avoid two palace admissions/duplicate visit duration.",
+      "Do not imply samgyetang or Tosokchon has royal-cuisine provenance or an official association with these heritage sites.",
+      "Coordinates support marked map points and straight-line filtering only; walking directions, gate access and accessibility remain unverified.",
+      "as_of is the source's displayed edit date if present, otherwise null; observed_at is our access date. Neither proves current operation.",
+      "Proposed data only: runtime, policy enforcement, user value and bidirectional service behavior remain unverified."
+    ]
+  }
 }

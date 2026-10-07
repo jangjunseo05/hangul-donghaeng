@@ -34,7 +34,7 @@ Playwright uses installed Chrome, viewport1280x1000 /390x844 and an already runn
 
 ## Still unverified
 
-User physically verified both English and Korean voice input (reported with BUILD-WEB-GPS-FIX-02 on2026-10-07). Audible TTS remains pending. The earlier headless microphone/error observations are separate from that physical-device confirmation.
+User physically verified both English and Korean voice input and later confirmed audible TTS (user report on2026-10-07). The earlier headless microphone/error observations are separate from that physical-device confirmation. Automated mobile checks cover screen layout only.
 
 Actual food/image inference, physical camera/GPS permissions, HTTPS mobile deployment, end-to-end live result/download and OpenShell normal/deny enforcement are not verified by this frontend work. Root's actual NVIDIA QA is separate; this change sends no competing live jobs. Root owns final integration, commits and publication.
 
@@ -43,3 +43,23 @@ Actual food/image inference, physical camera/GPS permissions, HTTPS mobile deplo
 Reproduced a delayed GPS callback submitting a third real-place request after switching to a new fictional request. GPS success/error callbacks now require the captured request generation and the current real-place mode. Mode changes, new submissions and photo changes invalidate the old callback and clear its waiting state. Valid current GPS callbacks still update the location and submit normally.
 
 Validation: the new cross-mode regression failed before the fix; `npx playwright test gps-race` passed12/12 after the fix across desktop/mobile. Cases cover mode changes, new real-place requests, photo replacement/removal, obsolete failures and a valid GPS success. All API calls are intercepted with named development fixtures. `npm run build` passed. No cosmetic changes, service/runtime edits or Git writes.
+
+## Sequential real-browser QA preparation
+
+This earlier food-only live script is paused for the approved culture/camera expansion. Its location expectations require revision before reuse: choosing a restaurant now explicitly selects that catalog point. It is not the validation script for the new cultural flow.
+
+`node tests/browser/real-journey.mjs` checks the local CC0 sample hash and prints selectors/steps only. It opens no browser and sends no requests. The live branch must wait for root's explicit GO after worker03 deployment and root's far/fictional checks; a CLI flag alone is not approval.
+
+After that GO, use `node tests/browser/real-journey.mjs --root-go "<root GO reference>" --base-url http://127.0.0.1:5173`. This standalone script observes the actual UI requests without network interception. It sends at most four sequential jobs: photo identification, samgyetang confirmation when offered, selected place/menu/culture, and a seafood follow-up/Korean staff phrase. It stops on an actual failure without retrying. An already confirmed food is recorded as an unexercised interaction requiring review.
+
+Only the live branch writes timestamped artifacts into `../.runtime/qa-ui-real/`: actual HTML/JSON downloads, screenshots at1440px and390px, and a receipt. Mobile reuses the same result without another inference. This checks visible interface/results and downloads; root still reviews semantic accuracy, deployment revision and independent OpenShell evidence. Preparation is not a live execution PASS.
+
+## Culture/camera handoff — 2026-10-07 14:45 KST
+
+Culture-first welcome and questions; local camera start/stop with environment preference and audio:false; fixed capture sent separately with a question; separate opt-in automatic companion; catalog cultural starting points/place confirmation; heritage/restaurant labels in lists/popups; culture-to-meal and meal-to-culture actions. Cultural confirmation selects the catalog coordinates. Gwanghwamun is identified as Gyeongbokgung's main gate in the same complex.
+
+Automatic mode uploads sampled JPEGs. It waits20seconds after each response, permits one automatic task at a time, pauses for manual input and stops on hidden page, camera loss, confirmation, error or photo limit. Observation epochs reject late answers after stop; TTS reads the latest read-aloud preference and suppresses repeated proposals. The existing20-photo bound is preserved; there is no deletion/rotation or session reset to bypass it. Permission denial, busy/unsupported camera, PHOTO_LIMIT and JOB_BUSY have visible fallbacks.
+
+Validation: `npm run build` PASS; `npm test`12/12; `npx playwright test camera-culture`30/30 desktop/mobile; `npx playwright test guide gps-race`22/22. New camera cases use synthetic canvas MediaStreams and intercepted named API fixtures, never model GPU jobs. They cover explicit permission/capture without transmission, late permission cleanup, one automatic task, manual priority, background stop, camera-ended late answer/TTS rejection, latest read-aloud toggle, repeated proposal suppression, confirmation/error/photo-limit stop, catalog coordinates and culture/meal transitions. Legacy proxy/health/map cases perform no inference. Fixture screenshots: `tests/artifacts/desktop-culture-camera-fixture.png` and `mobile-culture-camera-fixture.png`.
+
+Still unverified: physical Android HTTPS/rear-camera lifecycle and new culture/camera live model/OpenShell flow. Existing English/Korean microphone and audible TTS were confirmed by user report. Root owns service/worker restart, runtime GO, integration and Git; this frontend work sends no model jobs.
