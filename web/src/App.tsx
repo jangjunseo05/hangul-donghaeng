@@ -43,6 +43,8 @@ export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [catalogFailed, setCatalogFailed] = useState(false)
   const [anchor, setAnchor] = useState<CatalogPlace | null>(null)
+  // Search origin survives scene changes; explicit photo identity does not.
+  const identityPlace = useRef<string | null>(null)
   const [automatic, setAutomatic] = useState(false)
   const [automaticNotice, setAutomaticNotice] = useState('')
   const [photoCount, setPhotoCount] = useState(0)
@@ -159,6 +161,7 @@ export default function App() {
     }
     stopAutomatic(); prioritizeUser(); invalidate(); readGuard.current.reset()
     photoLockedRef.current = true; setPhotoLocked(true)
+    identityPlace.current = null
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
     const url = URL.createObjectURL(file)
     previewUrl.current = url
@@ -167,11 +170,13 @@ export default function App() {
   function removePhoto() {
     prioritizeUser(); invalidate(); readGuard.current.reset()
     photoLockedRef.current = false; setPhotoLocked(false)
+    identityPlace.current = null
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
     previewUrl.current = null; setPhoto(null); setPhotoNotice('')
   }
   function selectLocation(next: Location, demo = false) {
     prioritizeUser(); setAnchor(null)
+    identityPlace.current = null
     setLocation(next); setDemoLocation(demo); setLocationNotice('')
     if (lastQuestion.current && (result || busy)) void submit({ location: next, place: null, shop: null, question: lastQuestion.current })
   }
@@ -217,7 +222,9 @@ export default function App() {
     const captureCurrent = !observing && options.question === undefined && mode === 'real_place' && camera.isLive() && !photoLockedRef.current
     const manualVersion = manualRevision.current
     let selectedPhoto = photo
+    const newImage = observing || captureCurrent || Boolean(options.frame) || Boolean(selectedPhoto && !selectedPhoto.id)
     if (options.frame) {
+      identityPlace.current = null
       if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
       const url = URL.createObjectURL(options.frame)
       selectedPhoto = { file: options.frame, url, id: null }
@@ -242,6 +249,7 @@ export default function App() {
         const frame = await camera.capture()
         if (!current()) return
         if (!frame || manualRevision.current !== manualVersion || photoLockedRef.current) { setPhase('idle'); return }
+        identityPlace.current = null
         if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
         const url = URL.createObjectURL(frame)
         selectedPhoto = { file: frame, url, id: null }
@@ -258,7 +266,7 @@ export default function App() {
       }
       if (!current()) return
       if (observing && !options.valid?.()) { invalidate(); return }
-      const placeId = mode === 'fictional_task' ? null : options.place !== undefined ? options.place : options.shop !== undefined ? options.shop : anchor?.place_id ?? (captureCurrent ? null : currentResult?.scene.confirmed_place_id ?? currentResult?.scene.confirmed_shop_id ?? null)
+      const placeId = mode === 'fictional_task' ? null : options.place !== undefined ? options.place : options.shop !== undefined ? options.shop : newImage ? null : identityPlace.current ?? currentResult?.scene.confirmed_place_id ?? currentResult?.scene.confirmed_shop_id ?? null
       const targetKind = catalog?.places.find(place => place.place_id === placeId)?.kind
       const shopId = mode === 'fictional_task' ? null : options.shop !== undefined ? options.shop : targetKind === 'heritage' ? null : placeId && (targetKind === 'restaurant' || currentResult?.scene.confirmed_shop_id === placeId) ? placeId : null
       setPhase('submitting')
@@ -266,7 +274,7 @@ export default function App() {
         schema_version: 1, session_id: session, question: text, photo_id: photoId,
         dataset_mode: mode, response_language: language, location: mode === 'fictional_task' ? null : options.location ?? location,
         radius_m: options.radius ?? radius,
-        confirmed_food_id: options.food !== undefined ? options.food : observing || captureCurrent ? null : currentResult?.scene.confirmed_food_id ?? null,
+        confirmed_food_id: options.food !== undefined ? options.food : newImage ? null : currentResult?.scene.confirmed_food_id ?? null,
         confirmed_shop_id: shopId, confirmed_place_id: placeId,
         interaction_mode: observing ? 'observe' : 'ask',
       }, nextController.signal)
@@ -299,6 +307,7 @@ export default function App() {
   }
   function selectAnchor(place: CatalogPlace, ask = false) {
     prioritizeUser(); readGuard.current.reset()
+    identityPlace.current = place.place_id
     const next: Location = { lat: place.lat, lng: place.lng, origin: 'selected' }
     setAnchor(place); setLocation(next); setDemoLocation(false); setLocationNotice('')
     if (ask || result || busy) void submit({ place: place.place_id, shop: place.kind === 'restaurant' ? place.place_id : null, food: null, location: next, question: t('Tell me about the history, culture and visiting etiquette of ', '이 장소의 역사·문화와 방문 예절을 알려 주세요: ') + place.name })
@@ -313,6 +322,7 @@ export default function App() {
     const selected = catalog?.places.find(item => item.place_id === place.place_id) ?? { ...place, kind: 'restaurant' as const, name_en: place.name }
     const next: Location = { lat: place.lat, lng: place.lng, origin: 'selected' }
     setAnchor(selected); setLocation(next); setDemoLocation(false)
+    identityPlace.current = place.place_id
     void submit({ place: place.place_id, shop: place.place_id, location: next, question: t('Tell me about the menu and local culture at ', '이곳의 메뉴와 지역 문화를 알려 주세요: ') + place.name })
   }
   async function copyKorean() {
@@ -321,6 +331,7 @@ export default function App() {
   }
   function changeMode(next: DatasetMode) {
     prioritizeUser(); stopAutomatic(); camera.stop()
+    identityPlace.current = null
     currentMode.current = next
     invalidate(); setMode(next); setResult(null); setQuestion(''); lastQuestion.current = ''; setStatusOpen(false)
   }

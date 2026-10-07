@@ -30,7 +30,7 @@ async function cameraProbe(page: Page, options: { deny?: string; delayed?: boole
     } })
   }, options)
 }
-async function fixtureApi(page: Page, options: { pending?: boolean; confirmation?: boolean; photoLimit?: boolean; busy?: boolean; hostedConfigured?: boolean } = {}) {
+async function fixtureApi(page: Page, options: { pending?: boolean; confirmation?: boolean; photoLimit?: boolean; busy?: boolean; hostedConfigured?: boolean; seedFood?: boolean } = {}) {
   const requests: Record<string, unknown>[] = []
   const photos: Buffer[] = []
   let uploads = 0
@@ -63,7 +63,7 @@ async function fixtureApi(page: Page, options: { pending?: boolean; confirmation
         const result = {
           ...fixture, request_id: id, status: needsConfirmation ? 'need_confirmation' : 'ready',
           speech_text: request.interaction_mode === 'observe' ? 'Development camera fixture: a cultural suggestion.' : 'Development camera fixture: manual answer.',
-          scene: { ...fixture.scene, confirmed_food_id: null, confirmed_shop_id: request.confirmed_shop_id ?? null, confirmed_place_id: request.confirmed_place_id ?? null, food_candidates: [], place_candidates: needsConfirmation ? [{ id: palace.place_id, name_ko: palace.name, name_en: palace.name_en }] : [] },
+          scene: { ...fixture.scene, confirmed_food_id: request.confirmed_food_id ?? (options.seedFood && index === 0 ? 'fixture-food' : null), confirmed_shop_id: request.confirmed_shop_id ?? null, confirmed_place_id: request.confirmed_place_id ?? null, food_candidates: [], place_candidates: needsConfirmation ? [{ id: palace.place_id, name_ko: palace.name, name_en: palace.name_en }] : [] },
           places: [palace, gate, restaurant].map(place => { const { name_en: _name, ...fields } = place; return { ...fields, distance_m: 14 } }),
         }
         body = { request_id: id, status: 'completed', result, error_code: null }
@@ -148,7 +148,44 @@ test('photo basis: uploaded photo stays fixed for confirmation until current vie
   await page.locator('.ask-button').click()
   await expect.poll(() => api.requests.length).toBe(3)
   expect(api.uploads()).toBe(2)
-  expect(api.requests[2]).toMatchObject({ photo_id: 'fixture-photo-2', confirmed_place_id: palace.place_id, location: { lat: palace.lat, lng: palace.lng, origin: 'selected' } })
+  expect(api.requests[2]).toMatchObject({ photo_id: 'fixture-photo-2', confirmed_place_id: null, confirmed_shop_id: null, confirmed_food_id: null, location: { lat: palace.lat, lng: palace.lng, origin: 'selected' } })
+})
+
+for (const input of ['manual', 'observe', 'upload'] as const) test(`fresh scene: ${input} retains selected origin but clears confirmed identities`, async ({ page }) => {
+  await cameraProbe(page); const api = await fixtureApi(page, { seedFood: true })
+  await page.goto('/')
+  await page.getByRole('checkbox', { name: 'Read answers aloud' }).uncheck()
+  await page.locator('#place-anchor').selectOption(gate.place_id)
+  await page.locator('#question').fill('Tell me about my selected Gwanghwamun starting point')
+  await page.locator('.ask-button').click()
+  await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()
+  expect(api.requests[0].confirmed_place_id).toBe(gate.place_id)
+  if (input !== 'upload') {
+    await page.getByRole('button', { name: 'Start camera', exact: true }).click()
+    await expect.poll(() => page.locator('video').evaluate((video: HTMLVideoElement) => video.videoWidth > 0 && video.readyState >= 2)).toBe(true)
+    await page.evaluate(() => { (window as unknown as { cameraProbe: Probe }).cameraProbe.color = '#bd4250' })
+  } else {
+    await page.locator('input[type=file]').first().setInputFiles({ name: 'new-scene-fixture.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0QAAAABJRU5ErkJggg==', 'base64') })
+  }
+  if (input === 'observe') {
+    await page.clock.install()
+    await page.getByRole('checkbox', { name: 'Automatic companion' }).check()
+    await page.clock.runFor(20000)
+  } else {
+    await page.locator('#question').fill('What is this different building?')
+    await page.locator('.ask-button').click()
+  }
+  await expect.poll(() => api.requests.length).toBe(2)
+  expect(api.requests[1]).toMatchObject({ photo_id: 'fixture-photo-1', interaction_mode: input === 'observe' ? 'observe' : 'ask', confirmed_place_id: null, confirmed_shop_id: null, confirmed_food_id: null, location: { lat: gate.lat, lng: gate.lng, origin: 'selected' } })
+  await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()
+  await expect(page.locator('#place-anchor')).toHaveValue(gate.place_id)
+  if (input !== 'observe') {
+    if (input === 'manual') await page.getByRole('button', { name: 'Stop camera', exact: true }).click()
+    await page.locator('#question').fill('Continue about this latest photo')
+    await page.locator('.ask-button').click()
+    await expect.poll(() => api.requests.length).toBe(3)
+    expect(api.requests[2]).toMatchObject({ photo_id: 'fixture-photo-1', confirmed_place_id: null, confirmed_shop_id: null, confirmed_food_id: null })
+  } else await page.getByRole('checkbox', { name: 'Automatic companion' }).uncheck()
 })
 
 test('self-hosted worker enables automatic guidance without hosted or sandbox flags', async ({ page }) => {
