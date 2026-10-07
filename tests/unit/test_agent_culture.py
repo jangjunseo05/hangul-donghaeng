@@ -85,7 +85,8 @@ class AgentCultureTests(unittest.IsolatedAsyncioTestCase):
             response = culture_draft()
             response["speech_text"] += " " + REAL_WARNINGS[language] + " " + HERITAGE_WARNINGS[language]
             response["unknowns"] += [REAL_WARNINGS[language], HERITAGE_WARNINGS[language]]
-            harness = Harness([culture_decision(), response], assignment)
+            harness = Harness([{"scene_kind": "landmark", "place_id": PALACE,
+                                "food_id": None, "visual_basis": "Palace architecture."}], assignment)
             self.assertEqual(await harness.run(), "saved")
             result = harness.submitted[0]["result"]
             self.assertEqual(result["speech_text"].count(HERITAGE_WARNINGS[language]), 1)
@@ -198,7 +199,8 @@ class AgentCultureTests(unittest.IsolatedAsyncioTestCase):
     async def test_observe_requests_require_specific_question_even_with_confirmation(self):
         assignment = job()
         assignment["request"].update(interaction_mode="observe", confirmed_place_id=PALACE)
-        harness = Harness([culture_decision()], assignment)
+        harness = Harness([{"scene_kind": "landmark", "place_id": PALACE,
+                            "food_id": None, "visual_basis": "Palace architecture."}], assignment)
         self.assertEqual(await harness.run(), "saved")
         result = harness.submitted[0]["result"]
         self.assertEqual(result["status"], "need_confirmation")

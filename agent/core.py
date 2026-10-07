@@ -15,6 +15,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from shared.models import Claim, Conflict, GuideRequest, GuideResult, ItineraryItem
+from agent.visual_observation import VisualObservation, VISUAL_PROMPT
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 MODEL_CALL_TIMEOUT_SECONDS = 35.0
@@ -75,6 +76,11 @@ class FictionalDecision(Decision):
     place_ids: list[str] = Field(default_factory=list, max_length=0)
     search_kinds: list[str] = Field(default_factory=list, max_length=0)
     observation_summary: Literal[""] = ""
+
+
+class ObservationDecision(Decision):
+    """Local routing state derived from a validated visual-only classification."""
+    source_ids: list[str] = Field(max_length=0)
 
 
 class Draft(BaseModel):
@@ -295,7 +301,7 @@ class ModelSession:
                                   "previous_output_truncated": isinstance(content, str) and len(content) > 6000},
                                  ensure_ascii=False)}]
             finally:
-                print(json.dumps({"event": "model_call", "stage": "decision" if issubclass(schema, Decision) else "draft",
+                print(json.dumps({"event": "model_call", "stage": "decision" if issubclass(schema, (Decision, VisualObservation)) else "draft",
                     "schema": schema.__name__, "call": self.calls, "error_code": error_code,
                     "validation": feedback, "finish_reason": finish_reason, "usage": usage,
                     **({"configured_model": self.model, "response_model_match": True} if response_model_match else {}),
@@ -303,14 +309,16 @@ class ModelSession:
                     file=sys.stderr, flush=True)
 
 
-def _messages(request: GuideRequest, history: list[dict], prompt: str, photo: bytes | None) -> list[dict]:
+def _messages(request: GuideRequest, history: list[dict], prompt: str, photo: bytes | None, *, visual_only: bool = False) -> list[dict]:
     # Do not send session credentials, internal IDs or exact GPS to the model.
     context = request.model_dump(exclude={"location", "session_id", "photo_id"})
     safe_history = [{"role": item["role"], "content":
                     (_without_generated_warnings(item["content"]) if item["role"] == "assistant" else item["content"])[:4000]}
                     for item in history[-12:] if item.get("role") in {"user", "assistant"}
                     and isinstance(item.get("content"), str)]
-    text = json.dumps({"request": context, "history": safe_history}, ensure_ascii=False) + "\n" + prompt
+    # Automatic observation classifies this frame before any conversational tools.
+    # Prior recommendations, confirmations and the auto-question are not visual evidence.
+    text = prompt if visual_only else json.dumps({"request": context, "history": safe_history}, ensure_ascii=False) + "\n" + prompt
     parts = [{"type": "text", "text": text}]
     if photo is not None:
         if len(photo) > 8 * 1024 * 1024:
@@ -395,7 +403,18 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
         if mode == "fictional_task" and (decision.search_places or decision.food_ids or decision.place_ids or decision.search_kinds):
             raise ValueError("fictional_search_forbidden")
 
-    decision = await model.structured(_messages(request, history, prompt, photo), decision_schema, check_decision)
+    if observing:
+        visual = await model.structured(_messages(request, [],
+            VISUAL_PROMPT + json.dumps(VisualObservation.model_json_schema()), photo, visual_only=True), VisualObservation)
+        decision = ObservationDecision(
+            intent="menu" if visual.scene_kind == "food" else "culture",
+            food_ids=[visual.food_id] if visual.food_id else [],
+            place_ids=[visual.place_id] if visual.place_id else [],
+            needs_confirmation=True, search_places=False, search_kinds=[], source_ids=[],
+            observation_summary=visual.visual_basis[:240])
+        check_decision(decision)
+    else:
+        decision = await model.structured(_messages(request, history, prompt, photo), decision_schema, check_decision)
     selected_ids = list(decision.source_ids)
     if mode == "fictional_task":
         selected_ids = list(allowed)  # Tiny fixture: keep original/conflicting documents together.
@@ -431,7 +450,7 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
     relevant_places = ({confirmed_target} if confirmed_target else set() if nearby_recommendation else set(decision.place_ids)) | {p["place_id"] for p in places}
     if food_context:
         relevant_places.add("local:tosokchon")
-    if mode == "real_place":
+    if mode == "real_place" and not observing:
         for place_id in relevant_places:
             item = place_map[place_id]
             selected_ids.extend(source for field in ("culture_evidence_ids", "operation_evidence_ids")
@@ -695,6 +714,9 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
         else:
             next_question = ("보이는 장소의 이름을 확인해 주시겠어요? 문화와 역사를 안내할게요." if ko else
                              "Can you confirm the place you are viewing so I can explain its culture and history?")
+    if observing and not decision.place_ids and not decision.food_ids:
+        next_question = ("건물이나 간판이 더 잘 보이도록 가까이 보여주시겠어요?" if ko else
+                         "Could you show the building or sign more closely so I can see it clearly?")
     requires_confirmation = (ambiguous or needs_location
         or (mode == "real_place" and (request.interaction_mode == "observe" or decision.intent in {"dietary", "clarify"} or decision_confirmation))
         or (mode == "fictional_task" and bool(next_question)))

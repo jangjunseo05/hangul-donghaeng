@@ -97,9 +97,8 @@ class FinalDeliveryTests(unittest.IsolatedAsyncioTestCase):
     async def test_empty_culture_observation_asks_place_name_instead_of_food(self):
         assignment = job()
         assignment["request"].update(interaction_mode="observe", response_language="ko")
-        selected = decision()
-        selected.update(intent="culture", food_ids=[], place_ids=[], needs_confirmation=True,
-                        search_places=False, search_kinds=[])
+        selected = {"scene_kind": "other", "food_id": None, "place_id": None,
+                    "visual_basis": "No recognizable landmark or food."}
         harness = Harness([selected], assignment)
         self.assertEqual(await harness.run(), "saved")
         result = harness.submitted[0]["result"]
