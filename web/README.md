@@ -34,4 +34,12 @@ Playwright uses installed Chrome, viewport1280x1000 /390x844 and an already runn
 
 ## Still unverified
 
-Actual food/image inference; spoken recognition and audible TTS on the presentation device; physical camera/GPS permissions; HTTPS mobile deployment; end-to-end live result/download; actual OpenShell normal/deny enforcement. Microphone capability/error observations are recorded separately from fixture tests and are not proof of successful speech. Root owns final integration, commits and publication.
+User physically verified both English and Korean voice input (reported with BUILD-WEB-GPS-FIX-02 on2026-10-07). Audible TTS remains pending. The earlier headless microphone/error observations are separate from that physical-device confirmation.
+
+Actual food/image inference, physical camera/GPS permissions, HTTPS mobile deployment, end-to-end live result/download and OpenShell normal/deny enforcement are not verified by this frontend work. Root's actual NVIDIA QA is separate; this change sends no competing live jobs. Root owns final integration, commits and publication.
+
+## BUILD-WEB-GPS-FIX-02
+
+Reproduced a delayed GPS callback submitting a third real-place request after switching to a new fictional request. GPS success/error callbacks now require the captured request generation and the current real-place mode. Mode changes, new submissions and photo changes invalidate the old callback and clear its waiting state. Valid current GPS callbacks still update the location and submit normally.
+
+Validation: the new cross-mode regression failed before the fix; `npx playwright test gps-race` passed12/12 after the fix across desktop/mobile. Cases cover mode changes, new real-place requests, photo replacement/removal, obsolete failures and a valid GPS success. All API calls are intercepted with named development fixtures. `npm run build` passed. No cosmetic changes, service/runtime edits or Git writes.

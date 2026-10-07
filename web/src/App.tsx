@@ -33,6 +33,8 @@ export default function App() {
   const [copyNotice, setCopyNotice] = useState('')
   const [autoRead, setAutoRead] = useState(true)
   const sequence = useRef(0)
+  const currentMode = useRef(mode)
+  currentMode.current = mode
   const controller = useRef<AbortController | null>(null)
   const lastQuestion = useRef('')
   const previewUrl = useRef<string | null>(null)
@@ -61,6 +63,7 @@ export default function App() {
 
   function invalidate() {
     sequence.current += 1
+    setLocating(false)
     controller.current?.abort()
     speech.stopReading()
     setStale(Boolean(result))
@@ -97,13 +100,17 @@ export default function App() {
     if (lastQuestion.current && (result || busy)) void submit({ location: next, question: lastQuestion.current })
   }
   function useMyLocation() {
+    if (currentMode.current !== 'real_place') return
+    const generation = sequence.current
+    const current = () => sequence.current === generation && currentMode.current === 'real_place'
     setLocationNotice('')
     if (!navigator.geolocation) { setLocationNotice(t('Location is unavailable. Choose a point on the map.', '위치를 지원하지 않아요. 지도에서 출발점을 골라 주세요.')); return }
     setLocating(true)
     navigator.geolocation.getCurrentPosition(position => {
+      if (!current()) return
       setLocating(false)
       selectLocation({ lat: position.coords.latitude, lng: position.coords.longitude, origin: 'gps' })
-    }, () => { setLocating(false); setLocationNotice(t('Location permission was unavailable. Tap the map or choose the Seochon demo point.', '위치를 확인하지 못했어요. 지도를 누르거나 서촌 시연 위치를 선택해 주세요.')) }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 })
+    }, () => { if (!current()) return; setLocating(false); setLocationNotice(t('Location permission was unavailable. Tap the map or choose the Seochon demo point.', '위치를 확인하지 못했어요. 지도를 누르거나 서촌 시연 위치를 선택해 주세요.')) }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 })
   }
   function changeRadius(next: Radius) {
     setRadius(next)
@@ -127,6 +134,7 @@ export default function App() {
     if (mode === 'real_place' && !photo && !result) { setPhotoNotice(t('Add a food or menu photo for your first question.', '첫 질문에는 음식이나 메뉴 사진을 추가해 주세요.')); return }
     lastQuestion.current = text
     const generation = ++sequence.current
+    setLocating(false)
     controller.current?.abort()
     const nextController = new AbortController()
     controller.current = nextController
@@ -173,6 +181,7 @@ export default function App() {
     catch { setCopyNotice(t('Please select and copy the sentence.', '문장을 선택해 복사해 주세요.')) }
   }
   function changeMode(next: DatasetMode) {
+    currentMode.current = next
     invalidate(); setMode(next); setResult(null); setQuestion(''); lastQuestion.current = ''; setStatusOpen(false)
   }
   function evidenceLink(item: Evidence) {
