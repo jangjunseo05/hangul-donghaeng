@@ -1,6 +1,6 @@
 # 개발·검증 상태
 
-**최신 스냅샷: 2026-10-07 15:54 KST, root·p8 최종 인계.** worker12의 기본 UI 3단계와 다운로드는 PASS입니다. 전체 기능·모든 문화적 사실성·대외 제출 완료 판정은 아닙니다. [공개 저장소](https://github.com/jangjunseo05/hangul-donghaeng)의 root 코드 `ab0794b` push는 보고받았으며 이번 문서 변경의 커밋·push는 root가 수행합니다.
+**최신 스냅샷: 2026-10-07 15:58 KST, root·p8·pJ 최종 인계.** worker12의 기본 UI 3단계와 다운로드는 PASS입니다. 전체 기능·모든 문화적 사실성·대외 제출 완료 판정은 아닙니다. [공개 저장소](https://github.com/jangjunseo05/hangul-donghaeng)의 root 코드 `ab0794b` push는 보고받았으며 이번 문서 변경의 커밋·push는 root가 수행합니다.
 
 ## 최신 상태
 
@@ -10,6 +10,7 @@
 | Python | **157 passed + 62 subtests passed, 3.96초 — root 보고.** 문서 정리 과정에서 재실행하지 않았습니다. |
 | worker12 | **배포 완료 — root 보고.** 승인된 출처 기반 메뉴 처리 수정 포함. 배포·코드 수정과 아래 실제 시나리오의 성공/실패를 구분합니다. |
 | 기본 실제 UI 흐름 | **PASS_PRIMARY_UI_JOURNEY.** 실제 HTTPS 브라우저의 사진 질문 **8.238초**, 사용자 장소 선택 후 문화 질문 **22.325초**, 문화→주변 식사 **21.498초**. HTML·JSON 다운로드 성공. [영수증](../.runtime/qa-ui-real/2026-10-07T06-52-12-176Z/receipt.json). |
+| 문화 문구 검수 | **기본 UI PASS와 별도.** pJ는 남문·복원 관련 근본적 오류를 발견하지 않았으나 `symbolic motifs`의 인용 근거 부족, 삼복을 `three hot summer days in Korean calendar`로 단순화한 표현을 지적했습니다. 문구 검수 한계를 보존하며 모든 문화 사실의 PASS를 주장하지 않습니다. |
 | 장소 확인의 한계 | 첫 응답은 `need_confirmation`, 장소 후보 없음. **사용자가 광화문을 카탈로그에서 명시적으로 선택**했습니다. 모델의 사진 인식 성공이 아닙니다. 입력은 공개 아카이브 사진이며 팀의 현장 촬영이 아닙니다. |
 | 메뉴 추가 질문 | **미해결 실패 보존.** 이전 worker12 전체 흐름의 4번째 restaurant-menu 질문은 `historical_source_mismatch`로 **32.608초 후 실패**. 최종 기본 흐름에서는 재실행하지 않았으며 PASS가 아닙니다. |
 | 식사→문화 역방향 | **최종 UI에서 미실행·미검증.** 이전 실패를 기본 흐름 PASS로 해결 처리하지 않습니다. |
@@ -36,6 +37,10 @@
 `.runtime` 링크는 로컬 근거이며 공개 저장소 포함을 보장하지 않습니다. latest 파일도 worker·캡처 시각을 대조해야 하며 이름만으로 현재 배포의 근거로 간주하지 않습니다. 원본 로그는 변경하지 않았습니다. health의 `model_configured`·`sandbox_verified`는 자체 GPU·독립 정책 실측과 구분합니다.
 
 ## 남은 범위와 마감
+
+사진 고정은 선택 사항입니다. 로컬 카메라가 켜져 있고 사진을 고정하지 않았다면 수동 질문을 보낼 때 현재 프레임을 캡처합니다. 명시적으로 촬영·업로드한 사진은 고정해 후속 질문에 사용하며 연속 영상을 기억하지 않습니다.
+
+발표는 [PPTX](presentation/한글동행_발표.pptx), [최신 근거 반영 PDF](presentation/한글동행_발표_근거반영.pdf), [PDF 본문](presentation/발표자료_PDF본문.md), [핵심 시연](presentation/데모_핵심시나리오.md)을 사용합니다. 잠긴 기본 PDF는 이전본으로 보존합니다. Android 사용자 검증은 진행 중이며 최종 TTS·자동 관찰 결과를 받기 전에는 PASS로 바꾸지 않습니다.
 
 기본 시연은 **사진 질문 → 사용자 명시적 장소 선택 → 문화→주변 식사 → HTML/JSON 저장**으로 한정합니다. 메뉴 후속 실패, 식사→문화 역방향, Android TTS·자동 관찰은 완료로 표시하지 않습니다. 운영 순서는 [데모 runbook](DEMO-RUNBOOK.md), API 경계는 [최신 계약](../shared/api-contract.md)을 따릅니다. 직선거리 지도는 도보 경로가 아니며, 예약·주문·결제·외부 발송은 범위 밖입니다.
 

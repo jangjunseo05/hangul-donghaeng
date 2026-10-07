@@ -1,0 +1,34 @@
+{
+    "status":  "READY_FOR_HUMAN_REVIEW",
+    "artifact":  "primary-culture-to-food-58s.webm",
+    "source":  ".runtime/qa-ui-real/2026-10-07T06-52-12-176Z/raw-video/page@6ff4c9f974d9437db5b62f3bc069b87b.webm",
+    "source_receipt":  ".runtime/qa-ui-real/2026-10-07T06-52-12-176Z/receipt.json",
+    "source_receipt_status":  "PASS_PRIMARY_UI_JOURNEY",
+    "source_receipt_sha256":  "b07f56e699531f8907dce8268a8bb1dafa7f72a3a48728ca9eacf7e031fbc984",
+    "source_sha256":  "b9f757d940423ce34082e91a7f9c3acf259bd29c9213538a1618fabf8691f7c7",
+    "output_sha256":  "b9f757d940423ce34082e91a7f9c3acf259bd29c9213538a1618fabf8691f7c7",
+    "source_unchanged":  true,
+    "duration_seconds":  58.32,
+    "duration_method":  "Actual source container metadata, rounded to 0.01 second",
+    "transformation":  "None: byte-identical raw WebM copy; no compression, hold or re-encoding",
+    "scope":  "PRIMARY culture to nearby food and HTML/JSON save; three actual service calls in the source run",
+    "explicit_place_selection":  "User-selected Gwanghwamun from catalog; no visual-recognition success claimed",
+    "source_kind":  "actual-browser-recording",
+    "sample_photo_demonstration":  true,
+    "audio":  "none",
+    "optional_caption":  "primary-culture-to-food-58s.vtt",
+    "caption_burned_in":  false,
+    "camera_microphone_tts":  "Not established by this recording",
+    "reverse_flow":  "NOT_RUN_PRIMARY_SCOPE",
+    "semantic_review":  "REMAINING: functional primary journey receipt is not all-quality PASS",
+    "known_semantic_issues":  [
+                                  "English symbolic motifs statement lacks supporting source",
+                                  "Sambok explanation is oversimplified"
+                              ],
+    "narration_limits":  [
+                             "Use only verified Gwanghwamun south/main-gate relationship",
+                             "Use verified reopening after restoration on 2010-08-15",
+                             "Do not repeat unsupported symbolic motifs or oversimplified Sambok claim"
+                         ],
+    "processing_product_or_model_calls":  0
+}
