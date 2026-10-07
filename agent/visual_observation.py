@@ -9,9 +9,12 @@ class VisualObservation(BaseModel):
     model_config = ConfigDict(extra="forbid")
     # Describe pixels before judging significance. The schema contains no place names.
     visual_basis: str = Field(min_length=1, max_length=500)
+    visible_text: str | None = Field(max_length=160,
+        description="Only genuinely legible sign/plaque characters, otherwise null; never reconstruct an expected name.")
     scene_kind: Literal["landmark", "food", "other"]
     is_cultural_landmark: bool
-    landmark_name: str | None = Field(max_length=120)
+    landmark_name: str | None = Field(max_length=120,
+        description="Most specific identifiable structure actually in view, not its enclosing complex or district.")
     identification_supported: bool
 
     @property
@@ -53,7 +56,23 @@ is_cultural_landmark=false, landmark_name=null, identification_supported=false.
 Do not reinterpret ordinary objects as a monument or imagine a building outside
 the frame. A plain rock is not a historic site without distinguishing evidence.
 If a landmark is visible, identify it freely from its actual distinctive structure
-or readable sign. No particular name is expected. Set landmark_name only when
+or readable sign. Transcribe genuinely legible on-site plaque/sign text into visible_text
+before naming it; use null for unreadable text and never fill in missing letters.
+If viewing a video or photo on another screen, its browser title, video title,
+captions and recommended-video sidebar are not signs on the physical landmark.
+They may name a whole tour or region; never let them override the structure seen.
+If an object or finger obscures distinguishing parts, lower identification certainty
+rather than complete the hidden scene from a screen title or prior expectations.
+Distinguish a specific gate, pavilion, hall, statue or tower from the larger palace,
+park, temple complex or district containing it. Name the specific visible structure
+when its distinctive geometry or readable plaque supports that identification.
+Do not substitute the enclosing palace name for an identifiable entrance gate.
+Compare actual roof tiers, arch/opening count, tower silhouette and readable text;
+do not invent any of those features. A broad association with a famous complex is
+not sufficient to identify this particular structure. If the specific structure
+cannot be distinguished, use landmark_name=null and identification_supported=false
+instead of naming its parent complex as though it were the visible structure.
+No particular name is expected. Set landmark_name only when
 you can distinguish this specific place, otherwise null; identification_supported
 must be false when you cannot name it from the image. If cultural significance
 itself is uncertain, is_cultural_landmark must be false and do not solicit a guess.
