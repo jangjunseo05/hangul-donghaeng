@@ -222,6 +222,14 @@ test('camera requires a click, captures without sending, and stops every track',
   expect(await page.evaluate(() => (window as unknown as { cameraProbe: Probe }).cameraProbe.calls)).toEqual([{ video: { facingMode: { ideal: 'environment' } }, audio: false }])
   await page.getByRole('button', { name: 'Capture a photo', exact: true }).click()
   await expect(page.locator('.photo-preview img')).toBeVisible()
+  const captured = await page.locator('.photo-preview img').evaluate(async (img: HTMLImageElement) => {
+    const blob = await (await fetch(img.src)).blob()
+    const frame = await createImageBitmap(blob)
+    const metadata = { type: blob.type, width: frame.width, height: frame.height, bytes: blob.size }
+    frame.close(); return metadata
+  })
+  expect(captured).toMatchObject({ type: 'image/jpeg', width: 640, height: 480 })
+  expect(captured.bytes).toBeGreaterThan(0)
   expect(api.uploads()).toBe(0)
   expect(api.requests).toHaveLength(0)
   await page.getByRole('button', { name: 'Stop camera', exact: true }).click()
@@ -259,7 +267,7 @@ test('one automatic request stays in flight; manual question wins', async ({ pag
   await startCamera(page)
   await page.clock.install()
   await page.getByRole('checkbox', { name: 'Automatic companion' }).check()
-  await page.clock.runFor(19999)
+  await page.clock.runFor(2999)
   expect(api.requests).toHaveLength(0)
   await page.clock.runFor(1)
   await expect.poll(() => api.requests.length).toBe(1)

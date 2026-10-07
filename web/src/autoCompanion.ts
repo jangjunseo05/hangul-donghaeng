@@ -1,4 +1,5 @@
 export const OBSERVATION_INTERVAL_MS = 20000
+export const INITIAL_OBSERVATION_DELAY_MS = 3000
 
 /** At most one automatic task; next interval starts after that task settles. */
 export class FrameScheduler {
@@ -7,10 +8,12 @@ export class FrameScheduler {
   private inFlight = false
   private disposed = false
   private generation = 0
+  private firstObservation = true
   private timer: ReturnType<typeof setTimeout> | null = null
   constructor(private observe: (current: () => boolean) => Promise<void>, private onError: () => void = () => {}) {}
   setState(enabled: boolean, paused: boolean) {
     if (this.enabled === enabled && this.paused === paused) return
+    if (enabled && !this.enabled) this.firstObservation = true
     this.enabled = enabled; this.paused = paused
     this.interrupt()
   }
@@ -23,10 +26,11 @@ export class FrameScheduler {
   dispose() { this.disposed = true; this.interrupt() }
   private schedule() {
     if (this.disposed || !this.enabled || this.paused || this.inFlight || this.timer !== null) return
-    this.timer = setTimeout(() => { this.timer = null; void this.tick() }, OBSERVATION_INTERVAL_MS)
+    this.timer = setTimeout(() => { this.timer = null; void this.tick() }, this.firstObservation ? INITIAL_OBSERVATION_DELAY_MS : OBSERVATION_INTERVAL_MS)
   }
   private async tick() {
     if (this.disposed || !this.enabled || this.paused || this.inFlight) return
+    this.firstObservation = false
     this.inFlight = true
     const version = this.generation
     try { await this.observe(() => !this.disposed && this.enabled && !this.paused && this.generation === version) }
