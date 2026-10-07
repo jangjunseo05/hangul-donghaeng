@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "session_id": "fixture-session",
+  "request_id": "fixture-request-1",
+  "captured_at": "2026-10-07T04:15:00Z",
+  "dataset_mode": "real_place",
+  "status": "ready",
+  "speech_text": "Development fixture — not a live model answer. Here is a sample response for interface testing.",
+  "response_language": "en",
+  "scene": {
+    "food_candidates": [
+      {
+        "id": "fixture-food",
+        "name_ko": "삼계탕",
+        "name_en": "Samgyetang"
+      }
+    ],
+    "confirmed_food_id": "fixture-food",
+    "confirmed_shop_id": "fixture-place"
+  },
+  "places": [
+    {
+      "place_id": "fixture-place",
+      "name": "Fixture restaurant · not live",
+      "lat": 37.57760304027,
+      "lng": 126.971632166657,
+      "distance_m": 220,
+      "source_id": "fixture-source",
+      "catalog_version": "fixture-v1"
+    }
+  ],
+  "menus": [
+    {
+      "name_ko": "삼계탕",
+      "description": "Development fixture menu. Current availability and ingredients are not confirmed.",
+      "evidence_ids": [
+        "fixture-source"
+      ],
+      "unknowns": [
+        "Ingredients need confirmation."
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "text": "Development fixture culture note; not a verified historical claim.",
+      "scope": "culture",
+      "evidence_ids": [
+        "fixture-source"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "fixture-source",
+      "source": "https://example.com/fixture",
+      "as_of": null,
+      "type": "example",
+      "dataset_id": "test-only"
+    }
+  ],
+  "conflicts": [],
+  "itinerary": [],
+  "order_ko": "이 음식에 고기 육수나 액젓이 들어가나요?",
+  "unknowns": [
+    "Development fixture only."
+  ],
+  "next_question": "Please check the ingredients.",
+  "error_code": null
+}
