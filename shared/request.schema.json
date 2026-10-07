@@ -1,0 +1,149 @@
+{
+  "$defs": {
+    "Location": {
+      "additionalProperties": false,
+      "properties": {
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Lat",
+          "type": "number"
+        },
+        "lng": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Lng",
+          "type": "number"
+        },
+        "origin": {
+          "enum": [
+            "gps",
+            "selected"
+          ],
+          "title": "Origin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lat",
+        "lng",
+        "origin"
+      ],
+      "title": "Location",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "session_id": {
+      "maxLength": 120,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "question": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Question",
+      "type": "string"
+    },
+    "photo_id": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Photo Id"
+    },
+    "dataset_mode": {
+      "enum": [
+        "real_place",
+        "fictional_task"
+      ],
+      "title": "Dataset Mode",
+      "type": "string"
+    },
+    "response_language": {
+      "enum": [
+        "en",
+        "ko"
+      ],
+      "title": "Response Language",
+      "type": "string"
+    },
+    "location": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Location"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "radius_m": {
+      "enum": [
+        500,
+        1000,
+        2000,
+        3000
+      ],
+      "title": "Radius M",
+      "type": "integer"
+    },
+    "confirmed_food_id": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Confirmed Food Id"
+    },
+    "confirmed_shop_id": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Confirmed Shop Id"
+    }
+  },
+  "required": [
+    "schema_version",
+    "session_id",
+    "question",
+    "photo_id",
+    "dataset_mode",
+    "response_language",
+    "location",
+    "radius_m",
+    "confirmed_food_id",
+    "confirmed_shop_id"
+  ],
+  "title": "GuideRequest",
+  "type": "object"
+}

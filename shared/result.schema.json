@@ -1,0 +1,537 @@
+{
+  "$defs": {
+    "Claim": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "maxLength": 2000,
+          "title": "Text",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "menu",
+            "operation",
+            "culture"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "scope",
+        "evidence_ids"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "Conflict": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "items": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "decision": {
+          "maxLength": 2000,
+          "title": "Decision",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_ids",
+        "decision",
+        "reason"
+      ],
+      "title": "Conflict",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 2000,
+          "title": "Source",
+          "type": "string"
+        },
+        "as_of": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "As Of"
+        },
+        "type": {
+          "enum": [
+            "document",
+            "live_statement",
+            "example"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "dataset_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Dataset Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "as_of",
+        "type",
+        "dataset_id"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "FoodCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "name_ko": {
+          "maxLength": 2000,
+          "title": "Name Ko",
+          "type": "string"
+        },
+        "name_en": {
+          "maxLength": 2000,
+          "title": "Name En",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name_ko",
+        "name_en"
+      ],
+      "title": "FoodCandidate",
+      "type": "object"
+    },
+    "ItineraryItem": {
+      "additionalProperties": false,
+      "properties": {
+        "time": {
+          "maxLength": 2000,
+          "title": "Time",
+          "type": "string"
+        },
+        "activity": {
+          "maxLength": 2000,
+          "title": "Activity",
+          "type": "string"
+        },
+        "buffer_minutes": {
+          "anyOf": [
+            {
+              "maximum": 1440,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Buffer Minutes"
+        },
+        "evidence_ids": {
+          "items": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "time",
+        "activity",
+        "buffer_minutes",
+        "evidence_ids"
+      ],
+      "title": "ItineraryItem",
+      "type": "object"
+    },
+    "Menu": {
+      "additionalProperties": false,
+      "properties": {
+        "name_ko": {
+          "maxLength": 2000,
+          "title": "Name Ko",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 2000,
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "unknowns": {
+          "items": {
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Unknowns",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name_ko",
+        "description",
+        "evidence_ids",
+        "unknowns"
+      ],
+      "title": "Menu",
+      "type": "object"
+    },
+    "Place": {
+      "additionalProperties": false,
+      "properties": {
+        "place_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Place Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 2000,
+          "title": "Name",
+          "type": "string"
+        },
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Lat",
+          "type": "number"
+        },
+        "lng": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Lng",
+          "type": "number"
+        },
+        "distance_m": {
+          "maximum": 3000,
+          "minimum": 0,
+          "title": "Distance M",
+          "type": "number"
+        },
+        "source_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "catalog_version": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Catalog Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "place_id",
+        "name",
+        "lat",
+        "lng",
+        "distance_m",
+        "source_id",
+        "catalog_version"
+      ],
+      "title": "Place",
+      "type": "object"
+    },
+    "Scene": {
+      "additionalProperties": false,
+      "properties": {
+        "food_candidates": {
+          "items": {
+            "$ref": "#/$defs/FoodCandidate"
+          },
+          "maxItems": 3,
+          "title": "Food Candidates",
+          "type": "array"
+        },
+        "confirmed_food_id": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Confirmed Food Id"
+        },
+        "confirmed_shop_id": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Confirmed Shop Id"
+        }
+      },
+      "required": [
+        "food_candidates",
+        "confirmed_food_id",
+        "confirmed_shop_id"
+      ],
+      "title": "Scene",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "session_id": {
+      "maxLength": 120,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "request_id": {
+      "maxLength": 120,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "captured_at": {
+      "format": "date-time",
+      "title": "Captured At",
+      "type": "string"
+    },
+    "dataset_mode": {
+      "enum": [
+        "real_place",
+        "fictional_task"
+      ],
+      "title": "Dataset Mode",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "need_confirmation",
+        "ready",
+        "failed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "speech_text": {
+      "maxLength": 2000,
+      "title": "Speech Text",
+      "type": "string"
+    },
+    "response_language": {
+      "enum": [
+        "en",
+        "ko"
+      ],
+      "title": "Response Language",
+      "type": "string"
+    },
+    "scene": {
+      "$ref": "#/$defs/Scene"
+    },
+    "places": {
+      "items": {
+        "$ref": "#/$defs/Place"
+      },
+      "maxItems": 3,
+      "title": "Places",
+      "type": "array"
+    },
+    "menus": {
+      "items": {
+        "$ref": "#/$defs/Menu"
+      },
+      "maxItems": 3,
+      "title": "Menus",
+      "type": "array"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "maxItems": 15,
+      "title": "Claims",
+      "type": "array"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "maxItems": 30,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "conflicts": {
+      "items": {
+        "$ref": "#/$defs/Conflict"
+      },
+      "maxItems": 10,
+      "title": "Conflicts",
+      "type": "array"
+    },
+    "itinerary": {
+      "items": {
+        "$ref": "#/$defs/ItineraryItem"
+      },
+      "maxItems": 20,
+      "title": "Itinerary",
+      "type": "array"
+    },
+    "order_ko": {
+      "anyOf": [
+        {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Order Ko"
+    },
+    "unknowns": {
+      "items": {
+        "maxLength": 2000,
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Unknowns",
+      "type": "array"
+    },
+    "next_question": {
+      "anyOf": [
+        {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Next Question"
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Error Code"
+    }
+  },
+  "required": [
+    "schema_version",
+    "session_id",
+    "request_id",
+    "captured_at",
+    "dataset_mode",
+    "status",
+    "speech_text",
+    "response_language",
+    "scene",
+    "places",
+    "menus",
+    "claims",
+    "evidence",
+    "conflicts",
+    "itinerary",
+    "order_ko",
+    "unknowns",
+    "next_question",
+    "error_code"
+  ],
+  "title": "GuideResult",
+  "type": "object"
+}
