@@ -1,0 +1,19 @@
+{
+  "worker": "hangul-worker-12",
+  "core_sha256": "ddc4ac121acbaaf06c95e6b7cddf5bcc2ecc59b7b91065c2369cdcd431220528",
+  "contract_sha256": "3a9e159f793a53cf46ba62a65772515a314170980bd97989212de3bc83ee9bfa",
+  "image_id": "sha256:e0bca98666fefc428451d94e7ca1ddd04936022fe5724217e215b5a1f30a4ab2",
+  "effective_policy_hash": "55f944108939719c8089e13bdf68de06e004ef80ca3bf24a0ec878b6bebedaca",
+  "effective_policy_file_sha256": "fd9b16963820dcc399976ea9dd8d000c2d761161a287b6ef2faf8492d671898c",
+  "captured_at": "2026-10-07T06:56:03.227157+00:00",
+  "scope": "Readiness only; separate model/UI evidence in latest-model-execution.json",
+  "readiness": "READY_FOR_REVIEW",
+  "same_validated_allowlist": true,
+  "effective_policy_file": "latest-effective-policy.json",
+  "runtime_policy_ack": [
+    "[1791355703.800] [sandbox] [OCSF ] [ocsf] CONFIG:LOADED [INFO] Acknowledged initial policy revision as loaded [version:2] [hash:55f944108939719c8089e13bdf68de06e004ef80ca3bf24a0ec878b6bebedaca]"
+  ],
+  "deployment_receipt_sha256": "86a9e5a31d949dedf59ce8cf9938b51b8089cf53d77d19510701215f12765e4c",
+  "model_execution": "See latest-model-execution.json",
+  "semantic_acceptance": "PARTIAL; see latest-model-execution.json"
+}

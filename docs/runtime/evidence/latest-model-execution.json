@@ -1,0 +1,127 @@
+{
+  "worker": "hangul-worker-12",
+  "core_sha256": "ddc4ac121acbaaf06c95e6b7cddf5bcc2ecc59b7b91065c2369cdcd431220528",
+  "contract_sha256": "3a9e159f793a53cf46ba62a65772515a314170980bd97989212de3bc83ee9bfa",
+  "image_id": "sha256:e0bca98666fefc428451d94e7ca1ddd04936022fe5724217e215b5a1f30a4ab2",
+  "effective_policy_hash": "55f944108939719c8089e13bdf68de06e004ef80ca3bf24a0ec878b6bebedaca",
+  "effective_policy_file_sha256": "fd9b16963820dcc399976ea9dd8d000c2d761161a287b6ef2faf8492d671898c",
+  "status": "PRIMARY_UI_PASS_SEMANTIC_PARTIAL_WITH_KNOWN_MENU_FAILURE",
+  "capture_window_utc": {
+    "start": "2026-10-07T06:56:02.693538+00:00",
+    "end": "2026-10-07T06:56:03.227157+00:00"
+  },
+  "input_event_snapshot_sha256": "20568e02cea3c2ac4676f6b04e75eccf6bc6978e1288bc19ed00685404f9f5c0",
+  "model_events_sha256": "e68bbcd165412ac00560757827463fff5a92609e47bbe5a1241825778a398020",
+  "runtime_excerpt_sha256": "53ec56c55727a4e64949e22be068744fe0cc67ad61843e355aacd02655b64c18",
+  "actual_response_model_exact_matches": 14,
+  "model_call_count": 14,
+  "runtime_allowed_model_post_count": 14,
+  "jobs": [
+    {
+      "event": "job_finished",
+      "outcome": "saved",
+      "model_calls": 1
+    },
+    {
+      "event": "job_finished",
+      "outcome": "saved",
+      "model_calls": 2
+    },
+    {
+      "event": "job_finished",
+      "outcome": "saved",
+      "model_calls": 2
+    },
+    {
+      "event": "job_finished",
+      "outcome": "invalid_model_output",
+      "model_calls": 3
+    },
+    {
+      "event": "job_finished",
+      "outcome": "saved",
+      "model_calls": 1
+    },
+    {
+      "event": "job_finished",
+      "outcome": "saved",
+      "model_calls": 2
+    },
+    {
+      "event": "job_finished",
+      "outcome": "saved",
+      "model_calls": 2
+    },
+    {
+      "event": "job_finished",
+      "outcome": "saved",
+      "model_calls": 1
+    }
+  ],
+  "primary_ui": {
+    "receipt_sha256": "b07f56e699531f8907dce8268a8bb1dafa7f72a3a48728ca9eacf7e031fbc984",
+    "status": "PASS_PRIMARY_UI_JOURNEY",
+    "started_at": "2026-10-07T06:52:12.177Z",
+    "finished_at": "2026-10-07T06:53:13.329Z",
+    "steps": [
+      {
+        "label": "Cultural photo identification without assumed location",
+        "status": "completed",
+        "elapsed_ms": 8238
+      },
+      {
+        "label": "User explicitly selects the known cultural place from the catalog; no inferred candidate",
+        "status": "completed",
+        "elapsed_ms": 22325
+      },
+      {
+        "label": "Cultural starting point to nearby meal",
+        "status": "completed",
+        "elapsed_ms": 21498
+      }
+    ],
+    "ui_error_count": 0,
+    "checks": {}
+  },
+  "previous_full_ui": {
+    "receipt_sha256": "dc071e8790ae63ed668cb70844b4a9db859ac99ab64e20675ebe7012bd0cba04",
+    "status": "FAILED",
+    "started_at": "2026-10-07T06:49:02.556Z",
+    "finished_at": "2026-10-07T06:50:31.417Z",
+    "steps": [
+      {
+        "label": "Cultural photo identification without assumed location",
+        "status": "completed",
+        "elapsed_ms": 8344
+      },
+      {
+        "label": "User explicitly selects the known cultural place from the catalog; no inferred candidate",
+        "status": "completed",
+        "elapsed_ms": 18363
+      },
+      {
+        "label": "Cultural starting point to nearby meal",
+        "status": "completed",
+        "elapsed_ms": 24302
+      },
+      {
+        "label": "Select the nearby restaurant and inspect its menu",
+        "status": "failed",
+        "elapsed_ms": 32608
+      }
+    ],
+    "ui_error_count": 0,
+    "checks": {}
+  },
+  "primary_scope": "Observe cultural photo, explicitly select Gwang from catalog, find nearby meal; HTML/JSON downloads reported by root. No inferred expected candidate.",
+  "known_failure": "Fourth menu inspection failed historical_source_mismatch; this remains unresolved.",
+  "semantic_acceptance": "PARTIAL",
+  "snapshot_alignment": "Capture is cumulative and may include root Android/TTS follow-up after the primary run. Worker logs lack request IDs; per-POST attribution to individual UI jobs is not claimed.",
+  "privacy": "No photo, response body, location coordinates, credential or private GPU address retained.",
+  "semantic_limitations": [
+    "Root limited review found unsupported English symbolic-motif statements.",
+    "Root limited review found an oversimplified Sambok phrase.",
+    "Fourth menu inspection remains failed: historical_source_mismatch.",
+    "Primary UI PASS does not establish all factual claims, all follow-ups or overall product acceptance."
+  ]
+}
