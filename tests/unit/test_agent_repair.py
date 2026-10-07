@@ -52,7 +52,7 @@ class RepairTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(RealDraft.model_json_schema()["properties"]["claims"]["maxItems"], 3)
         self.assertEqual(Draft.model_json_schema()["properties"]["claims"]["maxItems"], 15)
         observe = ObserveDietaryDraft.model_json_schema()
-        self.assertEqual(observe["properties"]["claims"]["maxItems"], 1)
+        self.assertEqual(observe["properties"]["claims"]["maxItems"], 3)
         self.assertIn("order_ko", observe["required"])
         self.assertEqual(observe["properties"]["order_ko"]["minLength"], 1)
 

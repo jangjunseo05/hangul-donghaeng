@@ -35,14 +35,14 @@ def searches(harness):
 
 
 class AgentCultureTests(unittest.IsolatedAsyncioTestCase):
-    async def test_observe_one_claim_bound_repairs_without_sending_photo_twice(self):
+    async def test_observe_three_grounded_claims_save_without_repair_or_second_photo(self):
         assignment = job()
         assignment["request"].update(interaction_mode="observe", confirmed_place_id=PALACE)
-        oversized = culture_draft()
-        oversized["claims"] *= 2
-        harness = Harness([culture_decision(), oversized, culture_draft()], assignment)
+        response = culture_draft()
+        response["claims"] *= 3
+        harness = Harness([culture_decision(), response], assignment)
         self.assertEqual(await harness.run(), "saved")
-        self.assertEqual(len(harness.model_requests), 3)
+        self.assertEqual(len(harness.model_requests), 2)
         first_parts = harness.model_requests[0]["messages"][-1]["content"]
         self.assertTrue(any(part["type"] == "image_url" for part in first_parts))
         draft_messages = harness.model_requests[1]["messages"]
@@ -50,12 +50,22 @@ class AgentCultureTests(unittest.IsolatedAsyncioTestCase):
                              if isinstance(message["content"], list) for part in message["content"]))
         context, prompt = second_context(harness)
         self.assertEqual(context["observed_place_candidates"][0]["id"], PALACE)
-        self.assertIn("at most ONE short cited claim", prompt)
+        self.assertIn("prefer ONE short cited claim; up to 3 are allowed", prompt)
         self.assertIn("Preserve every required JSON key", prompt)
         result = harness.submitted[0]["result"]
-        self.assertEqual(len(result["claims"]), 1)
+        self.assertEqual(result["claims"], response["claims"])
         self.assertEqual(result["status"], "need_confirmation")
         self.assertTrue(result["next_question"])
+
+    async def test_observe_two_grounded_claims_do_not_spend_repair(self):
+        assignment = job()
+        assignment["request"].update(interaction_mode="observe", confirmed_place_id=PALACE)
+        response = culture_draft()
+        response["claims"] *= 2
+        harness = Harness([culture_decision(), response], assignment)
+        self.assertEqual(await harness.run(), "saved")
+        self.assertEqual(len(harness.model_requests), 2)
+        self.assertEqual(harness.submitted[0]["result"]["claims"], response["claims"])
 
     async def test_candidate_place_requires_confirmation_even_with_confirmed_food(self):
         for confirmed_food in (None, "samgyetang"):

@@ -79,7 +79,7 @@ class RealDraft(Draft):
 
 
 class ObserveDraft(RealDraft):
-    claims: list[Claim] = Field(max_length=1)
+    claims: list[Claim] = Field(max_length=3)
 
 
 class FictionalDraft(Draft):
@@ -91,7 +91,7 @@ class DietaryDraft(RealDraft):
 
 
 class ObserveDietaryDraft(DietaryDraft):
-    claims: list[Claim] = Field(max_length=1)
+    claims: list[Claim] = Field(max_length=3)
 
 
 CHECK_CODES = {"invalid_content", "unknown_food", "unknown_place", "unknown_source", "fictional_search_forbidden",
@@ -427,7 +427,7 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
                    "short cited facts; menu_ids at most 3. Keep unknowns concise and actionable, "
                    "without repetition. Preserve dietary uncertainty, citations and needed confirmation.")
         if observing:
-            prompt += ("\nObserve response: at most ONE short cited claim, speech_text one short sentence, "
+            prompt += ("\nObserve response: prefer ONE short cited claim; up to 3 are allowed when useful. Speech_text one short sentence, "
                        "next_question one short contextual confirmation question. Target <=250 output tokens. "
                        "Use conflicts=[] and itinerary=[] unless essential to the current question; unknowns at most "
                        "two concise uncertainties. menu_ids=[] unless food options are relevant. "
