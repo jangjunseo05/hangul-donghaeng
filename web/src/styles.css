@@ -33,3 +33,9 @@
 .discovery-actions{display:flex;flex-wrap:wrap;gap:9px;margin:18px 0}
 .discovery-actions .button{min-height:44px;font-size:11px}
 @media(max-width:680px){.camera-panel{padding:13px}.camera-panel>p,.companion-options>p{font-size:12px}.companion-options small,.anchor-picker small{font-size:11px}.camera-heading{font-size:12px}.camera-actions .button{padding:10px}.discovery-actions .button{flex:1}.anchor-picker select{font-size:13px}.place-kind{font-size:10px}}
+
+.workspace{grid-template-columns:minmax(0,1fr)}
+.location-toolbar{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.location-toolbar-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.location-toolbar-actions .button{min-height:40px;font-size:11px;padding:8px 12px}
+.compact-radius{display:flex;align-items:center;gap:7px;font-size:11px;color:#817a69}.compact-radius select{font:inherit;min-height:40px;border:1px solid var(--line);border-radius:7px;padding:6px;background:#fffdfa;color:var(--ink)}
+.location-toolbar-status{display:block;font-size:10px;color:#817a69;line-height:1.7;margin-top:8px}.location-toolbar .map-wrap,.recommendation-map{margin-top:14px}

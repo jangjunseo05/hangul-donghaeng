@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, ArrowUpRight, BookOpen, Camera, Check, ChevronDown, Compass, Copy, Download, Globe2, ImagePlus, Info, LoaderCircle, MapPin, Mic, Navigation, RotateCcw, ShieldCheck, Sparkles, Square, Utensils, Volume2, VolumeX, WifiOff, X } from 'lucide-react'
-import MapView, { SEOCHON } from './MapView'
+import MapView from './MapView'
 import { api, ApiError, safeSourceUrl, waitForResult } from './api'
 import { useSpeech } from './useSpeech'
 import { useCamera } from './useCamera'
@@ -28,7 +28,7 @@ export default function App() {
   const photoLockedRef = useRef(false)
   const [photoNotice, setPhotoNotice] = useState('')
   const [location, setLocation] = useState<Location | null>(null)
-  const [demoLocation, setDemoLocation] = useState(false)
+  const [mapPickerOpen, setMapPickerOpen] = useState(false)
   const [radius, setRadius] = useState<Radius>(1000)
   const [locating, setLocating] = useState(false)
   const [locationNotice, setLocationNotice] = useState('')
@@ -174,10 +174,10 @@ export default function App() {
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
     previewUrl.current = null; setPhoto(null); setPhotoNotice('')
   }
-  function selectLocation(next: Location, demo = false) {
+  function selectLocation(next: Location) {
     prioritizeUser(); setAnchor(null)
     identityPlace.current = null
-    setLocation(next); setDemoLocation(demo); setLocationNotice('')
+    setLocation(next); setLocationNotice('')
     if (lastQuestion.current && (result || busy)) void submit({ location: next, place: null, shop: null, question: lastQuestion.current })
   }
   function useMyLocation() {
@@ -191,7 +191,7 @@ export default function App() {
       if (!current()) return
       setLocating(false)
       selectLocation({ lat: position.coords.latitude, lng: position.coords.longitude, origin: 'gps' })
-    }, () => { if (!current()) return; setLocating(false); setLocationNotice(t('Location permission was unavailable. Tap the map or choose the Seochon demo point.', '위치를 확인하지 못했어요. 지도를 누르거나 서촌 시연 위치를 선택해 주세요.')) }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 })
+    }, () => { if (!current()) return; setLocating(false); setLocationNotice(t('Location permission was unavailable. Use Choose on map to select a point.', '위치를 확인하지 못했어요. 지도에서 선택 버튼으로 지점을 직접 골라 주세요.')) }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 })
   }
   function changeRadius(next: Radius) {
     prioritizeUser(); setRadius(next)
@@ -319,7 +319,7 @@ export default function App() {
     prioritizeUser(); readGuard.current.reset()
     identityPlace.current = place.place_id
     const next: Location = { lat: place.lat, lng: place.lng, origin: 'selected' }
-    setAnchor(place); setLocation(next); setDemoLocation(false); setLocationNotice('')
+    setAnchor(place); setLocation(next); setLocationNotice('')
     if (ask || result || busy) void submit({ place: place.place_id, shop: place.kind === 'restaurant' ? place.place_id : null, food: null, location: next, question: t('Tell me about the history, culture and visiting etiquette of ', '이 장소의 역사·문화와 방문 예절을 알려 주세요: ') + place.name })
   }
   function confirmPlace(id: string) {
@@ -331,7 +331,7 @@ export default function App() {
     if (place.kind === 'heritage') { selectAnchor(catalog?.places.find(item => item.place_id === place.place_id) ?? { ...place, kind: 'heritage', name_en: place.name }, true); return }
     const selected = catalog?.places.find(item => item.place_id === place.place_id) ?? { ...place, kind: 'restaurant' as const, name_en: place.name }
     const next: Location = { lat: place.lat, lng: place.lng, origin: 'selected' }
-    setAnchor(selected); setLocation(next); setDemoLocation(false)
+    setAnchor(selected); setLocation(next)
     identityPlace.current = place.place_id
     void submit({ place: place.place_id, shop: place.place_id, location: next, question: t('Tell me about the menu and local culture at ', '이곳의 메뉴와 지역 문화를 알려 주세요: ') + place.name })
   }
@@ -368,13 +368,15 @@ export default function App() {
           <button className="button button-primary ask-button" type="submit" disabled={!session || !question.trim()}>{busy ? <LoaderCircle className="spin" size={18}/> : <Compass size={19}/>}<span>{busy ? t('Ask a new question', '새 질문 보내기') : result ? t('Keep exploring', '이어서 물어보기') : t('Explore with me', '함께 알아보기')}</span><ArrowRight size={18}/></button></form>
           <div className="composer-bottom"><span><ShieldCheck size={13}/>{t('No bookings. No orders. Just a little guidance.', '예약·주문 없이, 필요한 안내만 함께해요.')}</span><label><input type="checkbox" checked={autoRead} onChange={e => setAutoRead(e.target.checked)}/>{t('Read answers aloud', '답변 읽어주기')}</label></div>
           {speech.notice && <p className="inline-notice" role="status"><VolumeX size={14}/>{speech.notice}</p>}
+          {mode === 'real_place' && <div className="location-toolbar">
+            <div className="location-toolbar-actions"><button className="button button-light" onClick={useMyLocation} disabled={locating}>{locating ? <LoaderCircle size={15} className="spin"/> : <Navigation size={15}/>} {t('Use my location', '내 위치 사용')}</button><button className="button button-light" onClick={() => { if (currentResult?.places.length) answer.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); else setMapPickerOpen(value => !value) }}><MapPin size={15}/>{t('Choose on map', '지도에서 선택')}</button><label className="compact-radius">{t('Within', '반경')}<select aria-label={t('Search radius', '검색 반경')} value={radius} onChange={event => changeRadius(Number(event.target.value) as Radius)}>{([500, 1000, 2000, 3000] as Radius[]).map(value => <option key={value} value={value}>{value / 1000} km</option>)}</select></label></div>
+            <small className="location-toolbar-status">{location ? anchor ? t('Selected starting point · ', '선택한 출발점 · ') + anchor.name : location.origin === 'gps' ? t('Using your permitted location', '허용한 내 위치 사용 중') : t('Using your selected map point', '직접 선택한 지도 지점 사용 중') : t('No location selected. Choose one when asking about nearby places.', '위치 미선택 · 주변 장소가 필요할 때 직접 선택해 주세요.')}</small>
+            {mapPickerOpen && !currentResult?.places.length && <MapView location={location} places={EMPTY_PLACES} language={language} onLocation={selectLocation} onChoosePlace={choosePlace}/>}
+            {locationNotice && <p className="inline-notice" role="status"><Info size={14}/>{locationNotice}</p>}
+            {catalogFailed && <p className="inline-notice" role="status">{t('The place collection is unavailable. You can still choose a location on the map.', '수록 장소 정보를 불러오지 못했어요. 지도에서 위치를 직접 선택할 수 있어요.')}</p>}
+          </div>}
         </section>
-        {mode === 'real_place' && <section className="location-panel panel" aria-labelledby="location-title"><div className="section-top"><span className="step-number green">02</span><div><span className="overline">{t('A PLACE TO WANDER', '어디에서 시작할까요')}</span><h2 id="location-title">{t('A little closer to you', '내 주변에서 찾아봐요')}</h2></div><MapPin size={20} className="green-icon"/></div><div className="location-actions"><button className="button button-light" onClick={useMyLocation} disabled={locating}>{locating ? <LoaderCircle size={15} className="spin"/> : <Navigation size={15}/>} {t('Use my location', '내 위치 사용')}</button><button className={'button button-light ' + (demoLocation ? 'active-demo' : '')} onClick={() => selectLocation(SEOCHON, true)}><MapPin size={15}/>{t('Seochon demo', '서촌 시연 위치')}</button></div>
-          <div className="anchor-picker"><label htmlFor="place-anchor">{t("Choose a cultural starting point", "문화 장소를 출발점으로 선택")}</label><select id="place-anchor" value={anchor?.place_id ?? ""} onChange={event => { const next = catalog?.places.find(place => place.place_id === event.target.value); if (next) selectAnchor(next) }}><option value="">{t("Choose from our collection", "수록 장소에서 선택해 주세요")}</option>{(["heritage", "restaurant"] as const).map(kind => <optgroup key={kind} label={kind === "heritage" ? t("History & culture", "역사·문화") : t("Nearby meals", "주변 식사")}>{catalog?.places.filter(place => place.kind === kind).map(place => <option value={place.place_id} key={place.place_id}>{language === "en" ? place.name_en + " · " + place.name : place.name}</option>)}</optgroup>)}</select>{catalogFailed && <p role="status">{t("The place collection is not available yet. You can choose a point on the map or use a photo.", "장소 목록을 아직 불러오지 못했어요. 지도에서 지점을 고르거나 사진을 이용해 주세요.")}</p>}{catalog?.places.some(place => place.name.includes("광화문")) && catalog.places.some(place => place.name.includes("경복궁")) && <small>{t("Gwanghwamun is the main gate of Gyeongbokgung, within the same palace complex. These nearby points are not separate palaces.", "광화문은 경복궁의 정문으로 같은 궁궐 단지 안에 있어요. 가까운 두 지점이며 별개의 궁궐이 아니에요.")}</small>}</div><MapView location={location} places={currentResult?.places ?? EMPTY_PLACES} language={language} onLocation={next => selectLocation(next)} onChoosePlace={choosePlace}/>
-          <div className="map-caption"><span className={'location-dot ' + (location ? 'chosen' : '')}/>{location ? anchor ? t('Selected starting point · ', '선택한 출발점 · ') + anchor.name : demoLocation ? t('Demo starting point · Seochon, Seoul', '시연 출발점 · 서울 서촌') : location.origin === 'gps' ? t('Starting from your location', '내 위치에서 출발') : t('Starting from your selected point', '선택한 지점에서 출발') : t('Your starting point is not selected yet.', '아직 출발점을 선택하지 않았어요.')}</div>
-          <div className="radius-row"><span>{t('Look within', '검색 반경')}</span><div className="radius-control" aria-label={t('Search radius', '검색 반경')}>{([500, 1000, 2000, 3000] as Radius[]).map(value => <button key={value} aria-pressed={radius === value} className={radius === value ? 'selected' : ''} onClick={() => changeRadius(value)}>{value / 1000} km</button>)}</div></div><p className="scope-note">{health ? t('Our curated collection: ' + health.catalog_count + ' place' + (health.catalog_count === 1 ? '' : 's') + '. Distances are straight-line estimates, not walking times.', '수록 장소 ' + health.catalog_count + '곳 기준이에요. 직선거리이며 도보 시간이 아니에요.') : t('Search is limited to our curated collection. Distance is measured in a straight line.', '직접 정리한 수록 장소에서만 찾아요. 거리는 직선거리예요.')}</p>
-          {locationNotice && <p className="inline-notice" role="status"><Info size={14}/>{locationNotice}</p>}
-        </section>}
+
       </div>
       <div className="answer-region" ref={answer} aria-live="polite" aria-busy={busy}>
         {busy && <div className="working-panel"><span className="working-icon"><LoaderCircle className="spin" size={23}/></span><div><h3>{phaseText}</h3><p>{t('We’ll keep the sources, the uncertainties, and your question together.', '질문과 근거, 아직 모르는 점을 함께 살펴볼게요.')}</p></div></div>}
@@ -383,6 +385,7 @@ export default function App() {
           {(stale || busy) && <div className="stale-label">{t('Previous answer · waiting for an update. These recommendations are inactive.', '이전 답변 · 새 답변을 기다리고 있어요. 추천은 비활성 상태예요.')}</div>}
           <p className="answer-text">{result.speech_text}</p>
           <div className="answer-meta"><Check size={13}/>{t('Last answer', '마지막 답변')} · {Number.isFinite(Date.parse(result.captured_at)) ? new Date(result.captured_at).toLocaleString(language === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : t('Time unavailable', '시각 미상')}</div>
+          {mode === 'real_place' && Boolean(currentResult?.places.length) && <div className="recommendation-map"><MapView location={location} places={currentResult?.places ?? EMPTY_PLACES} language={language} onLocation={selectLocation} onChoosePlace={choosePlace}/><p className="scope-note">{health ? t('Recommendations cover only our curated collection of ' + health.catalog_count + ' places, not a general place search. Distances are straight-line estimates.', '추천은 직접 정리한 수록 장소 ' + health.catalog_count + '곳에 한정돼요. 전체 장소 검색이 아니며 거리는 직선거리예요.') : t('Recommendations cover only our curated collection, not a general place search. Distances are straight-line estimates.', '추천은 직접 정리한 수록 장소에 한정돼요. 전체 장소 검색이 아니며 거리는 직선거리예요.')}</p></div>}
           {result.scene.food_candidates.length > 0 && !result.scene.confirmed_food_id && <div className="confirmation-box"><strong>{t('Which one looks right?', '어떤 음식인가요?')}</strong><div>{result.scene.food_candidates.map(food => <button key={food.id} disabled={!currentResult} onClick={() => void submit({ food: food.id, question: t('Yes, I mean ', '이 음식이 맞아요: ') + food.name_ko })}><span>{food.name_ko}</span><small>{food.name_en}</small><ArrowRight size={15}/></button>)}</div></div>}
           {(result.scene.place_candidates ?? []).length > 0 && !result.scene.confirmed_place_id && <div className="confirmation-box place-confirmation"><strong>{t("Could this be the place? Please confirm.", "이 장소가 맞나요? 먼저 확인해 주세요.")}</strong><div>{result.scene.place_candidates?.map(place => <button key={place.id} disabled={!currentResult || !catalog?.places.some(item => item.place_id === place.id)} onClick={() => confirmPlace(place.id)}><span>{place.name_ko}</span><small>{place.name_en}</small><ArrowRight size={15}/></button>)}</div><small>{t("A photo alone does not establish the location. Confirming chooses the collection’s map point.", "사진만으로 위치를 확정하지 않아요. 확인하면 수록된 지도 지점을 출발점으로 선택해요.")}</small></div>}{result.places.length > 0 && <div className="place-list">{result.places.map((place, index) => <button className="place-card" key={place.place_id} disabled={!currentResult} onClick={() => choosePlace(place)}><span className="place-number">{index + 1}</span><div><span className="place-kind">{place.kind === "heritage" ? t("History & culture", "역사·문화") : t("Restaurant", "음식점")}</span><strong>{place.name}</strong><small><MapPin size={12}/>{Math.round(place.distance_m)} m · {t('straight-line distance', '직선거리')}</small></div><ArrowUpRight size={20}/></button>)}</div>}
           {mode === "real_place" && (result.scene.confirmed_place_id || result.scene.confirmed_shop_id) && <div className="discovery-actions"><button className="button button-soft" disabled={!currentResult} onClick={() => void submit({ food: null, question: t("Find a restaurant near my selected starting point. Keep the cultural place as the starting point, not as a restaurant.", "선택한 출발점 주변의 음식점을 찾아 주세요. 문화 장소를 식당으로 바꾸지 말고 출발점으로 유지해 주세요.") })}><Utensils size={15}/>{t("Find a meal nearby", "주변 식사로 이어보기")}</button><button className="button button-light" disabled={!currentResult} onClick={() => void submit({ food: null, question: t("Find a cultural or historical place near my selected starting point. Explain its context and what is uncertain.", "선택한 출발점 주변의 역사·문화 장소를 찾아 맥락과 미확인을 알려 주세요.") })}><BookOpen size={15}/>{t("Explore nearby history", "주변 역사로 이어보기")}</button></div>}{result.menus.length > 0 && <div className="menus-grid">{result.menus.map((menu, index) => <article className="menu-card" key={menu.name_ko + index}><span className="menu-icon"><Utensils size={19}/></span><span className="menu-index">0{index + 1}</span><h3>{menu.name_ko}</h3><p>{menu.description}</p><div className="menu-source-ids">{menu.evidence_ids.join(' · ')}</div>{menu.unknowns.length > 0 && <div className="menu-unknowns"><Info size={14}/><span>{menu.unknowns.join(' · ')}</span></div>}</article>)}</div>}
