@@ -27,6 +27,8 @@ ROOT = Path(__file__).resolve().parents[1]
 Image.MAX_IMAGE_PIXELS = 20_000_000
 COOKIE = "guide_session"
 TERMINAL = {"completed", "failed", "superseded"}
+SESSION_MAX_AGE = 6 * 3600
+SESSION_IDLE_AGE = 3600
 
 
 def abort(status: int, code: str, message: str):
@@ -40,6 +42,7 @@ class Session:
     history: list[dict] = field(default_factory=list)
     photos: set[str] = field(default_factory=set)
     created: float = field(default_factory=time.monotonic)
+    last_seen: float = field(default_factory=time.monotonic)
 
 
 class Store:
@@ -49,10 +52,27 @@ class Store:
         self.jobs: dict[str, dict] = {}
         self.photos: dict[str, dict] = {}
         self.worker_seen = 0.0
+        self.session_attempts: dict[str, list[float]] = {}
         self.runtime = runtime.resolve()
         self.output = Path(os.getenv("GUIDE_OUTPUT_DIR", str(self.runtime / "output"))).resolve()
         (self.runtime / "photos").mkdir(parents=True, exist_ok=True)
         self.output.mkdir(parents=True, exist_ok=True)
+
+    def prune_sessions(self, now: float):
+        expired = {key for key, session in self.sessions.items()
+                   if now - session.created >= SESSION_MAX_AGE
+                   or now - session.last_seen >= SESSION_IDLE_AGE}
+        expired_ids = {self.sessions[key].id for key in expired}
+        for key in expired:
+            session = self.sessions.pop(key)
+            for photo_id in session.photos:
+                photo = self.photos.pop(photo_id, None)
+                if photo:
+                    photo["path"].unlink(missing_ok=True)
+        self.jobs = {rid: job for rid, job in self.jobs.items()
+                     if job["request"]["session_id"] not in expired_ids}
+        self.session_attempts = {ip: recent for ip, attempts in self.session_attempts.items()
+                                 if (recent := [t for t in attempts if now - t < 60])}
 
     def expire(self, job: dict):
         if job["status"] not in TERMINAL and time.monotonic() - job["created"] > 30:
@@ -113,9 +133,12 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
     def browser_session(request: Request) -> Session:
         cookie = request.cookies.get(COOKIE, "")
         with store.lock:
+            now = time.monotonic()
+            store.prune_sessions(now)
             session = store.sessions.get(cookie)
-            if not session or time.monotonic() - session.created > 6 * 3600:
+            if not session:
                 abort(401, "SESSION_REQUIRED", "Start a new session.")
+            session.last_seen = now
             return session
 
     def worker_auth(authorization: str | None = Header(default=None)):
@@ -134,11 +157,19 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
     @app.post("/api/sessions")
     def start_session(request: Request, response: Response):
         with store.lock:
+            now = time.monotonic()
+            store.prune_sessions(now)
             existing = store.sessions.get(request.cookies.get(COOKIE, ""))
-            if existing and time.monotonic() - existing.created < 6 * 3600:
+            if existing:
+                existing.last_seen = now
                 return {"session_id": existing.id}
+            client_ip = request.client.host if request.client else "unknown"
+            attempts = store.session_attempts.setdefault(client_ip, [])
+            if len(attempts) >= 10:
+                abort(429, "SESSION_RATE_LIMIT", "Please wait a minute before starting another session.")
             if len(store.sessions) >= 64:
-                abort(503, "SESSION_LIMIT", "Demo capacity reached. Ask the operator to restart the demo.")
+                abort(503, "SESSION_LIMIT", "All demo sessions are in use. Please try again later.")
+            attempts.append(now)
             key = secrets.token_urlsafe(32)
             session = Session(id=uuid.uuid4().hex)
             store.sessions[key] = session

@@ -1,0 +1,162 @@
+{
+  "real_place": [
+    {
+      "id": "visitseoul:tosokchon",
+      "source": "https://korean.visitseoul.net/restaurants/TosokchonSamgyetang/KOPywjsmm",
+      "as_of": "2026-07-24",
+      "source_locator": "Address and map fields",
+      "scope": "restaurant identity/address/map coordinates, not present opening status",
+      "text": "토속촌삼계탕 주소는 서울 종로구 자하문로5길 5. 지도 좌표는 37.57760304027, 126.971632166657. 현재 영업·재고·입구 위치 실측은 확인하지 않았다.",
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "visitkorea:tosokchon-menu",
+      "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=97919",
+      "as_of": null,
+      "source_locator": "Specialty Menu / Menu / Address",
+      "scope": "published menu listing, not stock, complete ingredients or allergy safety",
+      "text": "KTO lists samgyetang, rotisserie chicken and seafood-and-green-onion pancake. This listing does not verify today's availability, full ingredients, broth, fish sauce, cross-contact, vegetarian suitability or allergy safety.",
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "koreanet:samgyetang-culture",
+      "source": "https://www.korea.net/NewsFocus/Culture/view?articleId=139534",
+      "as_of": "2016-08-16",
+      "source_locator": "Malbok, Samgyetang and Bokdarim, introductory and Sambok paragraphs",
+      "scope": "general food culture, not restaurant-specific recipe or medical benefit",
+      "text": "Korea.net describes eating samgyetang during Sambok, the traditional summer hot-day period. This is cultural context, not proof of health benefits, today's calendar dates or a restaurant's ingredients.",
+      "type": "document",
+      "dataset_id": "real_place",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null
+    }
+  ],
+  "fictional_task": [
+    {
+      "id": "task:visitor",
+      "source": "https://raw.githubusercontent.com/seriousran/k-culture-openshell-challenge/714e2e8d32f9b77e763a2458ca11b1270e80abf6/hackathon/input/travel/visitor_group.json",
+      "as_of": null,
+      "type": "example",
+      "dataset_id": "fictional_task",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "travel/visitor_group.json",
+      "scope": "official public fictional exercise input; anonymized summary, not real tourism facts",
+      "text": "Visit 2026-10-10; draft_only approval. Group constraints: vegan, peanut allergy, sesame allergy. Names omitted. Starting time and stop durations are not supplied."
+    },
+    {
+      "id": "task:market-notice",
+      "source": "https://raw.githubusercontent.com/seriousran/k-culture-openshell-challenge/714e2e8d32f9b77e763a2458ca11b1270e80abf6/hackathon/input/local/market_notice_2026-10-06.txt",
+      "as_of": "2026-10-06",
+      "type": "example",
+      "dataset_id": "fictional_task",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "local/market_notice_2026-10-06.txt",
+      "scope": "official public fictional exercise input; anonymized summary, not real tourism facts",
+      "text": "The fictional market association limits operation to 10:00–14:00 on 2026-10-10 due to entrance construction. The statement about next week does not establish another date's hours."
+    },
+    {
+      "id": "task:market-blog",
+      "source": "https://raw.githubusercontent.com/seriousran/k-culture-openshell-challenge/714e2e8d32f9b77e763a2458ca11b1270e80abf6/hackathon/input/local/market_blog_cache_2025.md",
+      "as_of": "2025-05-03",
+      "type": "example",
+      "dataset_id": "fictional_task",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "local/market_blog_cache_2025.md",
+      "scope": "official public fictional exercise input; anonymized summary, not real tourism facts",
+      "text": "An older personal blog says Saturday 10:00–18:00. It is not date-specific authorization for 2026-10-10."
+    },
+    {
+      "id": "task:route-note",
+      "source": "https://raw.githubusercontent.com/seriousran/k-culture-openshell-challenge/714e2e8d32f9b77e763a2458ca11b1270e80abf6/hackathon/input/travel/route_note.md",
+      "as_of": null,
+      "type": "example",
+      "dataset_id": "fictional_task",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "travel/route_note.md",
+      "scope": "official public fictional exercise input; anonymized summary, not real tourism facts",
+      "text": "From the market north gate, the pavilion is an 18-minute walk. The note suggests a roughly 28-minute bus-stop detour for wheelchair users to avoid coastal-deck stairs. Current access, gradients, width and date are unverified."
+    },
+    {
+      "id": "task:old-route",
+      "source": "https://raw.githubusercontent.com/seriousran/k-culture-openshell-challenge/714e2e8d32f9b77e763a2458ca11b1270e80abf6/hackathon/input/travel/old_route_card_2024.txt",
+      "as_of": "2024",
+      "type": "example",
+      "dataset_id": "fictional_task",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "travel/old_route_card_2024.txt",
+      "scope": "official public fictional exercise input; anonymized summary, not real tourism facts",
+      "text": "Old pre-construction card: south gate to pavilion 12 minutes via coastal deck; accessibility not assessed. Different gate from the north-gate note, so not a direct time update."
+    },
+    {
+      "id": "task:pavilion-field",
+      "source": "https://raw.githubusercontent.com/seriousran/k-culture-openshell-challenge/714e2e8d32f9b77e763a2458ca11b1270e80abf6/hackathon/input/history/seongjin_pavilion_field_note_2026.md",
+      "as_of": "2026-09-18",
+      "type": "example",
+      "dataset_id": "fictional_task",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "history/seongjin_pavilion_field_note_2026.md",
+      "scope": "official public fictional exercise input; anonymized summary, not real tourism facts",
+      "text": "A field note reports an entry in a construction ledger: east annex removed during 1987 repairs. It estimates the plaque was newly made in 1961; dating of some main-building timbers is pending. The ledger original has not been independently checked here."
+    },
+    {
+      "id": "task:pavilion-leaflet",
+      "source": "https://raw.githubusercontent.com/seriousran/k-culture-openshell-challenge/714e2e8d32f9b77e763a2458ca11b1270e80abf6/hackathon/input/history/tourism_leaflet_2023.txt",
+      "as_of": "2023",
+      "type": "example",
+      "dataset_id": "fictional_task",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "history/tourism_leaflet_2023.txt",
+      "scope": "official public fictional exercise input; anonymized summary, not real tourism facts",
+      "text": "Tourism advertising claims perfectly preserved original form and national uniqueness. No scholarly review is marked; do not promote these advertising claims to established facts."
+    },
+    {
+      "id": "task:food-glossary",
+      "source": "https://raw.githubusercontent.com/seriousran/k-culture-openshell-challenge/714e2e8d32f9b77e763a2458ca11b1270e80abf6/hackathon/input/culture/food_glossary.md",
+      "as_of": null,
+      "type": "example",
+      "dataset_id": "fictional_task",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "culture/food_glossary.md",
+      "scope": "official public fictional exercise input; anonymized summary, not real tourism facts",
+      "text": "Perilla and sesame are different ingredients. A vegetarian option does not establish whether broth and fermented seafood are excluded; confirm per vendor."
+    },
+    {
+      "id": "task:market-etiquette",
+      "source": "https://raw.githubusercontent.com/seriousran/k-culture-openshell-challenge/714e2e8d32f9b77e763a2458ca11b1270e80abf6/hackathon/input/culture/market_etiquette_note.md",
+      "as_of": null,
+      "type": "example",
+      "dataset_id": "fictional_task",
+      "observed_at": "2026-10-07",
+      "valid_from": null,
+      "valid_to": null,
+      "source_locator": "culture/market_etiquette_note.md",
+      "scope": "official public fictional exercise input; anonymized summary, not real tourism facts",
+      "text": "Ask vendors about allergens before tasting. Foods with the same name can differ between ceremonial and everyday use. Ask permission before photography. This is general guidance, not a recipe or allergy-safety certificate."
+    }
+  ]
+}

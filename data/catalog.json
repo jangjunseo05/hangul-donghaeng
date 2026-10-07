@@ -1,0 +1,66 @@
+{
+  "catalog_version": "2026-10-07.1",
+  "scope_label": "수록 식당 1곳 기준 · 직선거리 / One curated restaurant; straight-line distance",
+  "places": [
+    {
+      "place_id": "local:tosokchon",
+      "name": "토속촌삼계탕",
+      "address_ko": "서울 종로구 자하문로5길 5",
+      "lat": 37.57760304027,
+      "lng": 126.971632166657,
+      "source_id": "visitseoul:tosokchon",
+      "coordinate_note": "Visit Seoul map value, not measured entrance GPS",
+      "food_ids": [
+        "samgyetang",
+        "roast-chicken",
+        "haemul-pajeon"
+      ]
+    }
+  ],
+  "foods": [
+    {
+      "id": "samgyetang",
+      "name_ko": "삼계탕",
+      "name_en": "Ginseng chicken soup"
+    },
+    {
+      "id": "roast-chicken",
+      "name_ko": "전기구이 통닭",
+      "name_en": "Rotisserie chicken"
+    },
+    {
+      "id": "haemul-pajeon",
+      "name_ko": "해물파전",
+      "name_en": "Seafood and green onion pancake"
+    }
+  ],
+  "menus": [
+    {
+      "food_id": "samgyetang",
+      "name_ko": "삼계탕",
+      "description_en": "Ginseng chicken soup listed by the Korea Tourism Organization.",
+      "description_ko": "한국관광공사 소개에 기재된 삼계탕입니다.",
+      "evidence_ids": [
+        "visitkorea:tosokchon-menu"
+      ]
+    },
+    {
+      "food_id": "roast-chicken",
+      "name_ko": "전기구이 통닭",
+      "description_en": "Rotisserie chicken listed by the Korea Tourism Organization.",
+      "description_ko": "한국관광공사 소개에 기재된 전기구이 통닭입니다.",
+      "evidence_ids": [
+        "visitkorea:tosokchon-menu"
+      ]
+    },
+    {
+      "food_id": "haemul-pajeon",
+      "name_ko": "해물파전",
+      "description_en": "Seafood and green onion pancake listed by the Korea Tourism Organization.",
+      "description_ko": "한국관광공사 소개에 기재된 해물파전입니다.",
+      "evidence_ids": [
+        "visitkorea:tosokchon-menu"
+      ]
+    }
+  ]
+}

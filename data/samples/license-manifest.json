@@ -1,0 +1,32 @@
+{
+    "checked_at":  "2026-10-07",
+    "status":  "license_verified_downloaded",
+    "download_http_status":  200,
+    "local_file":  "data/samples/samgyetang-960.jpg",
+    "subject":  "Samgyetang generic example; not asserted to be Tosokchon or the user\u0027s meal",
+    "source_page":  "https://commons.wikimedia.org/wiki/File:Samgye_tang.jpg",
+    "source_revision":  "1132115227",
+    "original_url":  "https://upload.wikimedia.org/wikipedia/commons/3/31/Samgye_tang.jpg",
+    "author":  "Brücke-Osteuropa",
+    "image_date":  "2011-06-08",
+    "license":  "CC0-1.0",
+    "license_url":  "https://creativecommons.org/publicdomain/zero/1.0/",
+    "note":  "Real Wikimedia Commons photograph, served as a 960px thumbnail without local image editing. Generic samgyetang only; not a verified Tosokchon dish or user meal. Availability and license are verified; model recognition, ingredients, dietary suitability and product execution are unverified.",
+    "source_revision_url":  "https://commons.wikimedia.org/w/index.php?title=File:Samgye_tang.jpg\u0026oldid=1132115227",
+    "source_verification":  "Commons file description, author, own-work source, CC0 statement and footer revision 1132115227 read on 2026-10-07; CC0 deed also read.",
+    "downloaded_at_utc":  "2026-10-07T04:20:23.4092540Z",
+    "download_url":  "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/31/Samgye_tang.jpg/960px-Samgye_tang.jpg",
+    "download_user_agent":  "HangulDonghaengDemo/0.1 (one-time Commons demo sample download; OpenAI Codex-assisted)",
+    "sha256":  "9fea982f4bdcd2389d73b0a2729cf07d6c78a90cacf9eb757034ed6ed2825dd4",
+    "byte_size":  105596,
+    "mime_type":  "image/jpeg",
+    "width":  960,
+    "height":  540,
+    "derivative":  "Wikimedia-generated 960px thumbnail; not original-resolution file; no local crop, resize or generation.",
+    "attribution":  "Samgye tang.jpg — Brücke-Osteuropa — CC0 1.0 — Wikimedia Commons",
+    "recognition_verified":  false,
+    "previous_download":  {
+                              "http_status":  429,
+                              "outcome":  "No local file obtained by prior attempt."
+                          }
+}

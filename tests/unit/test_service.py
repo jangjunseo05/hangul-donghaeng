@@ -139,3 +139,35 @@ def test_origin_and_fictional_search_boundary(app):
         client.get("/worker/jobs/next", headers=AUTH)
         assert client.post("/worker/search", headers=AUTH, json={"session_id": sid, "request_id": rid,
                "food_id": "samgyetang", "shop_id": None, "radius_m": 1000}).status_code == 403
+
+
+def test_expired_sessions_release_capacity_and_private_photos(app):
+    from service.main import Session
+    client = TestClient(app)
+    sid = session(client)
+    rid = new_job(client, sid)
+    stream = io.BytesIO()
+    Image.new("RGB", (8, 8)).save(stream, format="JPEG")
+    pid = client.post("/api/photos", files={"file": ("sample.jpg", stream.getvalue(), "image/jpeg")}).json()["photo_id"]
+    path = app.state.store.photos[pid]["path"]
+    for index in range(63):
+        app.state.store.sessions[f"expired-{index}"] = Session(id=f"expired-{index}")
+    for entry in app.state.store.sessions.values():
+        entry.last_seen -= 3601
+    assert len(app.state.store.sessions) == 64
+    response = client.post("/api/sessions", json={})
+    assert response.status_code == 200 and response.json()["session_id"] != sid
+    assert len(app.state.store.sessions) == 1
+    assert rid not in app.state.store.jobs and pid not in app.state.store.photos
+    assert not path.exists()
+
+
+def test_session_creation_rate_limit_does_not_block_existing_session(app):
+    client = TestClient(app)
+    for _ in range(10):
+        client.cookies.clear()
+        assert client.post("/api/sessions", json={}).status_code == 200
+    assert client.post("/api/sessions", json={}).status_code == 200
+    client.cookies.clear()
+    assert client.post("/api/sessions", json={}).status_code == 429
+    assert len(app.state.store.sessions) == 10
