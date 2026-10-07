@@ -9,13 +9,15 @@
 | Broker | 세션·사진 정규화/EXIF 제거·작업 배정·검색·결과 검증·세션 소유 다운로드 구현. WSL Ubuntu 22.04 실행, Windows localhost:8000 /api/health 실제 응답 확인 |
 | 데이터·agent | 식당 1곳·메뉴 3개와 허용 근거 자료. 사진/질문 → 모델 판단 → 근거/반경 검색 도구 → 구조화 결과 흐름 구현. 테스트 모델 응답은 HTTP stub |
 | 웹 | 음성/텍스트·사진·한영 전환·반경 지도·근거/문화/메뉴·한국어 문장·카드 다운로드 구현. 웹 빌드 통과는 통합 담당 확인 |
-| Python 자동 테스트 | Windows pytest: **42 passed, 29 subtests passed**. Starlette/httpx deprecation warning 1개 |
+| Python 자동 테스트 | 수정 후 Windows pytest: **50 passed, 29 subtests passed**. Starlette/httpx deprecation warning 1개 |
 | 웹 단위 테스트 | npm test: **7 passed** |
 | 브라우저 테스트 | 웹 담당 최종 실행: Playwright desktop/mobile 합계 **10개 통과**. [인계 기록](../web/BUILD-WEB-01.md). 실제 마이크 입력·스피커 성공은 별도 확인 필요 |
 | OpenShell | **0.1.2 gateway Connected**, provider policy lint 통과, 정책 설정 테스트 **4개 통과**. 위 Python 42개에 포함 |
 | GPU 준비 | 담당자가 Brev CLI 인증과 기존 **NVIDIA L40S, 46068 MiB** 확인. NVIDIA 모델 배포 진행 중, hosted API 키는 없음 |
 
-직접 확인한 health 응답은 `status=ok`, `catalog_count=1`, `worker_connected=false`, `model_configured=false`, `sandbox_verified=false`입니다. 연결·설정 관측용이며 실제 모델 성공이나 정책 차단 증거가 아닙니다. self-hosted 모델 설정은 hosted 키 존재와 별도로 판단해야 합니다.
+13:30 시점 health 응답은 `status=ok`, `catalog_count=1`, `worker_connected=false`, `model_configured=false`, `sandbox_verified=false`입니다. 연결·설정 관측용이며 실제 모델 성공이나 정책 차단 증거가 아닙니다. self-hosted 모델 설정은 hosted 키 존재와 별도로 판단해야 합니다.
+
+사용자는 시연 PC Chrome에서 영어·한국어 실제 마이크 입력이 모두 표시됐다고 확인했습니다. 답변의 실제 음성 재생은 별도 확인 대기입니다. 핵심 코드의 독립 재검수는 [코드 검수 승인·구조 검수 CLEAR](qa/core-review-20261007.md)이며 제품 런타임 판정과 구분합니다.
 
 ## 남은 제품 검증
 
