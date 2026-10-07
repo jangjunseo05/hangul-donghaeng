@@ -43,6 +43,7 @@ class Session:
     photos: set[str] = field(default_factory=set)
     created: float = field(default_factory=time.monotonic)
     last_seen: float = field(default_factory=time.monotonic)
+    history_mode: str | None = None
 
 
 class Store:
@@ -92,8 +93,32 @@ class Store:
         return job
 
 
+class BodyLimitMiddleware:
+    """Count received bytes before JSON/multipart parsing, including chunked bodies."""
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        limit = 9 * 1024 * 1024 if scope["path"] == "/api/photos" else 256 * 1024
+        received = 0
+
+        async def bounded_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    abort(413, "BODY_TOO_LARGE", "The request is too large.")
+            return message
+
+        await self.app(scope, bounded_receive, send)
+
+
 def create_app(runtime_dir: Path | None = None, worker_token: str | None = None) -> FastAPI:
     app = FastAPI(title="Hangul Donghaeng", version="0.1.0")
+    app.add_middleware(BodyLimitMiddleware)
     store = Store(runtime_dir or ROOT / ".runtime")
     app.state.store = store
     token = worker_token or os.getenv("WORKER_TOKEN", "")
@@ -221,6 +246,9 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                 abort(422, "UNKNOWN_PLACE", "Choose a listed place.")
             if len(store.jobs) >= 1500:
                 abort(503, "JOB_LIMIT", "Demo capacity reached.")
+            if session.history_mode != body.dataset_mode:
+                session.history.clear()
+                session.history_mode = body.dataset_mode
             previous = store.jobs.get(session.active_request_id)
             if previous and previous["status"] not in TERMINAL:
                 previous["status"] = "superseded"

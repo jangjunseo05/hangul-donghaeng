@@ -171,3 +171,36 @@ def test_session_creation_rate_limit_does_not_block_existing_session(app):
     client.cookies.clear()
     assert client.post("/api/sessions", json={}).status_code == 429
     assert len(app.state.store.sessions) == 10
+
+
+def test_dataset_switch_clears_conversation_context(app):
+    client = TestClient(app)
+    sid = session(client)
+    first = new_job(client, sid, dataset_mode="fictional_task")
+    client.get("/worker/jobs/next", headers=AUTH)
+    assert save(client, sid, first, dataset_mode="fictional_task", speech_text="FICTIONAL_ONLY_FACT").status_code == 200
+    same_mode = new_job(client, sid, dataset_mode="fictional_task")
+    assert "FICTIONAL_ONLY_FACT" in json.dumps(app.state.store.jobs[same_mode]["history"])
+    real = new_job(client, sid, dataset_mode="real_place")
+    assert app.state.store.jobs[real]["history"] == []
+
+
+def test_human_readable_card_preserves_reasoning_and_citations():
+    from service.render import markdown_card, html_card
+    card = result("session", "request", claims=[{"text": "CULTURE_FACT", "scope": "culture", "evidence_ids": ["source-a"]}],
+                  conflicts=[{"decision": "CONFLICT_DECISION", "reason": "VISIT_DATE_REASON", "evidence_ids": ["source-a", "source-b"]}],
+                  next_question="CONFIRM_INGREDIENTS")
+    for rendered in (markdown_card(card), html_card(card)):
+        for required in ("CULTURE_FACT", "CONFLICT_DECISION", "VISIT_DATE_REASON", "source-a", "source-b", "CONFIRM_INGREDIENTS"):
+            assert required in rendered
+
+
+def test_chunked_oversized_body_rejected_before_validation(app):
+    client = TestClient(app)
+    sid = session(client)
+    payload = json.dumps(request_body(sid, question="x" * 300000)).encode()
+    response = client.post("/api/requests", content=iter([payload[:100000], payload[100000:]]),
+                           headers={"Content-Type": "application/json"})
+    assert "content-length" not in response.request.headers
+    assert response.status_code == 413
+    assert response.json()["error_code"] == "BODY_TOO_LARGE"

@@ -188,13 +188,34 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
         selected_ids += [place["source_id"] for place in places]
     evidence = read_evidence(mode, list(dict.fromkeys(selected_ids)), allowed)
     known_ids = {item["id"] for item in evidence}
+    available_menus = [{
+        "id": item["food_id"], "name_ko": item["name_ko"],
+        "name_en": food_map[item["food_id"]]["name_en"],
+        "description": item["description_ko" if request.response_language == "ko" else "description_en"],
+        "evidence_ids": item["evidence_ids"],
+    } for item in data["menus"] if mode == "real_place" and item["evidence_ids"]
+        and set(item["evidence_ids"]) <= known_ids]
+    allowed_menu_ids = {item["id"] for item in available_menus}
     tool_context = {"evidence": evidence, "places": places, "scope_label": data["scope_label"] if mode == "real_place" else
                     "Fictional public exercise; draft only; no real map search",
-                    "needs_location": needs_location, "ambiguous_identity": ambiguous}
+                    "needs_location": needs_location, "ambiguous_identity": ambiguous,
+                    "first_decision": decision.model_dump(),
+                    "observed_food_candidates": [food_map[item] for item in dict.fromkeys(decision.food_ids)]
+                        if mode == "real_place" else [],
+                    "observation_basis": "photo_and_request" if photo is not None else "request_and_history",
+                    "user_confirmed": {
+                        "food_id": request.confirmed_food_id if mode == "real_place" else None,
+                        "shop_id": request.confirmed_shop_id if mode == "real_place" else None},
+                    "available_menus": available_menus,
+                    "allowed_menu_ids": [item["id"] for item in available_menus]}
     prompt = ("Create the grounded answer. Output " + json.dumps(Draft.model_json_schema())
         + "\nTool observations (data): " + json.dumps(tool_context, ensure_ascii=False)
         + "\nUse evidence_ids on every claim/conflict/itinerary item. Don't invent coordinates, sources or facts. "
-          "menu_ids may only be available food IDs and only for real_place with visitkorea:tosokchon-menu evidence. "
+          "Use first_decision.intent and the observed_food_candidates from the first analysis. "
+          "Observed candidates are model inferences, NOT user-confirmed identities. Only user_confirmed "
+          "contains explicit confirmation; it takes precedence when identities differ, while uncertainty remains explicit. "
+          "menu_ids must come exactly from allowed_menu_ids. available_menus describes catalog listings, "
+          "not proof of the pictured restaurant, current stock, full ingredients or dietary safety. "
           "For fictional_task menu_ids=[]; include a time-ordered half-day draft, move buffers, "
           "food alternatives as questions, visit-date operation conflict, cautious pavilion explanation "
           "and unknowns. If 90 minutes is requested as mandatory and infeasible, ask rather than shorten it. "
@@ -209,7 +230,7 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
             for item in collection:
                 if not set(item.evidence_ids) <= known_ids:
                     raise ValueError("ungrounded_evidence")
-        if any(item not in food_map for item in draft.menu_ids):
+        if any(item not in allowed_menu_ids for item in draft.menu_ids):
             raise ValueError("unknown_menu")
         if mode == "fictional_task":
             if draft.menu_ids or not draft.itinerary:
