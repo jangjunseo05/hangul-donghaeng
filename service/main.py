@@ -198,7 +198,9 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
             key = secrets.token_urlsafe(32)
             session = Session(id=uuid.uuid4().hex)
             store.sessions[key] = session
-            response.set_cookie(COOKIE, key, httponly=True, secure=cookie_secure, samesite="strict", max_age=21600)
+            response.set_cookie(COOKIE, key, httponly=True,
+                                secure=cookie_secure or request.url.scheme == "https",
+                                samesite="strict", max_age=21600)
             return {"session_id": session.id}
 
     @app.post("/api/photos")

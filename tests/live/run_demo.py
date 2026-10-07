@@ -194,6 +194,9 @@ async def submit_poll(client, payload, record):
         if state == "completed":
             return rid, job.get("result")
         if state in {"failed", "superseded"}:
+            code = job.get("error_code")
+            if isinstance(code, str) and re.fullmatch(r"[A-Za-z0-9_.:-]{1,120}", code):
+                record["worker_error_code"] = code
             raise CheckError(f"job_{state}")
         require(state in {"queued", "running"}, "unknown_job_state")
         await asyncio.sleep(1.0)

@@ -54,11 +54,26 @@ The shared system prompt starts with /no_think for decision, grounded output and
 calls. This matches the NVIDIA BF16 model card's system-message usage (checked 2026-10-07):
 https://huggingface.co/nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16
 
-Model request timeout remains 10 seconds and max_tokens remains 2200; job deadline is
-30 seconds (at most 3 calls). No measured warm GPU/prefill/decode timings were available
-for this hardening pass. These are existing bounds, not a demonstrated latency promise.
-Measure a warm real photo + two JSON calls before tuning them together with root's
-server job expiry. Raising only the worker timeout would not fix server-side expiration.
+BUILD-MODEL-LATENCY-04: each model HTTP request has a 20-second wall-clock deadline
+and HTTPX phase timeout. HTTPX timeout or the per-call deadline returns model_timeout;
+other HTTP transport errors retain model_transport_error. Neither triggers a retry.
+The shared execution/result-submission deadline remains 30 seconds and returns
+job_timeout when it expires, including during a second call or schema repair.
+Failure notification occurs afterward using the existing service HTTP timeout; the
+30-second bound is for execution/submission, not an absolute worker wall-time promise.
+
+Normal flow remains 2 model requests; maximum is 3 including one JSON/grounding repair.
+Each request retains max_tokens=2200: at most 6600 requested output tokens across a
+job, not measured usage. Client timeout does not prove provider computation stopped.
+Real-place drafts request <=2 short speech sentences, <=3 cited claims (also validated),
+<=3 menus and concise unknowns. The application still appends its safety sentence.
+Fictional itineraries retain their full mandatory contents and existing claim capacity.
+
+Root reported a successful live photo job at 11.25 seconds (~2.5s + ~7.4s model calls)
+and a later failed job around 14.28s. The old 10-second model timeout is a suspected
+cause, pending pM's transport status; this worker has not independently measured those
+jobs or run competing live calls. Root/pM must verify the rebuilt worker on the actual
+GPU, including the failing confirmed-nearby case. A P0 timeout is a failure, not PASS.
 
 ## Pipeline and boundaries
 
@@ -107,3 +122,7 @@ redirect and two real-service/HTTP-stub-model integration tests. A separate read
 review found no remaining blocker in the credential/gateway scope; it did not rerun tests.
 Actual GPU inference, OpenShell gateway connectivity and model latency remain unverified.
 See BUILD-STATUS.md for the original build's runtime gates.
+
+BUILD-MODEL-LATENCY-04 local result: 35 agent tests passed, including concrete HTTPX
+timeout exceptions, accelerated real asyncio per-call/overall deadline tests,
+mode-specific brevity and the existing actual-service/HTTP-stub-model integrations.

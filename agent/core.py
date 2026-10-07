@@ -1,6 +1,7 @@
 """Bounded observe -> decide -> approved tools -> grounded result pipeline."""
 from __future__ import annotations
 
+import asyncio
 import base64
 from datetime import datetime, timezone
 import json
@@ -13,6 +14,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from shared.models import Claim, Conflict, GuideRequest, GuideResult, ItineraryItem
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+MODEL_CALL_TIMEOUT_SECONDS = 20.0
+MODEL_MAX_TOKENS = 2200
 
 
 class AgentError(Exception):
@@ -86,9 +89,12 @@ class ModelSession:
                 raise AgentError("model_call_limit")
             self.calls += 1
             try:
-                response = await self.client.post(
-                    "chat/completions", json={"model": self.model, "messages": messages,
-                        "temperature": 0.1, "max_tokens": 2200, "stream": False}, timeout=10.0)
+                # HTTPX phase timeouts alone do not bound the complete request.
+                async with asyncio.timeout(MODEL_CALL_TIMEOUT_SECONDS):
+                    response = await self.client.post(
+                        "chat/completions", json={"model": self.model, "messages": messages,
+                            "temperature": 0.1, "max_tokens": MODEL_MAX_TOKENS, "stream": False},
+                        timeout=MODEL_CALL_TIMEOUT_SECONDS)
                 if response.status_code != 200:
                     raise AgentError("model_http_error")
                 content = response.json()["choices"][0]["message"]["content"]
@@ -101,6 +107,8 @@ class ModelSession:
                 if check:
                     check(parsed)
                 return parsed
+            except (httpx.TimeoutException, TimeoutError) as exc:
+                raise AgentError("model_timeout") from exc
             except (httpx.HTTPError, KeyError, IndexError) as exc:
                 raise AgentError("model_transport_error") from exc
             except (ValueError, ValidationError) as exc:
@@ -224,6 +232,14 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
           "For real_place culture claims use only koreanet:samgyetang-culture. "
           "An out-of-radius empty result means no catalog match, not no restaurants exist. "
           "Need confirmation? Ask a short specific next_question. order_ko is an ingredient question, never an action.")
+    if mode == "real_place":
+        prompt += ("\nReal-place brevity: speech_text at most two short sentences; claims at most 3 "
+                   "short cited facts; menu_ids at most 3. Keep unknowns concise and actionable, "
+                   "without repetition. Preserve dietary uncertainty, citations and needed confirmation.")
+    else:
+        prompt += ("\nFictional task: retain all mandatory itinerary, buffers, alternatives, "
+                   "date/source conflicts, culture explanation, evidence and confirmation needs; "
+                   "the real-place brevity limits do not apply.")
 
     def check_draft(draft):
         for collection in (draft.claims, draft.conflicts, draft.itinerary):
@@ -236,6 +252,8 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
             if draft.menu_ids or not draft.itinerary:
                 raise ValueError("fictional_itinerary_required")
         else:
+            if len(draft.claims) > 3:
+                raise ValueError("too_many_real_place_claims")
             if draft.menu_ids and "visitkorea:tosokchon-menu" not in known_ids:
                 raise ValueError("menu_evidence_required")
             for claim in draft.claims:

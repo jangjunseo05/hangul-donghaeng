@@ -204,3 +204,11 @@ def test_chunked_oversized_body_rejected_before_validation(app):
     assert "content-length" not in response.request.headers
     assert response.status_code == 413
     assert response.json()["error_code"] == "BODY_TOO_LARGE"
+
+
+def test_https_session_cookie_is_secure_without_breaking_loopback(app):
+    secure = TestClient(app, base_url="https://testserver").post("/api/sessions", json={})
+    local = TestClient(app, base_url="http://localhost").post("/api/sessions", json={})
+    assert "; Secure" in secure.headers["set-cookie"]
+    assert "; Secure" not in local.headers["set-cookie"]
+    assert "HttpOnly" in secure.headers["set-cookie"]

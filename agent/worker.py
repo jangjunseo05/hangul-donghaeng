@@ -20,6 +20,7 @@ ID = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
 NVIDIA_HOST = "integrate.api.nvidia.com"
 OPENSHELL_GATEWAY = "host.openshell.internal"
 LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+JOB_TIMEOUT_SECONDS = 30.0
 
 
 def _endpoint(url: str):
@@ -148,7 +149,7 @@ class WorkerAPI:
 
 async def handle_job(job, api, model):
     try:
-        async with asyncio.timeout(30):
+        async with asyncio.timeout(JOB_TIMEOUT_SECONDS):
             result = await execute_job(job, api, model)
             receipt = await api.submit(job, result)
             if receipt.get("saved") is not True:
