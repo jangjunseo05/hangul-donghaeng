@@ -287,11 +287,21 @@ export default function App() {
       if (observing && (!options.valid?.() || !camera.isLive())) { stopAutomatic(); return }
       if (received.dataset_mode !== mode || (mode === 'fictional_task' && received.places.length > 0)) throw new ApiError('INVALID_RESPONSE')
       if (received.status === 'failed') throw new ApiError(received.error_code || 'JOB_FAILED')
+      // Root only emits proactive questions for cultural landmarks, including
+      // recognized landmarks outside the catalog. All other observations stay quiet.
+      const observationQuestion = observing ? received.next_question?.trim() : null
+      if (observing && !observationQuestion) {
+        setAutomaticNotice(t('Looking around quietly. No cultural place to suggest yet.', '풍경을 조용히 살펴보고 있어요. 아직 안내할 문화 장소가 없어요.'))
+        setStale(Boolean(result)); setPhase('idle')
+        return
+      }
+      setAutomaticNotice('')
       setResult(received); setStale(false); setPhase(received.status === 'need_confirmation' ? 'need_confirmation' : 'ready')
       if (!observing) setQuestion(previous => previous.trim() === text ? '' : previous)
-      if (received.status === 'need_confirmation') stopAutomatic(t('Automatic companion stopped so you can confirm what you see.', '보이는 대상을 확인할 수 있도록 자동동행을 멈췄어요.'), false)
+      if (received.status === 'need_confirmation' || observationQuestion) stopAutomatic(t('Automatic companion stopped so you can confirm what you see.', '보이는 대상을 확인할 수 있도록 자동동행을 멈췄어요.'), false)
       const suggestions = [...(!received.scene.confirmed_food_id ? received.scene.food_candidates.map(item => item.id) : []), ...(!received.scene.confirmed_place_id ? (received.scene.place_candidates ?? []).map(item => item.id) : []), ...received.places.map(place => place.place_id)]
-      if (autoReadRef.current && received.speech_text && (!observing || readGuard.current.shouldRead(received.speech_text, suggestions))) speech.read(received.speech_text, received.response_language)
+      const spokenText = observing ? received.speech_text.trim() || observationQuestion || '' : received.speech_text
+      if (autoReadRef.current && spokenText && (!observing || readGuard.current.shouldRead(spokenText, suggestions))) speech.read(spokenText, received.response_language)
       if (!observing) window.setTimeout(() => { if (current()) answer.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }) }, 100)
     } catch (value) {
       if (!current()) return
