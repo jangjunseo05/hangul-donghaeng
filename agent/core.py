@@ -15,7 +15,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from shared.models import Claim, Conflict, GuideRequest, GuideResult, ItineraryItem
-from agent.visual_observation import VisualObservation, VISUAL_PROMPT
+from agent.visual_observation import VisualObservation, VISUAL_PROMPT, VISUAL_SYSTEM
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 MODEL_CALL_TIMEOUT_SECONDS = 35.0
@@ -325,7 +325,8 @@ def _messages(request: GuideRequest, history: list[dict], prompt: str, photo: by
             raise AgentError("photo_too_large")
         parts.append({"type": "image_url", "image_url": {
             "url": "data:image/jpeg;base64," + base64.b64encode(photo).decode("ascii")}})
-    return [{"role": "system", "content": SYSTEM}, {"role": "user", "content": parts}]
+    return [{"role": "system", "content": VISUAL_SYSTEM if visual_only else SYSTEM},
+            {"role": "user", "content": parts}]
 
 
 async def execute_job(job: dict, api, model: ModelSession) -> dict:
@@ -406,13 +407,41 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
     if observing:
         visual = await model.structured(_messages(request, [],
             VISUAL_PROMPT + json.dumps(VisualObservation.model_json_schema()), photo, visual_only=True), VisualObservation)
+        cultural = visual.scene_kind == "landmark" and getattr(visual, "is_cultural_landmark", False) is True
+        supported = cultural and getattr(visual, "identification_supported", False) is True
+        place_id = getattr(visual, "place_id", None) if supported else None
         decision = ObservationDecision(
-            intent="menu" if visual.scene_kind == "food" else "culture",
-            food_ids=[visual.food_id] if visual.food_id else [],
-            place_ids=[visual.place_id] if visual.place_id else [],
-            needs_confirmation=True, search_places=False, search_kinds=[], source_ids=[],
+            intent="culture", food_ids=[], place_ids=[place_id] if place_id else [],
+            needs_confirmation=cultural, search_places=False, search_kinds=[], source_ids=[],
             observation_summary=visual.visual_basis[:240])
         check_decision(decision)
+        # A completed observation is not necessarily an invitation to interrupt.
+        # Prior confirmations remain request state, never evidence about this frame.
+        question = None
+        if cultural:
+            ko = request.response_language == "ko"
+            name = getattr(visual, "landmark_name", None) if supported else None
+            name = " ".join(name.split())[:120] if isinstance(name, str) else ""
+            if place_id:
+                name = place_labels[place_id]["name_ko" if ko else "name_en"]
+            if name:
+                question = (f"{name}으로 보이는데, 이 장소의 문화와 역사를 알아볼까요?" if ko else
+                            f"This may be {name}. Would you like to explore this place's culture and history?")
+            else:
+                question = ("보이는 건물의 문화적 의미와 역사를 함께 알아볼까요?" if ko else
+                            "Would you like to explore the cultural significance and history of the building in view?")
+        return GuideResult.model_validate({
+            "schema_version": 1, "session_id": session_id, "request_id": request_id,
+            "captured_at": datetime.now(timezone.utc).isoformat(), "dataset_mode": mode,
+            "status": "need_confirmation" if cultural else "ready",
+            "speech_text": question or "", "response_language": request.response_language,
+            "scene": {"food_candidates": [], "place_candidates": [place_labels[item] for item in decision.place_ids],
+                      "confirmed_food_id": request.confirmed_food_id,
+                      "confirmed_shop_id": request.confirmed_shop_id,
+                      "confirmed_place_id": request.confirmed_place_id},
+            "places": [], "menus": [], "claims": [], "evidence": [], "conflicts": [], "itinerary": [],
+            "order_ko": None, "unknowns": [], "next_question": question, "error_code": None,
+        }).model_dump(mode="json")
     else:
         decision = await model.structured(_messages(request, history, prompt, photo), decision_schema, check_decision)
     selected_ids = list(decision.source_ids)

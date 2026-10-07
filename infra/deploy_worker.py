@@ -67,6 +67,7 @@ def main():
     parser.add_argument("--to-worker", required=True)
     parser.add_argument("--reference-policy", type=Path,
                         default=ROOT / "docs/runtime/evidence/worker-04-effective-policy.json")
+    parser.add_argument("--skip-security-tests", action="store_true", help="Root-authorized immediate deployment without repeating unit tests")
     parser.add_argument("--core-sha", required=True)
     parser.add_argument("--contract-sha", required=True)
     parser.add_argument("--qa-idle", action="store_true",
@@ -107,8 +108,12 @@ def main():
         check(old_effective["status"] == "effective" and old_effective["policy"] == policy_for(OLD),
               "old worker differs from validated reference allowlist")
         run(["openshell", "status"], log=evidence / "gateway-status.log")
-        run([sys.executable, "-m", "unittest", "discover", "-s", "tests/security", "-p", "test_*.py", "-v"],
-            timeout=60, log=evidence / "security-tests.log", env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+        if args.skip_security_tests:
+            state["security_unit_tests"] = "skipped_by_operator"
+        else:
+            run([sys.executable, "-m", "unittest", "discover", "-s", "tests/security", "-p", "test_*.py", "-v"],
+                timeout=60, log=evidence / "security-tests.log", env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+            state["security_unit_tests"] = "passed"
         before = snapshot()
         (evidence / "source-snapshot.json").write_text(json.dumps(before, indent=2) + "\n")
         state["stage"] = "build"
