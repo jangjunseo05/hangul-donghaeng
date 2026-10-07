@@ -1,0 +1,6 @@
+{"event": "model_call", "stage": "decision", "schema": "Decision", "call": 1, "error_code": "ok", "finish_reason": "stop", "usage": {"prompt_tokens": 787, "completion_tokens": 66, "total_tokens": 853}, "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16", "response_model_match": true, "elapsed_s": 2.637}
+{"event": "model_call", "stage": "draft", "schema": "RealDraft", "call": 2, "error_code": "ok", "finish_reason": "stop", "usage": {"prompt_tokens": 2591, "completion_tokens": 264, "total_tokens": 2855}, "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16", "response_model_match": true, "elapsed_s": 8.723}
+{"event": "job_finished", "outcome": "saved", "model_calls": 2, "run_context": "openshell", "sandbox_verified": false}
+{"event": "model_call", "stage": "decision", "schema": "Decision", "call": 1, "error_code": "ok", "finish_reason": "stop", "usage": {"prompt_tokens": 956, "completion_tokens": 99, "total_tokens": 1055}, "configured_model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16", "response_model_match": true, "elapsed_s": 3.42}
+{"event": "model_call", "stage": "draft", "schema": "Draft", "call": 2, "error_code": "model_timeout", "finish_reason": null, "usage": {}, "elapsed_s": 20.02}
+{"event": "job_finished", "outcome": "model_timeout", "model_calls": 2, "run_context": "openshell", "sandbox_verified": false}

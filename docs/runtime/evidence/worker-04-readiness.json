@@ -1,0 +1,17 @@
+{
+  "captured_at": "2026-10-07T05:42:50.670249+00:00",
+  "status": "READY_FOR_REVIEW",
+  "worker": "hangul-worker-04",
+  "old_worker_stopped": true,
+  "single_consumer": true,
+  "source_core_sha256": "191551f60fe9949935069ad0736dc34ebd7fccbd8bb4818e74d34f65829910bc",
+  "image_id": "sha256:bd24c08e0644a28d73e7f3bc59cd645594447c9c39b843c0cb499b19861f0041",
+  "effective_policy_hash": "511deecc405137a03b43e17f6026c667ca1ebda9c028aaab21dd1d3402e3fa44",
+  "effective_policy_path": "docs/runtime/evidence/worker-04-effective-policy.json",
+  "same_allowlist_as_worker03": true,
+  "worker_connected": true,
+  "startup_or_poll_errors": false,
+  "recovery": "Read-only diagnosis; no restart or policy mutation",
+  "docker_top_limitation": "args-only format omitted required PID; pid,args yields header only in this isolation backend",
+  "model_generation": "Not requested; root QA owns generation"
+}

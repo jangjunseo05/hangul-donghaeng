@@ -1,0 +1,12 @@
+
+Created sandbox: hangul-matrix-01
+
+  [0.0s] Requesting compute...
+[0.0s] Sandbox allocated
+[0.0s] Pulling image hangul-probe:matrix
+[0.1s] Image already present
+[0.3s] Starting sandbox Container created
+{"check": "filesystem_matrix", "uid": 1000, "fixture_mode": "0o666", "fixture_parent_mode": "0o777", "before_sha256": "fc10513238b72da23f37d8d2554c71e50420da6d4cc551a5578e1494edd13373", "after_sha256": "fc10513238b72da23f37d8d2554c71e50420da6d4cc551a5578e1494edd13373", "write_denied": true, "delete_denied": true, "outside_fixture_mode": "0o444", "outside_read_denied": true}
+{"check": "allowed_health", "http_status": 200}
+{"check": "denied_reservation", "http_status": 403}
+{"check": "denied_destination", "error_type": "ConnectError"}

@@ -1,0 +1,30 @@
+[1791347475.309] [sandbox] [INFO ] [openshell_supervisor] Starting sandbox supervision command=["sh", "-c", "sleep 12; exec python /app/runtime_probe.py --model"]
+[1791347475.445] [sandbox] [INFO ] [openshell_supervisor] Fetching sandbox policy via gRPC endpoint=https://127.0.0.1:17670 sandbox=hangul-model-03 sandbox_id=af866c43-14d9-44a1-b049-b33985407dee
+[1791347475.486] [sandbox] [OCSF ] [ocsf] CONFIG:ENRICHED [INFO] Enriched policy with baseline filesystem paths for proxy mode
+[1791347475.503] [sandbox] [INFO ] [openshell_supervisor_network::opa] Configured OPA runtime binary identity mode require_binary_identity=true source=proto
+[1791347475.503] [sandbox] [OCSF ] [ocsf] CONFIG:CONFIGURED [INFO] OPA runtime binary identity mode configured [source:proto require_binary_identity:true] [source:proto]
+[1791347475.523] [sandbox] [INFO ] [openshell_supervisor] Isolation boundary attached backend=openshell-sandbox
+[1791347475.525] [sandbox] [INFO ] [openshell_supervisor] Isolation boundary enforcement confirmed backend=openshell-sandbox
+[1791347475.528] [sandbox] [OCSF ] [ocsf] CONFIG:ENABLED [INFO] TLS termination enabled: ephemeral CA generated
+[1791347475.528] [sandbox] [OCSF ] [ocsf] CONFIG:READY [INFO] Policy DNS connected to isolation boundary
+[1791347475.528] [sandbox] [OCSF ] [ocsf] NET:LISTEN [INFO] 127.0.0.1:3128
+[1791347475.528] [sandbox] [WARN ] [openshell_supervisor_network::proxy] host.openshell.internal maps to a non-link-local IP; trusted-gateway SSRF exemption disabled ip=127.0.0.1
+[1791347475.562] [sandbox] [INFO ] [openshell_supervisor] Isolation boundary agent started backend=openshell-sandbox
+[1791347475.564] [sandbox] [OCSF ] [ocsf] SSH:LISTEN [INFO]
+[1791347475.593] [sandbox] [OCSF ] [ocsf] NET:OPEN [INFO] 127.0.0.1:17670
+[1791347475.594] [sandbox] [INFO ] [openshell_supervisor] Control-mode access plane started backend=openshell-sandbox
+[1791347475.614] [sandbox] [OCSF ] [ocsf] CONFIG:LOADED [INFO] Acknowledged initial policy revision as loaded [version:2] [hash:909ea57fa76855acb044a93f880e6e9500955e8834d6d704e90468cdef3d2b08]
+[1791347475.694] [sandbox] [OCSF ] [ocsf] EVENT [INFO] ssh relay open (channel_id=4caba852-ebf3-4260-9b3f-3f53b60f73b9, target=unix:/run/openshell/ssh.sock)
+[1791347475.695] [sandbox] [OCSF ] [ocsf] SSH:OPEN [INFO] ALLOWED
+[1791347485.576] [sandbox] [OCSF ] [ocsf] CONFIG:DETECTED [INFO] Settings poll: config change detected [old_revision:4821743411058867671 new_revision:4821743411058867671 policy_changed:false provider_env_changed:true]
+[1791347485.583] [sandbox] [INFO ] [openshell_supervisor_network::opa] Configured OPA runtime binary identity mode require_binary_identity=true source=proto
+[1791347485.583] [sandbox] [OCSF ] [ocsf] CONFIG:CONFIGURED [INFO] OPA runtime binary identity mode configured [source:proto require_binary_identity:true] [source:proto]
+[1791347489.682] [sandbox] [OCSF ] [ocsf] CONFIG:PUBLISHED [INFO] Policy DNS mapped host.openshell.internal resolved=127.0.0.1 synthetic=198.18.0.2 ports=8000,8001 mapping_id=7dfad83f-7669-452b-bcbc-96d411aa1530
+[1791347489.686] [sandbox] [OCSF ] [ocsf] NET:OPEN [INFO] ALLOWED /usr/local/bin/python3.11(0) -> host.openshell.internal:8000 [policy:service_health engine:opa]
+[1791347489.688] [sandbox] [OCSF ] [ocsf] HTTP:GET [INFO] ALLOWED GET http://host.openshell.internal:8000/api/health [policy:service_health engine:l7]
+[1791347489.706] [sandbox] [OCSF ] [ocsf] HTTP:POST [MED] DENIED POST http://host.openshell.internal:8000/api/health [policy:service_health engine:l7] [reason:L7_REQUEST deny POST host.openshell.internal:8000/api/health reason=POST /api/health not permitted by policy]
+[1791347489.769] [sandbox] [OCSF ] [ocsf] CONFIG:PUBLISHED [INFO] Policy DNS mapped host.openshell.internal resolved=127.0.0.1 synthetic=198.18.0.2 ports=8000,8001 mapping_id=ee5e1a4e-ecc8-4101-98d7-a6f3eb06e454
+[1791347489.773] [sandbox] [OCSF ] [ocsf] NET:OPEN [INFO] ALLOWED /usr/local/bin/python3.11(0) -> host.openshell.internal:8001 [policy:local_model engine:opa]
+[1791347489.775] [sandbox] [OCSF ] [ocsf] HTTP:POST [INFO] ALLOWED POST http://host.openshell.internal:8001/v1/chat/completions [policy:local_model engine:l7]
+[1791347490.443] [sandbox] [OCSF ] [ocsf] EVENT [INFO] ssh relay closed (channel_id=4caba852-ebf3-4260-9b3f-3f53b60f73b9, target=unix:/run/openshell/ssh.sock)
+[1791347490.447] [sandbox] [INFO ] [openshell_supervisor] Canonical process exited; retaining control-mode access plane backend=openshell-sandbox

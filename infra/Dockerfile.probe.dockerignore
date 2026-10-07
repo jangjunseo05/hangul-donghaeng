@@ -1,0 +1,12 @@
+**
+!infra/
+!infra/Dockerfile.probe
+!tests/
+!tests/security/
+!tests/security/runtime_probe.py
+
+!tests/security/boundary_matrix.py
+!tests/security/model_evidence.py
+
+**/.env.*
+**/*.key

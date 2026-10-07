@@ -1,0 +1,8 @@
+[1791350401.479] [sandbox] [INFO ] [openshell_supervisor] Isolation boundary enforcement confirmed backend=openshell-sandbox
+[1791350401.545] [sandbox] [OCSF ] [ocsf] CONFIG:LOADED [INFO] Acknowledged initial policy revision as loaded [version:2] [hash:2f77a3a26bf5edec4a531b6f66017b68254f3426033595a8b746ad0caad30df1]
+[1791350450.138] [sandbox] [OCSF ] [ocsf] HTTP:POST [INFO] ALLOWED POST http://host.openshell.internal:8001/v1/chat/completions [policy:local_model engine:l7]
+[1791350452.841] [sandbox] [OCSF ] [ocsf] HTTP:POST [INFO] ALLOWED POST http://host.openshell.internal:8001/v1/chat/completions [policy:local_model engine:l7]
+[1791350461.577] [sandbox] [OCSF ] [ocsf] HTTP:POST [INFO] ALLOWED POST http://host.openshell.internal:8000/worker/results [policy:_provider_hangul_worker_03_guide engine:l7]
+[1791350462.652] [sandbox] [OCSF ] [ocsf] HTTP:POST [INFO] ALLOWED POST http://host.openshell.internal:8001/v1/chat/completions [policy:local_model engine:l7]
+[1791350466.072] [sandbox] [OCSF ] [ocsf] HTTP:POST [INFO] ALLOWED POST http://host.openshell.internal:8001/v1/chat/completions [policy:local_model engine:l7]
+[1791350489.213] [sandbox] [OCSF ] [ocsf] HTTP:POST [INFO] ALLOWED POST http://host.openshell.internal:8000/worker/fail [policy:_provider_hangul_worker_03_guide engine:l7]

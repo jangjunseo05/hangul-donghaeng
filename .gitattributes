@@ -1,0 +1,2 @@
+# Preserve evidence bytes so recorded SHA256 values survive Windows checkouts.
+docs/runtime/evidence/** -text

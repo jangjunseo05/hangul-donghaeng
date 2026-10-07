@@ -1,0 +1,14 @@
+FROM python:3.11-slim-bookworm
+COPY infra/requirements-worker.txt /tmp/requirements-worker.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-worker.txt
+RUN groupadd --gid 1000 worker && useradd --uid 1000 --gid 1000 --no-create-home worker
+WORKDIR /app
+COPY agent /app/agent
+COPY data /app/data
+COPY shared /app/shared
+COPY tests/security/runtime_probe.py /app/runtime_probe.py
+RUN mkdir /app/probe && printf 'openshell-test-fixture-only\n' > /app/probe/sentinel && chmod 777 /app/probe && chmod 666 /app/probe/sentinel
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app
+WORKDIR /tmp
+USER 1000:1000
+CMD ["python", "-m", "agent.worker"]

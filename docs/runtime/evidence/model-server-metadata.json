@@ -1,0 +1,1 @@
+{"captured_at": "2026-10-07T05:01:24.942508+00:00", "models": [{"id": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16", "owned_by": "vllm", "max_model_len": 8192}]}

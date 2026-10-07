@@ -1,0 +1,13 @@
+
+Created sandbox: hangul-model-03
+
+  [0.0s] Requesting compute...
+[0.0s] Sandbox allocated
+[0.0s] Pulling image hangul-worker:day-of
+[0.1s] Image already present
+[0.4s] Starting sandbox Container created
+{"check": "filesystem_fixture", "denied": {"write": true, "unlink": true}, "unchanged": true}
+{"check": "service_network", "method": "GET", "status": 200}
+{"check": "service_network", "method": "POST", "status": 403}
+{"check": "real_model", "http_status": 200, "choices_present": true, "elapsed_seconds": 0.683}
+Probe finished; network denial requires matching OpenShell logs and receiver evidence.

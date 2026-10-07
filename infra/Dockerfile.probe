@@ -1,0 +1,13 @@
+FROM python:3.11-slim-bookworm
+RUN pip install --no-cache-dir httpx==0.28.1
+RUN groupadd --gid 1000 worker && useradd --uid 1000 --gid 1000 --no-create-home worker
+WORKDIR /app
+COPY tests/security/runtime_probe.py /app/runtime_probe.py
+COPY tests/security/boundary_matrix.py /app/boundary_matrix.py
+COPY tests/security/model_evidence.py /app/model_evidence.py
+RUN mkdir /app/probe && printf 'openshell-test-fixture-only\n' > /app/probe/sentinel && chmod 777 /app/probe && chmod 666 /app/probe/sentinel
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app
+WORKDIR /tmp
+RUN mkdir /probe-denied && printf 'public-denial-test-fixture\n' > /probe-denied/sentinel && chmod 755 /probe-denied && chmod 444 /probe-denied/sentinel
+USER 1000:1000
+CMD ["python", "/app/runtime_probe.py"]

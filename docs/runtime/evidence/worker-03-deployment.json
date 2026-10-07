@@ -1,0 +1,19 @@
+{
+  "captured_at": "2026-10-07T05:31:01.032289+00:00",
+  "worker": "hangul-worker-03",
+  "previous_worker_stopped": "hangul-worker-02",
+  "core_sha256": "9ecfae38f844961e45c7f3b0430e06294517e06ebe0d01e096f16d328b30f2db",
+  "container": {
+    "container_id": "b2fc1ab7ab44c391cec1dc122a48eb6127f25343be97319cdc01b106567bf41c",
+    "image_id": "sha256:75a33207e5a48f207578e3039011a6a1d628694fc68b74b7bf28918945d5b3bd",
+    "running": true
+  },
+  "policy_hash": "2f77a3a26bf5edec4a531b6f66017b68254f3426033595a8b746ad0caad30df1",
+  "policy_file_sha256": "7f16e3bc3dad1077ba3ba55822679cf8f2bed7963cf276358c006f4a24161069",
+  "events_sha256": "54f1e5820484e0727747b6cfe87859b506ade4c58a50ad16c26fad4089b4a104",
+  "runtime_excerpt_sha256": "82a00046a02b998ad635ccfe92913f39728dda5c6ad19c0580ebf95973d2d4c6",
+  "root_lock_subset_match": true,
+  "root_lock_sha256": "a8f620be5d5427eea649bd62deac0b40832986e329f872c55594ffe89614b8fd",
+  "model_response_exact_matches": 3,
+  "product_acceptance": "root QA; not claimed here"
+}
