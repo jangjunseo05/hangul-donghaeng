@@ -1,0 +1,32 @@
+ASSET PROVENANCE — 2026-10-07
+
+samgyetang-cc0.jpg: byte copy of product data/samples/samgyetang-960.jpg.
+Source: https://commons.wikimedia.org/wiki/File:Samgye_tang.jpg
+Creator: Brücke-Osteuropa. License: CC0 1.0.
+https://creativecommons.org/publicdomain/zero/1.0/
+General food illustration only; not evidence of any restaurant, recipe or dietary suitability.
+The unused food image is retained as a source asset. The culture revision has a text-only title; no unverified palace photograph or fabricated UI is used.
+
+actual-app-input.png: Playwright screenshot of the real existing broker at http://127.0.0.1:8000.
+Actions: Korean UI, local public sample selection, Seochon demo position, question typed.
+No submit, GPU inference, fake response, DOM UI replacement or API mock was used.
+The screenshot shows input state, not completed output.
+OpenStreetMap attribution is retained in the map and slide caption.
+https://www.openstreetmap.org/copyright
+Capture timestamp and no-submit evidence: .runtime/presentation-build/capture.json.
+
+Narrative: docs/presentation/발표개요.md and 발표자료.md, read-only.
+Deck timings: 20 / 30 / 40 / 30 / 90 / 50 / 40 seconds = 300 seconds.
+Evaluation mapping: technology 40 (3/5/6), utility 20 (1/2/4/7), completeness 20 (5/7), presentation 10 (five-minute sequence), peer 10 (testable sample). No score prediction.
+HTML speaker notes contain [Sources] blocks; hidden from screen and print.
+No completed-result screenshot is included. Slide 2 uses actual culture/camera input captures, explicitly labelled before camera start and before analysis. Worker11 replacement capture is pending; no fabricated output is shown.
+PPTX delivered: docs/presentation/한글동행_발표.pptx is a standard OOXML package of 7 full-slide PNG images with Korean speaker notes and source URLs. Visible slide text is rasterized and not editable. The user authorized this fallback after the runtime loader was unavailable.
+QA: existing Playwright/Chrome renders all 7 source slides and final PDF; standard ZIP CRC, XML/internal relationships, 7 notes and source-image SHA identity are checked for PPTX. Native PowerPoint rendering has not been run. No package installation or inference is used.
+Culture/history revision: pQ source files read-only; user opt-in, local preview vs selective frames, >=20 seconds AND prior response complete, scene freeze, voluntary confirmation prompts, palace-to-food AND food-to-palace targets. New features remain unverified.
+발표개요.md SHA256=343C979663928A70C57D321CF7EE459CD31ADEB53E53E179FF4554D8486C1AB8
+발표자료.md SHA256=4C9FE9FAD9CD6D4C618358D27F134F64F1E07B91313D7D61A236B5D749B98F2D
+
+2026-10-07 actual culture UI replacement: slide 2 uses actual-culture-camera-ui.png and actual-culture-place-ui.png. Actual broker screenshots, Korean UI, camera not started, no model request. Adjacent .source.json files record provenance. Prior food input is retained but no longer shown. Culture execution and completed result remain pending root evidence.
+
+2026-10-07 final evidence revision: slide 1 shows 2025 inbound arrivals 18,936,562 (KTO) as market context only; slide 4 shows Gwanghwamun as Gyeongbokgung south main gate and the king historical central-arch passage (VISITKOREA). Visible short official citations and full canonical URLs in speaker notes. Research sources: research/관광수요_공식근거.md; research/문화서사_공식근거.md; research/NVIDIA_기술근거.md. No session/token URL parameters.
+Current evidence-revised PDF: docs/presentation/한글동행_발표_근거반영.pdf (base final PDF is also locked/open and preserved). Reader-open draft assets/preview/한글동행_발표.pdf is intentionally preserved. Final PDF/PPTX derive from the same current HTML/7 PNG pages.

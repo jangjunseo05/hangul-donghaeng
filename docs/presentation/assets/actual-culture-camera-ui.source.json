@@ -1,0 +1,14 @@
+{
+  "captured_at": "2026-10-07T05:39:35.501Z",
+  "source": "http://127.0.0.1:8000",
+  "asset": "actual-culture-camera-ui.png",
+  "state": "Real culture-camera UI before camera permission or model request",
+  "actions": [
+    "open actual broker",
+    "select Korean"
+  ],
+  "camera_started": false,
+  "request_submissions": 0,
+  "prevented_submissions": 0,
+  "completion_claim": false
+}

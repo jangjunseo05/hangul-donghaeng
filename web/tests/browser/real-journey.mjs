@@ -17,6 +17,8 @@ function option(name, fallback) {
 }
 const baseURL = option('--base-url', 'http://127.0.0.1:5173')
 const goReference = option('--root-go', '')
+const primaryOnly = args.includes('--primary-only')
+const maxInferenceRequests = primaryOnly ? 3 : 5
 const photoPath = path.join(repo, 'data/samples/heritage-demo.jpg')
 const manifest = JSON.parse(await readFile(path.join(repo, 'data/samples/heritage-license.json'), 'utf8'))
 const expectedPlaceId = option('--place-id', 'local:gwanghwamun')
@@ -45,9 +47,12 @@ const selectors = {
 if (!goReference) {
   console.log(JSON.stringify({
     status: 'PREPARED_WAITING_FOR_ROOT_GO', baseURL, photo_sha256: photoSHA, expected_place_id: expectedPlaceId, catalog_version: localCatalog.catalog_version, selectors,
-    sequence: ['CC0 cultural photo; no assumed location', 'confirm an actual returned candidate, or explicitly select the known catalog place when absent; record these separately', 'nearby meal / restaurant selection / menu', 'restaurant-to-history follow-up', 'HTML + JSON downloads / desktop + mobile screenshots'],
+    sequence: primaryOnly
+      ? ['CC0 cultural photo; no assumed location', 'explicit user cultural-place confirmation or catalog selection', 'nearby meal suggestion', 'actual HTML + JSON downloads / desktop + mobile screenshots']
+      : ['CC0 cultural photo; no assumed location', 'confirm an actual returned candidate, or explicitly select the known catalog place when absent; record these separately', 'nearby meal / restaurant selection / menu', 'restaurant-to-history follow-up', 'HTML + JSON downloads / desktop + mobile screenshots'],
     inference_requests: 0,
-    max_inference_requests_after_go: 5,
+    journey_scope: primaryOnly ? 'PRIMARY_ONLY' : 'FULL',
+    max_inference_requests_after_go: maxInferenceRequests,
     backup_video: 'Silent actual UI recording into .runtime/qa-ui-real/<run>/raw-video; context closes on success or failure to flush it.',
     prerequisite: 'Root confirms the current worker deployment/readiness and an idle queue, then issues GO. A command flag does not establish that approval.',
   }, null, 2))
@@ -59,6 +64,7 @@ await mkdir(runDirectory, { recursive: true })
 const report = {
   status: 'RUNNING', started_at: new Date().toISOString(), root_go_reference: goReference,
   base_url: baseURL, photo_sha256: photoSHA, source_revision: manifest.source_revision,
+  journey_scope: primaryOnly ? 'PRIMARY_ONLY' : 'FULL',
   photo_scope: manifest.capture_context,
   expected_place_id: expectedPlaceId,
   inference_steps: [], ui_errors: [], checks: {}, downloads: {}, screenshots: {},
@@ -69,6 +75,7 @@ const report = {
   mobile: 'Same live result resized to390px; layout inspection only, no extra inference or physical voice test.',
   limits: ['UI and actual broker results only; OpenShell policy/deny and deployed worker revision require separate runtime evidence.'],
 }
+if (primaryOnly) report.limits.push('Primary demo only: restaurant-menu and reverse history steps are not run. The previous failed full journey is preserved separately; this run does not establish that those failures are fixed.')
 let browser
 let context
 let page
@@ -95,7 +102,7 @@ async function until(predicate, description, timeout = 70000) {
 }
 
 async function liveStep(label, action, expectedAnchor = null) {
-  assert(accepted.length < 5, 'Maximum five sequential inference requests for this journey')
+  assert(accepted.length < maxInferenceRequests, `Maximum ${maxInferenceRequests} sequential inference requests for this journey`)
   const before = accepted.length
   const started = Date.now()
   await action()
@@ -239,6 +246,12 @@ try {
   await expect(page.locator('.place-marker').first()).toBeVisible()
   await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible()
   await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenStreetMap')
+  if (primaryOnly) {
+    report.checks.culture_to_meal = { heritage_id: expectedPlaceId, restaurant_id: restaurant.place_id, request_id: result.request_id }
+    report.checks.restaurant_menu = 'NOT_RUN_PRIMARY_SCOPE'
+    report.checks.meal_to_culture = 'NOT_RUN_PRIMARY_SCOPE'
+    await page.screenshot({ path: path.join(runDirectory, 'desktop-primary-nearby-meal.png'), fullPage: true })
+  } else {
   result = await liveStep('Select the nearby restaurant and inspect its menu', () => page.locator(selectors.place).filter({ hasText: restaurant.name }).click(), restaurant)
   assert.equal(result.scene.confirmed_place_id, restaurant.place_id)
   assert.equal(result.scene.confirmed_shop_id, restaurant.place_id)
@@ -254,6 +267,7 @@ try {
   assert(result.places.some(place => place.kind === 'heritage'), 'History follow-up must actually provide a heritage place')
   await expect(page.locator('.place-kind').filter({ hasText: 'History & culture' }).first()).toBeVisible()
   report.checks.meal_to_culture = { selected_start_id: restaurant.place_id, suggested_heritage_ids: result.places.filter(place => place.kind === 'heritage').map(place => place.place_id) }
+  }
   if (result.order_ko) {
     await expect(page.locator(selectors.korean)).toHaveText(result.order_ko)
     report.checks.korean_phrase = result.order_ko
@@ -285,7 +299,7 @@ try {
   assert(report.checks.desktop_overflow.pass && report.checks.mobile_overflow.pass, 'No horizontal viewport overflow')
   assert.equal(report.ui_errors.length, 0, 'No uncaught browser JavaScript errors')
   assert.equal(apiErrors.length, 0, 'No observed API errors')
-  report.status = report.checks.korean_phrase ? 'PASS_UI_JOURNEY' : 'REVIEW_REQUIRED'
+  report.status = primaryOnly ? 'PASS_PRIMARY_UI_JOURNEY' : report.checks.korean_phrase ? 'PASS_UI_JOURNEY' : 'REVIEW_REQUIRED'
 } catch (error) {
   failure = error
   report.status = 'FAILED'
@@ -308,4 +322,4 @@ try {
   await writeFile(path.join(runDirectory, 'receipt.json'), JSON.stringify(report, null, 2) + '\n', 'utf8')
   console.log(JSON.stringify({ status: report.status, directory: runDirectory, inference_requests: accepted.length, failure: report.failure || null }))
 }
-if (failure || report.status !== 'PASS_UI_JOURNEY') process.exitCode = 1
+if (failure || !['PASS_UI_JOURNEY', 'PASS_PRIMARY_UI_JOURNEY'].includes(report.status)) process.exitCode = 1

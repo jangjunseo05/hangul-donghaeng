@@ -1,0 +1,13 @@
+{
+  "captured_at": "2026-10-07T05:42:18.626Z",
+  "source": "http://127.0.0.1:8000",
+  "asset": "actual-culture-place-ui.png",
+  "actions": [
+    "select Korean",
+    "select actual catalog option 경복궁"
+  ],
+  "request_submissions": 0,
+  "prevented_submissions": 0,
+  "camera_started": false,
+  "completion_claim": false
+}

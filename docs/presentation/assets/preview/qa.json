@@ -1,0 +1,71 @@
+{
+  "checked_at": "2026-10-07T06:50:55.080Z",
+  "slides": 7,
+  "keyboard": "PASS",
+  "print_visible": true,
+  "pdf_pages": 7,
+  "pdf_media_boxes": [
+    "/MediaBox [0 0 960 540]"
+  ],
+  "errors": [],
+  "reports": [
+    {
+      "id": "slide-1",
+      "overflow": [],
+      "footerOverlap": [],
+      "images": [],
+      "titleLines": null
+    },
+    {
+      "id": "slide-2",
+      "overflow": [],
+      "footerOverlap": [],
+      "images": [
+        {
+          "src": "assets/actual-culture-camera-ui.png",
+          "loaded": true
+        },
+        {
+          "src": "assets/actual-culture-place-ui.png",
+          "loaded": true
+        }
+      ],
+      "titleLines": 1
+    },
+    {
+      "id": "slide-3",
+      "overflow": [],
+      "footerOverlap": [],
+      "images": [],
+      "titleLines": 1
+    },
+    {
+      "id": "slide-4",
+      "overflow": [],
+      "footerOverlap": [],
+      "images": [],
+      "titleLines": 1
+    },
+    {
+      "id": "slide-5",
+      "overflow": [],
+      "footerOverlap": [],
+      "images": [],
+      "titleLines": 1
+    },
+    {
+      "id": "slide-6",
+      "overflow": [],
+      "footerOverlap": [],
+      "images": [],
+      "titleLines": 1
+    },
+    {
+      "id": "slide-7",
+      "overflow": [],
+      "footerOverlap": [],
+      "images": [],
+      "titleLines": 2
+    }
+  ]
+}
