@@ -27,11 +27,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   } finally { clearTimeout(timeout); parent?.removeEventListener('abort', abort) }
 }
 const jsonPost = (body: unknown, signal?: AbortSignal): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal })
+export async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> { return request<T>(path, { signal }) }
 export const api = {
   session: (signal?: AbortSignal) => request<{ session_id: string }>('/api/sessions', jsonPost({}, signal)),
   health: () => request<Health>('/api/health'),
   catalog: () => request<Catalog>('/api/catalog'),
-  upload: (file: File, signal?: AbortSignal) => { const form = new FormData(); form.append('file', file); return request<{ photo_id: string; width: number; height: number }>('/api/photos', { method: 'POST', body: form, signal }) },
+  /** purpose 'observe' frames do not count toward the 20-photo bound (contract M2; older servers ignore the field). */
+  upload: (file: File, signal?: AbortSignal, purpose: 'capture' | 'observe' = 'capture') => { const form = new FormData(); form.append('file', file); form.append('purpose', purpose); return request<{ photo_id: string; width: number; height: number }>('/api/photos', { method: 'POST', body: form, signal }) },
   submit: (body: GuideRequest, signal?: AbortSignal) => request<{ request_id: string; status: 'queued'; poll_url: string }>('/api/requests', jsonPost(body, signal)),
   job: (id: string, signal?: AbortSignal) => request<Job>('/api/requests/' + encodeURIComponent(id), { signal }),
 }
@@ -44,13 +46,13 @@ export function pause(ms: number, signal: AbortSignal): Promise<void> {
     signal.addEventListener('abort', abort, { once: true })
   })
 }
-export async function waitForResult(id: string, session: string, signal: AbortSignal, onStatus: (status: Job['status']) => void): Promise<GuideResult> {
+export async function waitForResult(id: string, session: string, signal: AbortSignal, onStatus: (status: Job['status'], stage: Job['stage']) => void): Promise<GuideResult> {
   const deadline = Date.now() + 70000
   while (!signal.aborted && Date.now() < deadline) {
     const job = await api.job(id, signal)
     if (job.request_id !== id) throw new ApiError('INVALID_RESPONSE')
     if (!['queued', 'running', 'completed', 'failed', 'superseded'].includes(job.status)) throw new ApiError('INVALID_RESPONSE')
-    onStatus(job.status)
+    onStatus(job.status, job.status === 'running' ? job.stage ?? null : null)
     if (job.status === 'superseded') throw new ApiError('SUPERSEDED')
     if (job.status === 'failed') throw new ApiError(job.error_code || 'JOB_FAILED')
     if (job.status === 'completed') {

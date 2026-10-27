@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useGuide } from './useGuide'
-import type { Tab } from './draftTypes'
+import type { Tab } from './contract'
 import { TabBar, TopBar } from './components/shell'
 import { StatusDialog } from './components/StatusDialog'
 import LookScreen from './screens/LookScreen'
@@ -23,7 +23,7 @@ export default function App() {
     <main className="app-main">
       <LookScreen g={g} hidden={tab !== 'look'}/>
       {tab === 'landmarks' && <LandmarksScreen g={g} onTab={changeTab}/>}
-      {tab === 'eat' && <EatScreen g={g}/>}
+      {tab === 'eat' && <EatScreen g={g} onTab={changeTab}/>}
       {tab === 'routes' && <RoutesScreen g={g}/>}
     </main>
     <TabBar tab={tab} onTab={changeTab} t={g.t}/>

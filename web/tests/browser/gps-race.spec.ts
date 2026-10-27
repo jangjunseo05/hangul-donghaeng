@@ -23,6 +23,7 @@ async function setup(page: Page) {
     if (path === '/api/sessions') body = { session_id: fixture.session_id }
     else if (path === '/api/health') body = { status: 'ok', worker_connected: false, model_configured: false, sandbox_verified: false, catalog_count: 1, version: 'gps-test-fixture' }
     else if (path === '/api/photos') body = { photo_id: 'fixture-photo', width: 1, height: 1 }
+    else if (path === '/api/tts') { await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error_code: 'TTS_UNAVAILABLE' }) }); return }
     else if (path === '/api/requests') {
       requests.push(route.request().postDataJSON())
       body = { request_id: 'gps-fixture-' + requests.length, status: 'queued', poll_url: '/api/requests/gps-fixture-' + requests.length }
@@ -40,6 +41,8 @@ async function setup(page: Page) {
   })
   await page.goto('/')
   await page.locator('input[type=file]').first().setInputFiles({ name: 'fixture-food.png', mimeType: 'image/png', buffer: png })
+  // New shell: the starting point lives behind the Look "Starting point" chip.
+  await page.locator('.start-chip').click()
   await page.getByRole('button', { name: 'Seochon demo', exact: true }).click()
   await page.getByRole('textbox', { name: /Ask your little local guide/ }).fill('Initial fixture question')
   await page.getByRole('button', { name: 'Explore with me' }).click()

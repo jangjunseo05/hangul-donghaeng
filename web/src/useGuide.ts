@@ -6,10 +6,12 @@ import { useAutoCompanion } from './useAutoCompanion'
 import { useSceneGate } from './useSceneGate'
 import { ObservationSpeechGuard } from './autoCompanion'
 import type { ObserveOutcome } from './autoCompanion'
+import type { JobStage } from './contract'
 import type { Catalog, CatalogPlace, DatasetMode, GuideResult, Health, InteractionMode, Language, Location, Place, Radius } from './types'
 
 export type Phase = 'idle' | 'uploading' | 'submitting' | 'queued' | 'running' | 'ready' | 'need_confirmation' | 'failed'
 export type SubmitOptions = { question?: string; food?: string | null; shop?: string | null; place?: string | null; radius?: Radius; location?: Location; frame?: File; interaction?: InteractionMode; valid?: () => boolean }
+export const AWAIT_ANSWER_MS = 60000
 const TRANSIENT = new Set(['TIMEOUT', 'OFFLINE', 'JOB_FAILED', 'SERVER_ERROR', 'INVALID_RESPONSE'])
 const isTransient = (value: unknown) => value instanceof ApiError && value.status !== 401 && value.status !== 403 && (TRANSIENT.has(value.code) || value.status >= 500)
 
@@ -48,6 +50,10 @@ export function useGuide() {
   const identityPlace = useRef<string | null>(null)
   const [automatic, setAutomatic] = useState(false)
   const [automaticNotice, setAutomaticNotice] = useState('')
+  // Decision 2: a proposal pauses automatic mode; with no answer for 60 s it resumes on its own.
+  const [awaitingAnswer, setAwaitingAnswer] = useState(false)
+  const awaitingTimer = useRef<number | null>(null)
+  const [stage, setStage] = useState<JobStage | null>(null)
   const [photoCount, setPhotoCount] = useState(0)
   const photoCountRef = useRef(0)
   const manualRevision = useRef(0)
@@ -72,7 +78,7 @@ export function useGuide() {
   const busy = ['uploading', 'submitting', 'queued', 'running'].includes(phase)
   const currentResult = result && !stale && !busy ? result : null
   const automaticAvailable = Boolean(session && !healthFailed && health?.worker_connected && photoCount < 20 && !photoLocked)
-  const automaticPaused = busy || Boolean(question.trim()) || speech.listening || speech.speaking || result?.status === 'need_confirmation'
+  const automaticPaused = busy || Boolean(question.trim()) || speech.listening || speech.speaking || awaitingAnswer
   const automaticActive = automatic && mode === 'real_place' && camera.phase === 'live' && automaticAvailable
   const companion = useAutoCompanion(automaticActive, automaticPaused, observeFrame, () => stopAutomatic(t('Automatic guidance stopped. Please ask directly or try again later.', '자동동행을 멈췄어요. 직접 질문하거나 잠시 후 다시 시작해 주세요.')))
   const sceneGate = useSceneGate(camera.videoRef, automaticActive, !automaticPaused, () => companion.notifySceneChange())
@@ -116,6 +122,7 @@ export function useGuide() {
     setError('')
   }
   function stopAutomatic(notice = '', cancelPending = true) {
+    clearAwaiting()
     observationEpoch.current += 1
     automaticRef.current = false
     setAutomatic(false)
@@ -123,7 +130,23 @@ export function useGuide() {
     if (cancelPending && activeInteraction.current === 'observe') invalidate()
     if (notice) setAutomaticNotice(notice)
   }
+  function clearAwaiting() {
+    if (awaitingTimer.current !== null) clearTimeout(awaitingTimer.current)
+    awaitingTimer.current = null
+    setAwaitingAnswer(false)
+  }
+  function awaitAnswer() {
+    clearAwaiting()
+    setAwaitingAnswer(true)
+    setAutomaticNotice(t('Paused so you can answer. I will keep looking in 60 seconds if you do not.', '답할 수 있도록 잠시 멈췄어요. 60초 동안 답이 없으면 다시 살펴볼게요.'))
+    awaitingTimer.current = window.setTimeout(() => {
+      awaitingTimer.current = null
+      setAwaitingAnswer(false)
+      if (automaticRef.current) setAutomaticNotice(t('Looking around again.', '다시 둘러보고 있어요.'))
+    }, AWAIT_ANSWER_MS)
+  }
   function prioritizeUser() {
+    clearAwaiting()
     manualRevision.current += 1
     companion.interrupt()
     if (activeInteraction.current === 'observe') invalidate()
@@ -266,10 +289,11 @@ export function useGuide() {
       }
       let photoId = mode === 'real_place' ? selectedPhoto?.id ?? null : null
       if (selectedPhoto && !photoId && mode === 'real_place') {
-        const uploaded = await api.upload(selectedPhoto.file, nextController.signal)
+        const uploaded = await api.upload(selectedPhoto.file, nextController.signal, observing ? 'observe' : 'capture')
         if (!current()) return
         photoId = uploaded.photo_id
-        photoCountRef.current += 1; setPhotoCount(photoCountRef.current)
+        // Observe frames do not count toward the 20-photo bound (contract M2).
+        if (!observing) { photoCountRef.current += 1; setPhotoCount(photoCountRef.current) }
         const uploadedUrl = selectedPhoto.url
         setPhoto(previous => previous?.url === uploadedUrl ? { ...previous, id: uploaded.photo_id } : previous)
       }
@@ -291,7 +315,7 @@ export function useGuide() {
       if (typeof queued.request_id !== 'string' || !queued.request_id) throw new ApiError('INVALID_RESPONSE')
       setPhase('queued')
       if (!observing) lastQuestion.current = text
-      const received = await waitForResult(queued.request_id, session, nextController.signal, state => { if (current() && (state === 'queued' || state === 'running')) setPhase(state) })
+      const received = await waitForResult(queued.request_id, session, nextController.signal, (state, nextStage) => { if (current() && (state === 'queued' || state === 'running')) { setPhase(state); setStage(nextStage ?? null) } })
       if (!current()) return
       if (observing && (!options.valid?.() || !camera.isLive())) { stopAutomatic(); return }
       if (received.dataset_mode !== mode || (mode === 'fictional_task' && received.places.length > 0)) throw new ApiError('INVALID_RESPONSE')
@@ -307,10 +331,13 @@ export function useGuide() {
       setAutomaticNotice('')
       setResult(received); setStale(false); setPhase(received.status === 'need_confirmation' ? 'need_confirmation' : 'ready')
       if (!observing) setQuestion(previous => previous.trim() === text ? '' : previous)
-      if (received.status === 'need_confirmation' || observationQuestion) stopAutomatic(t('Automatic companion stopped so you can confirm what you see.', '보이는 대상을 확인할 수 있도록 자동동행을 멈췄어요.'), false)
-      const suggestions = [...(!received.scene.confirmed_food_id ? received.scene.food_candidates.map(item => item.id) : []), ...(!received.scene.confirmed_place_id ? (received.scene.place_candidates ?? []).map(item => item.id) : []), ...received.places.map(place => place.place_id)]
+      const suggestions = [...(!received.scene.confirmed_food_id ? received.scene.food_candidates.map(item => item.id) : []), ...(!received.scene.confirmed_place_id ? (received.scene.place_candidates ?? []).map(item => item.id) : []), ...received.places.map(place => place.place_id), ...(received.scene.observed_place_name?.trim() ? ['name:' + received.scene.observed_place_name.trim().toLowerCase()] : [])]
       const spokenText = observing ? received.speech_text.trim() || observationQuestion || '' : received.speech_text
-      if (autoReadRef.current && spokenText && (!observing || readGuard.current.shouldRead(spokenText, suggestions))) speech.read(spokenText, received.response_language)
+      // The same place is not spoken (or paused for) twice in an automatic session.
+      const fresh = !observing || readGuard.current.shouldRead(spokenText, suggestions)
+      const proposal = received.status === 'need_confirmation' || Boolean(observationQuestion)
+      if (proposal && automaticRef.current && fresh) awaitAnswer()
+      if (autoReadRef.current && spokenText && fresh) speech.read(spokenText, received.response_language)
       if (!observing) window.setTimeout(() => { if (current()) answer.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }) }, 100)
       return 'shown'
     } catch (value) {
@@ -335,6 +362,13 @@ export function useGuide() {
     if (ask || result || busy) void submit({ place: place.place_id, shop: place.kind === 'restaurant' ? place.place_id : null, food: null, location: next, question: t('Tell me about the history, culture and visiting etiquette of ', '이 장소의 역사·문화와 방문 예절을 알려 주세요: ') + place.name })
   }
   function confirmPlace(id: string) {
+    // OSM candidates (contract M2): only ids the broker issued to this session; the server owns their coordinates.
+    if (id.startsWith('osm:')) {
+      prioritizeUser(); readGuard.current.reset(); identityPlace.current = id
+      const candidate = result?.scene.place_candidates?.find(item => item.id === id)
+      void submit({ place: id, shop: null, food: null, question: t('Tell me about the history, culture and visiting etiquette of ', '이 장소의 역사·문화와 방문 예절을 알려 주세요: ') + (candidate ? t(candidate.name_en, candidate.name_ko) : id) })
+      return
+    }
     const place = catalog?.places.find(item => item.place_id === id)
     if (!place) { setLocationNotice(t('This place is not in the available collection. Choose a starting point from the list.', '현재 수록 목록에서 확인할 수 없어요. 목록에서 출발점을 선택해 주세요.')); return }
     selectAnchor(place, true)
@@ -371,13 +405,14 @@ export function useGuide() {
     currentMode.current = next
     invalidate(); setMode(next); setResult(null); setQuestion(''); lastQuestion.current = ''; setStatusOpen(false)
   }
-  const phaseText = phase === 'uploading' ? t('Preparing your photo…', '사진을 준비하고 있어요…') : phase === 'submitting' ? t('Sending your question…', '질문을 보내고 있어요…') : phase === 'queued' ? t('Your guide will be with you shortly…', '가이드가 곧 함께할게요…') : t('Looking at the details and the sources…', '내용과 근거를 살펴보고 있어요…')
+  const stageText = phase !== 'running' || !stage ? null : stage === 'observing' ? t('Looking at your photo…', '사진을 살펴보고 있어요…') : stage === 'matching' ? t('Matching it with nearby places…', '주변 장소와 맞춰 보고 있어요…') : t('Writing your story…', '이야기를 쓰고 있어요…')
+  const phaseText = stageText ?? (phase === 'uploading' ? t('Preparing your photo…', '사진을 준비하고 있어요…') : phase === 'submitting' ? t('Sending your question…', '질문을 보내고 있어요…') : phase === 'queued' ? t('Your guide will be with you shortly…', '가이드가 곧 함께할게요…') : t('Looking at the details and the sources…', '내용과 근거를 살펴보고 있어요…'))
 
   return {
     t, language, setLanguage, session, health, healthFailed, checkedAt, statusOpen, setStatusOpen, mode, question, photo, photoLocked, photoNotice,
     location, mapPickerOpen, setMapPickerOpen, radius, locating, locationNotice, result, stale, phase, error, copyNotice, autoRead, setAutoRead,
     catalog, catalogFailed, anchor, automatic, automaticNotice, busy, currentResult, automaticAvailable, automaticPaused, speech, camera,
-    fileInput, cameraInput, dialog, answer, lastQuestion, phaseText,
+    fileInput, cameraInput, dialog, answer, lastQuestion, phaseText, stage, awaitingAnswer,
     editQuestion, changeAutomatic, capturePhoto, reconnect, choosePhoto, removePhoto, selectLocation, useMyLocation, changeRadius, submit,
     selectAnchor, confirmPlace, choosePlace, copyKorean, changeMode, dismissResult, stopAutomatic, prioritizeUser,
   }

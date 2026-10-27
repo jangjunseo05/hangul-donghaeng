@@ -1,3 +1,4 @@
+import type { Confidence, JobStage, LandmarkCard, PlaceSource } from './contract'
 export type Language = 'en' | 'ko'
 export type DatasetMode = 'real_place' | 'fictional_task'
 export type Location = { lat: number; lng: number; origin: 'gps' | 'selected' }
@@ -13,7 +14,7 @@ export type GuideResult = {
   schema_version: 1; session_id: string; request_id: string; captured_at: string;
   dataset_mode: DatasetMode; status: 'need_confirmation' | 'ready' | 'failed';
   speech_text: string; response_language: Language;
-  scene: { food_candidates: Candidate[]; confirmed_food_id: string | null; confirmed_shop_id: string | null; place_candidates?: Candidate[]; confirmed_place_id?: string | null; observed_place_name?: string | null };
+  scene: { food_candidates: Candidate[]; confirmed_food_id: string | null; confirmed_shop_id: string | null; place_candidates?: Candidate[]; confirmed_place_id?: string | null; observed_place_name?: string | null; observed_place_source?: PlaceSource | null; observed_place_confidence?: Confidence | null };
   search_origin?: Location | null;
   search_origin_label?: string | null;
   places: Place[];
@@ -23,6 +24,7 @@ export type GuideResult = {
   conflicts: { evidence_ids: string[]; decision: string; reason: string }[];
   itinerary: { time: string; activity: string; buffer_minutes: number | null; evidence_ids: string[] }[];
   order_ko: string | null; unknowns: string[]; next_question: string | null; error_code: string | null;
+  landmark_card?: LandmarkCard | null;
 }
 export type GuideRequest = {
   schema_version: 1; session_id: string; question: string; photo_id: string | null;
@@ -31,4 +33,4 @@ export type GuideRequest = {
   confirmed_place_id?: string | null; interaction_mode?: InteractionMode;
 }
 export type Health = { status: string; worker_connected: boolean; model_configured: boolean; sandbox_verified: boolean; catalog_count: number; version: string }
-export type Job = { request_id: string; status: 'queued' | 'running' | 'completed' | 'failed' | 'superseded'; result: GuideResult | null; error_code: string | null }
+export type Job = { request_id: string; status: 'queued' | 'running' | 'completed' | 'failed' | 'superseded'; stage?: JobStage | null; result: GuideResult | null; error_code: string | null }

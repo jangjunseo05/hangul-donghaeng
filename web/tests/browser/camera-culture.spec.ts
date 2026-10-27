@@ -41,6 +41,11 @@ async function fixtureApi(page: Page, options: { pending?: boolean; confirmation
     if (pathname === '/api/sessions') body = { session_id: fixture.session_id }
     else if (pathname === '/api/health') body = { status: 'ok', worker_connected: true, model_configured: options.hostedConfigured ?? true, sandbox_verified: false, catalog_count: 3, version: 'development-camera-fixture' }
     else if (pathname === '/api/catalog') body = { catalog_count: 3, scope_label: 'Development fixture collection', catalog_version: 'fixture-v2', places: [palace, gate, restaurant] }
+    else if (pathname === '/api/nearby') {
+      const tab = new URL(route.request().url()).searchParams.get('tab')
+      const places = (tab === 'food' ? [restaurant] : [palace, gate]).map((place, index) => ({ place_id: place.place_id, name: place.name, name_en: place.name_en, kind: tab === 'food' ? 'restaurant' : 'landmark', category: null, lat: place.lat, lng: place.lng, distance_m: 100 + index, source_id: place.source_id, osm_url: null, has_card: false }))
+      body = { schema_version: 1, tab, origin: { lat: 37.579, lng: 126.973, origin: 'selected' }, radius_m: 1000, places, evidence: [], attribution: '© OpenStreetMap contributors (ODbL)', unknowns: [], error_code: null }
+    }
     else if (pathname === '/api/photos') {
       const photoBody = route.request().postDataBuffer()!
       const start = photoBody.indexOf(Buffer.from([0xff, 0xd8]))
@@ -80,6 +85,14 @@ async function startCamera(page: Page) {
   await page.getByRole('button', { name: 'Start camera', exact: true }).click()
   await expect(page.locator('video')).toBeVisible()
   await expect.poll(() => page.locator('video').evaluate((video: HTMLVideoElement) => video.videoWidth > 0 && video.readyState >= 2)).toBe(true)
+}
+
+/** New shell: the curated starting point is chosen in the Landmarks tab ("Start from here"), then Look resumes. */
+async function chooseStart(page: Page, name: string) {
+  await page.getByRole('tab', { name: 'Landmarks' }).click()
+  await page.locator('.sheet-list button').filter({ hasText: name }).click()
+  await page.getByRole('button', { name: 'Start from here', exact: true }).click()
+  await expect(page.getByRole('tab', { name: 'Look' })).toHaveAttribute('aria-selected', 'true')
 }
 
 async function speechProbe(page: Page) {
@@ -156,7 +169,8 @@ for (const input of ['manual', 'observe', 'upload'] as const) test(`fresh scene:
   await cameraProbe(page); const api = await fixtureApi(page, { seedFood: true })
   await page.goto('/')
   await page.getByRole('checkbox', { name: 'Read answers aloud' }).uncheck()
-  await page.locator('#place-anchor').selectOption(gate.place_id)
+  await chooseStart(page, gate.name_en)
+  await expect(page.locator('.start-chip strong')).toHaveAttribute('data-place-id', gate.place_id)
   await page.locator('#question').fill('Tell me about my selected Gwanghwamun starting point')
   await page.locator('.ask-button').click()
   await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()
@@ -179,7 +193,7 @@ for (const input of ['manual', 'observe', 'upload'] as const) test(`fresh scene:
   await expect.poll(() => api.requests.length).toBe(2)
   expect(api.requests[1]).toMatchObject({ photo_id: 'fixture-photo-1', interaction_mode: input === 'observe' ? 'observe' : 'ask', confirmed_place_id: null, confirmed_shop_id: null, confirmed_food_id: null, location: { lat: gate.lat, lng: gate.lng, origin: 'selected' } })
   await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()
-  await expect(page.locator('#place-anchor')).toHaveValue(gate.place_id)
+  await expect(page.locator('.start-chip strong')).toHaveAttribute('data-place-id', gate.place_id)
   if (input !== 'observe') {
     if (input === 'manual') await page.getByRole('button', { name: 'Stop camera', exact: true }).click()
     await page.locator('#question').fill('Continue about this latest photo')
@@ -319,7 +333,7 @@ test('turning read-aloud off while a manual answer waits prevents stale TTS', as
   await speechProbe(page)
   const api = await fixtureApi(page, { pending: true })
   await page.goto('/')
-  await page.locator('#place-anchor').selectOption(palace.place_id)
+  await chooseStart(page, palace.name_en)
   await page.locator('#question').fill('Tell me the cultural context')
   await page.locator('.ask-button').click()
   await expect.poll(() => api.requests.length).toBe(1)
@@ -337,15 +351,15 @@ test('repeated automatic proposal remains visible and is only spoken once', asyn
   await page.clock.install()
   const automatic = page.getByRole('checkbox', { name: 'Automatic companion' })
   await automatic.check()
-  await page.clock.runFor(20000)
+  await page.clock.runFor(3000)
   await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()
-  // A proposal stops automatic mode so the user can answer it.
-  await expect(automatic).not.toBeChecked()
-  await page.evaluate(() => { (window as unknown as { cameraProbe: Probe }).cameraProbe.color = '#bd4250' })
+  // A proposal pauses automatic mode (it stays on) and resumes after 60 seconds without an answer.
+  await expect(automatic).toBeChecked()
+  await page.evaluate(() => { (window as unknown as { cameraProbe: Probe }).cameraProbe.color = '#20251f' })
   await page.waitForTimeout(400)
-  await automatic.check()
-  await page.clock.runFor(20000)
+  for (let step = 0; step < 90 && api.requests.length < 2; step++) { await page.clock.runFor(1000); await page.waitForTimeout(30) }
   await expect.poll(() => api.requests.length).toBe(2)
+  await page.waitForTimeout(500)
   await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()
   expect(await page.evaluate(() => (window as unknown as { spoken: string[] }).spoken.length)).toBe(1)
 })
@@ -387,7 +401,7 @@ test('uncertain cultural identity requires explicit confirmation with catalog co
   expect(api.requests[1]).toMatchObject({ confirmed_place_id: palace.place_id, confirmed_shop_id: null, location: { lat: palace.lat, lng: palace.lng, origin: 'selected' } })
 })
 
-for (const condition of ['confirmation', 'photoLimit', 'busy'] as const) test(`automatic mode stops on ${condition}`, async ({ page }) => {
+for (const condition of ['photoLimit', 'busy'] as const) test(`automatic mode stops on ${condition}`, async ({ page }) => {
   await cameraProbe(page); const api = await fixtureApi(page, { [condition]: true })
   await startCamera(page); await page.clock.install()
   await page.getByRole('checkbox', { name: 'Automatic companion' }).check()
@@ -399,12 +413,32 @@ for (const condition of ['confirmation', 'photoLimit', 'busy'] as const) test(`a
   await expect(page.locator('.automatic-notice')).toBeVisible()
 })
 
+test('automatic mode pauses on a confirmation and resumes after 60 seconds without an answer', async ({ page }) => {
+  await cameraProbe(page); const api = await fixtureApi(page, { confirmation: true })
+  await startCamera(page); await page.clock.install()
+  const automatic = page.getByRole('checkbox', { name: 'Automatic companion' })
+  await automatic.check()
+  await page.clock.runFor(3000)
+  await expect.poll(() => api.requests.length).toBe(1)
+  await expect(page.locator('.place-confirmation')).toBeVisible()
+  await expect(automatic).toBeChecked()
+  await expect(page.locator('.automatic-notice')).toContainText('60 seconds')
+  // The view changes while the question is open: nothing is sent during the 60-second wait.
+  await page.evaluate(() => { (window as unknown as { cameraProbe: Probe }).cameraProbe.color = '#20251f' })
+  await page.waitForTimeout(400)
+  for (let step = 0; step < 55; step++) await page.clock.runFor(1000)
+  expect(api.requests).toHaveLength(1)
+  for (let step = 0; step < 20 && api.requests.length < 2; step++) { await page.clock.runFor(1000); await page.waitForTimeout(60) }
+  await expect.poll(() => api.requests.length).toBe(2)
+  expect(api.requests[1].interaction_mode).toBe('observe')
+})
+
 test('place confirmation uses catalog coordinates; culture and meals stay distinct', async ({ page }, testInfo) => {
   const api = await fixtureApi(page, { confirmation: true })
   await page.goto('/')
   await page.getByRole('checkbox', { name: 'Read answers aloud' }).uncheck()
-  await page.locator('#place-anchor').selectOption(palace.place_id)
-  await expect(page.locator('.anchor-picker')).toContainText('main gate of Gyeongbokgung')
+  await chooseStart(page, palace.name_en)
+  await expect(page.locator('.start-chip')).toContainText('경복궁')
   await page.locator('#question').fill('Describe this cultural place')
   await page.locator('.ask-button').click()
   await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()

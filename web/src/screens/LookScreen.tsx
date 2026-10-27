@@ -29,12 +29,26 @@ export default function LookScreen({ g, hidden }: { g: Guide; hidden: boolean })
   const live = camera.phase === 'live'
   const showPhoto = Boolean(photo && (photoLocked || !live))
   const real = mode === 'real_place'
+  const sheet = Boolean(busy || error || result)
+  // Photo label/change/remove: over the photo, or in the top row while an answer sheet is up.
+  const photoActions = <><span className="photo-label"><Check size={13}/>{t('Your photo', '선택한 사진')}</span><button className="icon-button remove-photo" onClick={removePhoto} aria-label={t('Remove photo', '사진 지우기')}><X size={17}/></button><button className="replace-photo" onClick={() => fileInput.current?.click()}><ImagePlus size={14}/>{t('Change photo', '사진 바꾸기')}</button></>
+  const controls = real && <div className={'stage-controls' + (sheet ? ' compact' : '')}>
+        {live ? <>
+          <button type="button" className="round-button" onClick={() => fileInput.current?.click()} aria-label={t('Choose a photo', '사진 선택')}><ImagePlus size={21}/></button>
+          <button type="button" className="shutter" onClick={() => void capturePhoto()} aria-label={t('Capture a photo', '사진 고정 촬영')}><span/></button>
+          {camera.canSwitch ? <button type="button" className="round-button" onClick={() => void camera.switchCamera()} aria-label={t('Switch camera', '카메라 전환')}><RefreshCw size={20}/></button> : <span className="round-spacer"/>}
+        </> : camera.phase === 'idle' ? <>
+          <button type="button" className="button button-light" onClick={() => fileInput.current?.click()}><ImagePlus size={16}/>{t('Choose a photo', '사진 선택')}</button>
+          <button type="button" className="button button-primary start-camera" onClick={() => void camera.start()}><Camera size={17}/>{t('Start camera', '카메라 시작')}</button>
+          <button type="button" className="button button-light" onClick={() => cameraInput.current?.click()}><Camera size={16}/>{t('Take one', '촬영')}</button>
+        </> : null}
+      </div>
   return <section className="look-screen" hidden={hidden} aria-label={t('Look', '보기')}>
     {real && <><input ref={fileInput} className="visually-hidden" type="file" accept="image/jpeg,image/png" aria-label={t('Choose a place, food or menu photo', '장소·음식·메뉴 사진 선택')} onChange={e => { choosePhoto(e.target.files?.[0]); e.target.value = '' }}/><input ref={cameraInput} className="visually-hidden" type="file" accept="image/jpeg,image/png" capture="environment" aria-label={t('Take a photo', '사진 촬영')} onChange={e => { choosePhoto(e.target.files?.[0]); e.target.value = '' }}/></>}
     <div className={'camera-stage camera-panel' + (live && !showPhoto ? ' is-live' : '')} aria-label={t('Camera companion', '카메라 동행')}>
       <video ref={camera.videoRef} className={live && !showPhoto ? 'camera-video' : 'camera-video camera-hidden'} autoPlay muted playsInline aria-label={t('Local camera preview', '기기 내 카메라 미리보기')} onClick={event => { void event.currentTarget.play().catch(() => {}) }}/>
       {real && live && !showPhoto && <div className="reticle" aria-hidden="true"><i/><i/><i/><i/></div>}
-      {real && showPhoto && photo && <div className="photo-preview stage-photo"><img src={photo.url} alt={t('Your selected place, food or menu photo', '선택한 장소·음식·메뉴 사진')}/><span className="photo-label"><Check size={13}/>{t('Your photo', '선택한 사진')}</span><button className="icon-button remove-photo" onClick={removePhoto} aria-label={t('Remove photo', '사진 지우기')}><X size={17}/></button><button className="replace-photo" onClick={() => fileInput.current?.click()}><ImagePlus size={14}/>{t('Change photo', '사진 바꾸기')}</button></div>}
+      {real && showPhoto && photo && <div className="photo-preview stage-photo"><img src={photo.url} alt={t('Your selected place, food or menu photo', '선택한 장소·음식·메뉴 사진')}/>{!sheet && photoActions}</div>}
       <div className="stage-top">
         <ConnectionNotices g={g}/>
         <InAppNotice g={g}/>
@@ -46,6 +60,9 @@ export default function LookScreen({ g, hidden }: { g: Guide; hidden: boolean })
         {real && live && <p className="stage-status" role="status">{automatic ? automaticPaused ? t('Paused while you ask, listen, or wait for an answer.', '질문·음성 입력·답변 중에는 잠시 기다려요.') : t('Looking for a change in the view… ask any time.', '장면이 바뀌면 살펴볼게요. 언제든 직접 물어보세요.') : t('Tap the shutter to freeze a photo, or just ask.', '셔터로 사진을 고정하거나 바로 물어보세요.')}</p>}
         {real && live && !automaticAvailable && <small className="stage-hint">{t('To use automatic guidance, connect your guide and release any saved photo.', '가이드에 연결하고 고정 사진을 해제하면 자동동행을 사용할 수 있어요.')}</small>}
         {camera.notice && <p className="inline-notice" role="status"><Info size={14}/>{camera.notice}</p>}
+        {/* With an answer sheet up, the camera controls move to the top so the sheet never hides them. */}
+        {sheet && controls}
+        {sheet && real && showPhoto && <div className="photo-row">{photoActions}</div>}
       </div>
       {real && camera.phase === 'idle' && !showPhoto && <div className="stage-idle">
         <span className="stage-idle-icon"><Camera size={30}/></span>
@@ -54,18 +71,8 @@ export default function LookScreen({ g, hidden }: { g: Guide; hidden: boolean })
         <ul><li><ShieldCheck size={13}/>{t('Only photos you take (or automatic snapshots) are sent.', '찍은 사진(또는 자동 스냅)만 보내요.')}</li><li><ShieldCheck size={13}/>{t('The live preview stays on this device.', '실시간 미리보기는 이 기기에만 남아요.')}</li></ul>
       </div>}
       {!real && <div className="stage-idle practice"><h2>{t('Practice itinerary', '연습 일정')}</h2><p>{t('Fictional places from the practice materials. Ask below.', '연습 자료의 가상 장소예요. 아래에서 질문해 주세요.')}</p></div>}
-      {real && <div className="stage-controls">
-        {live ? <>
-          <button type="button" className="round-button" onClick={() => fileInput.current?.click()} aria-label={t('Choose a photo', '사진 선택')}><ImagePlus size={21}/></button>
-          <button type="button" className="shutter" onClick={() => void capturePhoto()} aria-label={t('Capture a photo', '사진 고정 촬영')}><span/></button>
-          {camera.canSwitch ? <button type="button" className="round-button" onClick={() => void camera.switchCamera()} aria-label={t('Switch camera', '카메라 전환')}><RefreshCw size={20}/></button> : <span className="round-spacer"/>}
-        </> : camera.phase === 'idle' ? <>
-          <button type="button" className="button button-light" onClick={() => fileInput.current?.click()}><ImagePlus size={16}/>{t('Choose a photo', '사진 선택')}</button>
-          <button type="button" className="button button-primary start-camera" onClick={() => void camera.start()}><Camera size={17}/>{t('Start camera', '카메라 시작')}</button>
-          <button type="button" className="button button-light" onClick={() => cameraInput.current?.click()}><Camera size={16}/>{t('Take one', '촬영')}</button>
-        </> : null}
-      </div>}
-      {(busy || error || result) && <BottomSheet className="answer-sheet" t={t}><ResultDetails g={g}/></BottomSheet>}
+      {!sheet && controls}
+      {sheet && <BottomSheet className="answer-sheet" t={t}><ResultDetails g={g}/></BottomSheet>}
     </div>
     <Composer g={g}/>
   </section>

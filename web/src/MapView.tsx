@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
-import { MapPin, RotateCcw } from 'lucide-react'
+import { Check, MapPin, RotateCcw, X } from 'lucide-react'
 import type { Language, Location, Place } from './types'
 
 export const SEOCHON = { lat: 37.5790, lng: 126.9730, origin: 'selected' as const }
@@ -14,6 +14,9 @@ export default function MapView({ location, places, language, onLocation, onChoo
   callbacks.current = { onLocation, onChoosePlace }
   const [tileError, setTileError] = useState(false)
   const [tilesReady, setTilesReady] = useState(false)
+  // A tap only proposes a starting point; it becomes the origin after an explicit confirmation.
+  const [pending, setPending] = useState<{ lat: number; lng: number } | null>(null)
+  const pendingLayer = useRef<L.LayerGroup | null>(null)
   useEffect(() => {
     if (!container.current) return
     const instance = L.map(container.current, { zoomControl: false, scrollWheelZoom: false }).setView([SEOCHON.lat, SEOCHON.lng], 15)
@@ -24,7 +27,8 @@ export default function MapView({ location, places, language, onLocation, onChoo
     const loadingTimeout = window.setTimeout(() => setTileError(ready => ready || !container.current?.querySelector('.leaflet-tile-loaded')), 12000)
     L.control.zoom({ position: 'bottomright' }).addTo(instance)
     layer.current = L.layerGroup().addTo(instance)
-    instance.on('click', (event: L.LeafletMouseEvent) => callbacks.current.onLocation({ lat: event.latlng.lat, lng: event.latlng.lng, origin: 'selected' }))
+    pendingLayer.current = L.layerGroup().addTo(instance)
+    instance.on('click', (event: L.LeafletMouseEvent) => setPending({ lat: event.latlng.lat, lng: event.latlng.lng }))
     const observer = new ResizeObserver(() => instance.invalidateSize())
     observer.observe(container.current)
     return () => { clearTimeout(loadingTimeout); observer.disconnect(); instance.remove(); map.current = null }
@@ -58,9 +62,15 @@ export default function MapView({ location, places, language, onLocation, onChoo
       map.current.fitBounds(L.latLngBounds(points), { padding: [55, 55], maxZoom: 16 })
     } else if (location) map.current.setView([location.lat, location.lng], 15)
   }, [location, places, language, route])
+  useEffect(() => {
+    pendingLayer.current?.clearLayers()
+    if (pending && pendingLayer.current) L.marker([pending.lat, pending.lng], { icon: L.divIcon({ className: 'pending-marker', html: '<span></span>', iconSize: [22, 22], iconAnchor: [11, 11] }) }).addTo(pendingLayer.current)
+  }, [pending])
+  const t = (en: string, ko: string) => language === 'ko' ? ko : en
   return <div className="map-wrap"><div className="map-canvas" ref={container} aria-label={language === 'ko' ? '출발점을 선택할 수 있는 지도' : 'Map: click to choose a starting point'} />
-    {!location && showHint && <div className="map-hint"><MapPin size={14} />{language === 'ko' ? '지도를 눌러 출발점을 정해 주세요' : 'Tap the map to choose your starting point'}</div>}
+    {!location && showHint && <div className="map-hint"><MapPin size={14} />{language === 'ko' ? '지도를 눌러 출발점을 고른 뒤 확인해 주세요' : 'Tap the map, then confirm your starting point'}</div>}
     {!tilesReady && !tileError && <div className="map-loading" role="status">{language === 'ko' ? '지도를 불러오고 있어요…' : 'Loading the map…'}</div>}
+    {pending && <div className="map-confirm" role="dialog" aria-label={t('Confirm starting point', '출발점 확인')}><span>{t('Use this point as your starting point?', '이 지점을 출발점으로 할까요?')}</span><button type="button" className="button button-primary" onClick={() => { const point = pending; setPending(null); callbacks.current.onLocation({ lat: point.lat, lng: point.lng, origin: 'selected' }) }}><Check size={14}/>{t('Start from here', '여기를 출발점으로')}</button><button type="button" className="icon-button" onClick={() => setPending(null)} aria-label={t('Cancel', '취소')}><X size={15}/></button></div>}
     {tileError && <div className="map-error" role="status"><span>{language === 'ko' ? '지도 배경을 불러오지 못했어요.' : 'The map background could not load.'}</span><button type="button" onClick={() => { setTileError(false); tiles.current?.redraw() }}><RotateCcw size={13} />{language === 'ko' ? '다시 시도' : 'Retry'}</button></div>}
   </div>
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Language } from './types'
-import { BrowserTtsPlayer, FallbackPlayer, ServerTtsPlayer, TtsUnavailable, unlockAudio } from './audio'
+import { BrowserTtsPlayer, FallbackPlayer, ServerTtsPlayer, TtsUnavailable, splitForSpeech, unlockAudio } from './audio'
 
 type Recognition = {
   lang: string; continuous: boolean; interimResults: boolean;
@@ -42,7 +42,7 @@ export function useSpeech(language: Language, onTranscript: (text: string) => vo
     recognition.current = next
     try { next.start(); setListening(true) } catch { setListening(false); setNotice(language === 'ko' ? '음성을 시작할 수 없어요. 텍스트를 이용해 주세요.' : 'Could not start voice input. Please use text.') }
   }
-  /** Server voice first (POST /api/tts); browser speech when the server voice is unavailable. */
+  /** Server voice first (POST /api/tts); browser speech when the server voice is unavailable. Long text plays sentence by sentence. */
   function read(text: string, lang: Language = language) {
     setNotice('')
     stopReading()
@@ -50,7 +50,9 @@ export function useSpeech(language: Language, onTranscript: (text: string) => vo
     const controller = new AbortController()
     playback.current = controller
     setSpeaking(true)
-    void player.current.play(text, lang, controller.signal).then(() => {
+    // Sentence by sentence: the first one starts sooner, and a stop takes effect between sentences too.
+    const playAll = async () => { for (const chunk of splitForSpeech(text)) { if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError'); await player.current.play(chunk, lang, controller.signal) } }
+    void playAll().then(() => {
       if (playback.current === controller) { playback.current = null; setSpeaking(false) }
     }, error => {
       if (playback.current !== controller) return

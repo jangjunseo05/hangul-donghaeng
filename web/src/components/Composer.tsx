@@ -1,10 +1,25 @@
-import { ArrowRight, ArrowUpRight, Compass, Info, LoaderCircle, Mic, ShieldCheck, Square, VolumeX } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, ChevronDown, ChevronUp, Compass, Info, LoaderCircle, MapPin, Mic, ShieldCheck, Square, VolumeX } from 'lucide-react'
+import { useState } from 'react'
 import type { Guide } from '../useGuide'
+import LocationControls, { isSeochonDemo } from './LocationControls'
+
+/** One-line starting point chip on Look; opens the full location controls. */
+function StartChip({ g }: { g: Guide }) {
+  const { t, location, anchor, mode } = g
+  const [open, setOpen] = useState(false)
+  if (mode !== 'real_place') return null
+  const label = anchor ? anchor.name : !location ? t('Not set', '미설정') : isSeochonDemo(location) ? t('Seochon demo', '서촌 데모') : location.origin === 'gps' ? t('My location', '내 위치') : t('Map point', '지도 지점')
+  return <div className="start-chip-wrap">
+    <button type="button" className="start-chip" aria-expanded={open} onClick={() => setOpen(value => !value)}><MapPin size={13}/>{t('Starting point', '출발점')}<strong data-place-id={anchor?.place_id ?? ''}>{label}</strong>{open ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}</button>
+    {open && <LocationControls g={g} mapPicker/>}
+  </div>
+}
 
 /** Question form, photo basis and read-aloud preference (moved from the former composer panel). */
 export default function Composer({ g }: { g: Guide }) {
   const { t, mode, photoLocked, camera, photo, removePhoto, automaticNotice, photoNotice, submit, speech, question, editQuestion, prioritizeUser, result, session, busy, autoRead, setAutoRead } = g
   return <div className="composer-dock">
+    <StartChip g={g}/>
     <h2 id="start-title" className="visually-hidden">{t('What caught your eye?', '어떤 풍경이 눈에 들어왔나요?')}</h2>
           {mode === 'real_place' && <div className="input-basis" role="status"><strong>{photoLocked ? t('Saved photo · kept for follow-up questions', '고정 사진 · 후속 질문에도 유지') : camera.phase === 'live' ? t('Current camera view · captured when you ask', '현재 카메라 장면 · 질문을 보낼 때 촬영') : photo ? t('Last photo · camera is off', '마지막 사진 · 카메라 꺼짐') : t('No photo · selected place and conversation only', '사진 없음 · 선택한 장소와 대화만 사용')} </strong>{photoLocked && <button type="button" className="button button-light" onClick={removePhoto}>{t('Use current view', '현재 장면 사용 · 고정 해제')}</button>}<small>{t('Only the latest photo and conversation are used, not a memory of the whole video.', '전체 영상의 기억 없이 마지막 사진과 대화만 사용해요.')}</small></div>}
           {automaticNotice && <p className="inline-notice automatic-notice" role="status"><Info size={14}/>{automaticNotice}</p>}{photoNotice && <p className="inline-notice" role="status"><Info size={14}/>{photoNotice}</p>}

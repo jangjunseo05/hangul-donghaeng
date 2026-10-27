@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { BookOpen, Camera, ChevronDown, ChevronUp, Landmark, Route as RouteIcon, Utensils } from 'lucide-react'
+import { Camera, ChevronDown, ChevronUp, Landmark, Route as RouteIcon, Utensils } from 'lucide-react'
 import type { Guide } from '../useGuide'
-import type { Tab } from '../draftTypes'
+import type { Tab } from '../contract'
 
 export function TopBar({ g }: { g: Guide }) {
   const { t, health, healthFailed, language, speech, setLanguage, setStatusOpen } = g
@@ -37,8 +37,4 @@ export function BottomSheet({ title, children, className = '', defaultOpen = tru
     {title && <div className="sheet-title">{title}</div>}
     <div className="sheet-body">{children}</div>
   </section>
-}
-
-export function FixtureNote({ t }: { t: Guide['t'] }) {
-  return <p className="fixture-note"><BookOpen size={12}/>{t('Development fixture · contract pending (M2)', '개발용 예시 데이터 · 계약 확정 전(M2)')}</p>
 }

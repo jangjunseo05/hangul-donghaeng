@@ -38,6 +38,28 @@ export function pickVoice<T extends VoiceLike>(voices: readonly T[], lang: Langu
   return [...candidates].sort((a, b) => score(b) - score(a))[0]
 }
 
+/**
+ * Splits long text into sentence-sized chunks (≤ max chars) so the first sentence plays sooner and
+ * no request exceeds the 600-character TTS limit. Sentence ends: . ! ? … 。 and Korean endings followed by a space.
+ */
+export function splitForSpeech(text: string, max = 220): string[] {
+  const sentences = text.replace(/\s+/g, ' ').trim().match(/[^.!?…。]+(?:[.!?…。]+["'”’)]*|$)\s*/g) ?? []
+  const chunks: string[] = []
+  for (const raw of sentences) {
+    let sentence = raw.trim()
+    if (!sentence) continue
+    while (sentence.length > max) {
+      const cut = Math.max(sentence.lastIndexOf(', ', max), sentence.lastIndexOf(' ', max))
+      const at = cut > max / 2 ? cut + 1 : max
+      chunks.push(sentence.slice(0, at).trim()); sentence = sentence.slice(at).trim()
+    }
+    const last = chunks[chunks.length - 1]
+    if (last && last.length + sentence.length + 1 <= max / 2) chunks[chunks.length - 1] = last + ' ' + sentence
+    else if (sentence) chunks.push(sentence)
+  }
+  return chunks
+}
+
 /** Server-side TTS: POST /api/tts → audio. Any non-OK reply means "use the next source". */
 export class ServerTtsPlayer implements AudioPlayer {
   private audio: HTMLAudioElement | null = null
