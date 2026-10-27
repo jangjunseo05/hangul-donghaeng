@@ -25,7 +25,11 @@ import time
 import httpx
 
 _GEOCODE = "https://nominatim.openstreetmap.org/search"
-_OVERPASS = "https://overpass-api.de/api/interpreter"
+# Fixed public Overpass instances, tried in order within the same overall budget (M4 decision 3).
+_OVERPASS_ENDPOINTS = ("https://overpass-api.de/api/interpreter",
+                       "https://overpass.kumi.systems/api/interpreter",
+                       "https://overpass.private.coffee/api/interpreter")
+_OVERPASS = _OVERPASS_ENDPOINTS[0]
 USER_AGENT = f"HangulDonghaeng/0.2 (+https://github.com/jangjunseo05/hangul-donghaeng) httpx/{httpx.__version__}"
 _POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="osm-nearby")
 _FLIGHT = threading.BoundedSemaphore(1)
@@ -88,14 +92,14 @@ def _distance(lat, lng, other_lat, other_lng):
     return 6371008.8 * 2 * math.asin(math.sqrt(min(1.0, max(0.0, value))))
 
 
-async def _json(client, url, *, params=None, data=None):
+async def _json(client, url, *, params=None, data=None, timeout=None):
     # URLs are constants, not derived from names, OSM responses or caller input.
-    if url not in (_GEOCODE, _OVERPASS):
+    if url != _GEOCODE and url not in _OVERPASS_ENDPOINTS:
         raise _Failure("invalid_provider")
     provider = "geocode" if url == _GEOCODE else "overpass"
     try:
-        async with client.stream("GET" if data is None else "POST", url,
-                                 params=params, data=data) as response:
+        async with client.stream("GET" if data is None else "POST", url, params=params, data=data,
+                                 **({"timeout": timeout} if timeout else {})) as response:
             if response.status_code != 200:
                 raise _Failure(provider + "_http_" + str(response.status_code))
             size = response.headers.get("content-length")
@@ -147,7 +151,31 @@ def _clean(value, limit=200):
     return value.strip()
 
 
-async def _lookup(name, location, radius, tab):
+async def _overpass(client, query, deadline):
+    """Try each fixed Overpass endpoint in order; each attempt gets an equal share of what is left."""
+    failure = _Failure("overpass_timeout")  # nothing attempted in the remaining budget
+    for index, url in enumerate(_OVERPASS_ENDPOINTS):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0.3:
+            break
+        share = remaining / (len(_OVERPASS_ENDPOINTS) - index)
+        try:
+            result = await _json(client, url, data={"data": query},
+                                 timeout=httpx.Timeout(max(0.3, share), connect=min(3.0, share)))
+        except _Failure as exc:
+            failure = exc
+            continue
+        if not isinstance(result, dict) or not isinstance(result.get("elements"), list):
+            failure = _Failure("overpass_invalid_response")
+            continue
+        if result.get("remark"):
+            failure = _Failure("overpass_incomplete_response")
+            continue
+        return result
+    raise failure
+
+
+async def _lookup(name, location, radius, tab, deadline=None):
     global _LAST_GEOCODE
     origin = None
     label = name or "User-selected location"
@@ -185,11 +213,8 @@ async def _lookup(name, location, radius, tab):
                     label = "User-selected location"  # Name not found: fall back to the user's point.
             lat, lng = center or location
             origin = {"lat": lat, "lng": lng, "origin": "selected"}
-            result = await _json(client, _OVERPASS, data={"data": _query(tab, radius, lat, lng)})
-            if not isinstance(result, dict) or not isinstance(result.get("elements"), list):
-                raise _Failure("overpass_invalid_response")
-            if result.get("remark"):
-                raise _Failure("overpass_incomplete_response")
+            result = await _overpass(client, _query(tab, radius, lat, lng),
+                                     deadline if deadline is not None else time.monotonic() + 14.0)
             places = {}
             for element in result["elements"]:
                 if not isinstance(element, dict):
@@ -246,7 +271,7 @@ def _run(name, location, radius, deadline, tab):
         if remaining <= 0:
             return _empty("nearby_timeout")
         try:
-            return await asyncio.wait_for(_lookup(name, location, radius, tab), timeout=remaining)
+            return await asyncio.wait_for(_lookup(name, location, radius, tab, deadline - 0.2), timeout=remaining)
         except asyncio.TimeoutError:
             return _empty("nearby_timeout", label=name or "User-selected location")
     return asyncio.run(bounded())

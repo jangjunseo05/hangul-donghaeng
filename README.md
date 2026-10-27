@@ -152,7 +152,7 @@ OpenShell 정책은 worker의 코드·자료 읽기, 임시 공간 쓰기, 지�
 | 실행·영구 결과 | non-root UID/GID 1000, Landlock 필수·REST `enforce`. worker는 영구 결과를 직접 쓰지 않고 broker가 검증 후 `.runtime/output`에 저장합니다. |
 | broker의 실시간 OSM 조회 | 고정 HTTPS Nominatim/Overpass endpoint에서 장소 이름·좌표로 주변 음식점·카페와 랜드마크(tourism/historic)를 국가 제한 없이 조회합니다(맛집·랜드마크 탭, observe 후보). Nominatim은 초당 1회 이하·캐시·식별 User-Agent를 지킵니다. 사진·인증정보·모델이 정한 임의 URL/쿼리는 전달하지 않습니다. 결과와 출처를 작업에 결합해 검사하며 외부 식당을 기본 카탈로그 확인 ID로 위장하지 않습니다. 이 조회는 trusted broker 경계이며 worker allowlist 확장이 아닙니다. |
 | broker의 위키백과 조회 | 사용자가 확정한 OSM 장소에 한해 고정 HTTPS en/ko Wikipedia REST summary와 Wikidata sitelink를 조회합니다. 제목은 OSM `wikipedia`/`wikidata` 태그 또는 이름과 정확히 같은 문서 제목에서만 정합니다. 사진·사용자 문장·모델 출력은 보내지 않습니다. 결과는 `public_source` 근거로 작업에 기록하며, 화면에는 원문 인용 없이 링크와 CC BY-SA 4.0 표기만 노출합니다. |
-| broker의 TTS 호출 | `TTS_BASE_URL`(SSH 터널 `127.0.0.1:9000`의 Magpie TTS NIM)에 고정 경로 `/v1/audio/synthesize`로 화면 문장만 보냅니다. 화자는 서버 설정(`TTS_VOICE_KO/EN`)으로 고정합니다. 평문 HTTP는 loopback에만 허용하고, 미설정·실패 시 브라우저 TTS로 폴백합니다. worker 정책과 무관합니다. |
+| broker의 TTS 호출 | `TTS_BASE_URL`(SSH 터널 `127.0.0.1:9100`: GPU 호스트의 후처리 프록시 `infra/tts_postfx.py` → Magpie TTS NIM `127.0.0.1:9000`)에 고정 경로 `/v1/audio/synthesize`로 화면 문장만 보냅니다. 화자(`TTS_VOICE_KO/EN`, 확정: `Magpie-Multilingual.EN-US.Mia`)와 SSML 음높이(`TTS_SSML_PITCH=x-high`, XML 이스케이프 후 감쌈)는 서버 설정으로 고정합니다. 프록시는 loopback 전용이며 ffmpeg 필터(1.125배속·3kHz +6dB·리미터)만 적용하고, 실패하면 원음을 돌려줍니다. 평문 HTTP는 loopback에만 허용하고, 미설정·실패 시 브라우저 TTS로 폴백합니다. worker 정책과 무관합니다. |
 | 브라우저 외부 서비스 | 사용자 동의 카메라·마이크·위치, 브라우저 음성 서비스, OpenStreetMap 타일. worker 정책 밖의 기능이며 사용자 사진을 지도 서비스에 보내는 흐름은 없습니다. |
 
 [통제된 경계 시험 11조건 PASS](docs/runtime/evidence/boundary-combined-verdict.json)는 허용·차단 로그와 수신기 카운트를 결합한 결과입니다. 모든 목적지나 모든 제품 시나리오를 시험했다는 뜻은 아닙니다. 정책을 바꾸면 실효 정책과 실행 근거를 다시 확인합니다.

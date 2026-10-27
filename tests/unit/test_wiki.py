@@ -46,7 +46,7 @@ def test_osm_wikipedia_tag_is_used_directly(web):
         "content_urls": {"desktop": {"page": "https://ko.wikipedia.org/wiki/%EA%B2%BD%EB%B3%B5%EA%B6%81"}}}
     found = wiki.lookup({"place_id": "osm:way:10", "name": "경복궁", "wikipedia": "ko:경복궁"}, "en")
     assert found["records"][0]["id"] == "wikipedia:ko:7"
-    assert len(calls) == 1
+    assert len(calls) == 2  # an en card first asks for the en interlanguage link (none here), then uses the tag
 
 
 def test_disambiguation_and_foreign_host_urls_are_not_evidence(web):
@@ -76,3 +76,21 @@ def test_upstream_failure_is_explicit_and_unknown_language_refused(web):
     routes["https://en.wikipedia.org/"] = lambda: httpx.Response(503)
     assert wiki.lookup({"place_id": "osm:node:3", "name": "X", "wikipedia": "en:X"}, "en")["error_code"] == "wiki_http_503"
     assert wiki.lookup({"place_id": "osm:node:3", "name": "X"}, "ja")["error_code"] == "wiki_invalid_lang"
+
+
+def test_korean_card_prefers_korean_article_through_langlinks(web):
+    calls, routes = web
+    routes["https://en.wikipedia.org/w/api.php"] = {"query": {"pages": [{"title": "Deoksugung",
+                                                                          "langlinks": [{"lang": "ko", "title": "덕수궁"}]}]}}
+    routes["https://ko.wikipedia.org/api/rest_v1/page/summary/"] = {**SUMMARY, "pageid": 55, "title": "덕수궁",
+        "content_urls": {"desktop": {"page": "https://ko.wikipedia.org/wiki/%EB%8D%95%EC%88%98%EA%B6%81"}}}
+    found = wiki.lookup({"place_id": "osm:way:5", "name": "덕수궁", "wikipedia": "en:Deoksugung"}, "ko")
+    assert found["records"][0]["id"] == "wikipedia:ko:55"
+    assert calls[0].url.params["lllang"] == "ko"
+
+
+def test_missing_langlink_keeps_the_tagged_article(web):
+    _, routes = web
+    routes["https://en.wikipedia.org/w/api.php"] = {"query": {"pages": [{"title": "Deoksugung"}]}}
+    routes["https://en.wikipedia.org/api/rest_v1/page/summary/"] = SUMMARY
+    assert wiki.lookup({"place_id": "osm:way:5", "name": "덕수궁", "wikipedia": "en:Deoksugung"}, "ko")["records"][0]["id"] == "wikipedia:en:482"

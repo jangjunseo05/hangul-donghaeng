@@ -78,3 +78,9 @@ def test_samples_file_validation(tmp_path):
         assert "unsafe" in str(exc)
     else:
         raise AssertionError("unsafe sample id accepted")
+
+
+def test_rows_sharing_an_image_use_one_file(tmp_path):
+    first = {**sample("gate-02__gps_correct", "local:gwanghwamun"), "image_id": "gate-02"}
+    second = {**sample("gate-02__gps_none", "local:gwanghwamun", condition="gps_none", gps=None), "image_id": "gate-02"}
+    assert runner.image_path(tmp_path, first) == runner.image_path(tmp_path, second) == tmp_path / "gate-02.jpg"

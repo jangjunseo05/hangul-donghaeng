@@ -27,7 +27,9 @@ INPUT you receive:
 - allow_unverified: true|false
 
 FACT RULES
-1. Prefer facts from evidence. Cite every evidence id you used in that block's evidence_ids.
+1. Prefer facts from evidence. Cite every evidence id you used in that block's evidence_ids, and copy into
+   support_quote the exact words (verbatim, 3-25 words, same language as the evidence) from that evidence
+   that support the block. A block whose fact is not in the evidence gets evidence_ids=[] and support_quote=null.
 2. If allow_unverified is true, you may use general knowledge for a block with no evidence, but set
    evidence_ids=[] and keep the claim modest (no dates, numbers, superlatives or names you are not sure of).
 3. Never invent ids. Never put opening hours, fees, closures, events, crowd levels or current access into the
@@ -35,8 +37,9 @@ FACT RULES
 4. No superlatives ("the biggest", "the oldest", "perfectly preserved", "must-see") unless evidence states them.
 
 STYLE RULES
-5. One sentence per block. English: 50-90 words total, plain words (CEFR B1), no academic terms. Korean: 100-200
-   characters total, friendly polite style (~예요/~해요/~해 보세요), not a literal translation.
+5. Exactly ONE sentence per block. English: 50-90 words total, plain words (CEFR B1), no academic terms.
+   Korean: 100-200 characters total, friendly polite style: end sentences with ~예요/~이에요/~해요/~어요/~해 보세요,
+   never ~입니다/~습니다. Write natural Korean, not a literal translation; no Chinese characters.
 6. The first time a Korean proper noun appears, add a short plain gloss (3-8 words).
 7. Use at most one year/date in the four blocks.
 8. You may use one familiar comparison, phrased clearly as an analogy, and set analogy=true on that block.
@@ -51,6 +54,26 @@ OPERATION_TERMS = re.compile(
 
 
 NUMBER = re.compile(r"\d+")
+# A sentence break: terminal punctuation followed by a capital letter, a digit or Hangul ("a.m. and" is not).
+SENTENCE_BREAK = re.compile(r"[.!?。]\s+(?=[A-Z0-9가-힣\"'“‘])")
+FORMAL_KO = re.compile(r"(?:니다|니까)[.!?]?\s*$")
+HANJA = re.compile(r"[\u4e00-\u9fff]")
+
+
+ASIDE = re.compile(r"\s*[(（][^()（）]*[)）]")
+
+
+def _normalized(text: str) -> str:
+    # Bracketed asides (hanja such as 덕수궁(德壽宮), dates) are dropped on both sides before matching.
+    text = ASIDE.sub("", text)
+    return " ".join(text.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').split()).casefold()
+
+
+def quote_supported(quote: str | None, cited_text: str) -> bool:
+    """support_quote must be a verbatim span (>= 3 words) of the cited evidence text."""
+    if not quote or len(quote.split()) < 3 and len(quote) < 8:
+        return False
+    return _normalized(quote).strip(" .\"'") in _normalized(cited_text)
 
 
 class DraftBlock(BaseModel):
@@ -59,6 +82,8 @@ class DraftBlock(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list, max_length=10)
     verification: Literal["catalog", "public_source", "model_unverified"] | None = None  # ignored
     analogy: bool = False
+    # Server-internal grounding check only; never stored in the card or shown (M4 decision 4).
+    support_quote: str | None = Field(default=None, max_length=400)
 
 
 class DraftBlocks(BaseModel):
@@ -102,28 +127,40 @@ async def explain_public_place(request, request_id: str, place: dict, api, model
                   "evidence": [{"id": item["id"], "text": item["text"][:1500], "source": item["source"]}
                                for item in records if item["id"] in known]}, ensure_ascii=False))
 
+    attempts = []
+
     def check(draft: CardDraft):
+        attempts.append(1)
         required = [draft.blocks.what_it_is, draft.blocks.why_it_matters, draft.blocks.what_to_look_for]
         if any(OPERATION_TERMS.search(block.text) for block in required):
             raise ValueError("operation_in_story")
-        texts = [block.text for block in (*required, draft.blocks.fun_fact) if block is not None]
-        if not _length_ok(texts, lang):
+        present = [block for block in (*required, draft.blocks.fun_fact) if block is not None]
+        if len(attempts) > 1:
+            return  # Style is repaired once; a second miss keeps the card rather than failing the job.
+        if not _length_ok([block.text for block in present], lang):
             raise ValueError("card_length")
+        if any(SENTENCE_BREAK.search(block.text.strip()) for block in present):
+            raise ValueError("multi_sentence")
+        if ko and any(FORMAL_KO.search(block.text.strip()) or HANJA.search(block.text) for block in present):
+            raise ValueError("ko_style")
 
     messages = [{"role": "system", "content": LANDMARK_SYSTEM},
                 {"role": "user", "content": [{"type": "text", "text": prompt}]}]
     draft = await model.structured(messages, CardDraft, check)
     blocks = {key: (None if value is None else value.model_dump(exclude={"verification"}))
               for key, value in draft.blocks}
+    quotes = {key: (block or {}).pop("support_quote", None) for key, block in blocks.items()}
     if blocks["fun_fact"] and OPERATION_TERMS.search(blocks["fun_fact"]["text"]):
         blocks["fun_fact"] = None
-    # A citation must at least carry the block's numbers (years, counts); otherwise the block is
-    # model knowledge wearing a source label (live smoke 2026-10-27: an invented "19th-century fountain").
+    # A citation stands only with a verbatim support_quote from the cited text and the block's numbers
+    # present there; otherwise the block is model knowledge wearing a source label (live smoke
+    # 2026-10-27: an invented "19th-century fountain" and "peaceful garden" cited to Wikipedia).
     texts = {item["id"]: item["text"] for item in records}
-    for block in blocks.values():
+    for key, block in blocks.items():
         if block and block["evidence_ids"]:
             cited = " ".join(texts.get(item, "") for item in block["evidence_ids"])
-            if not set(NUMBER.findall(block["text"])) <= set(NUMBER.findall(cited)):
+            if (not quote_supported(quotes[key], cited)
+                    or not set(NUMBER.findall(block["text"])) <= set(NUMBER.findall(cited))):
                 block["evidence_ids"] = []
     card = build_card(place["place_id"], name, lang, blocks, None, known)
     story = [card["blocks"][key] for key in ("what_it_is", "why_it_matters", "what_to_look_for", "fun_fact")

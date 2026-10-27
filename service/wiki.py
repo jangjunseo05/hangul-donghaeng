@@ -91,6 +91,16 @@ def _titles(client, place: dict, lang: str) -> list[tuple[str, str]]:
             if pages and isinstance(pages[0].get("title"), str) and _key(pages[0]["title"]) == _key(name):
                 found.append((site_lang, pages[0]["title"]))
                 break
+    if found and all(site_lang != lang for site_lang, _ in found):
+        # Prefer the visitor's language (ko card -> ko article) through the article's interlanguage link.
+        site_lang, title = found[0]
+        links = _get(client, _HOSTS[site_lang] + "/w/api.php", {
+            "action": "query", "prop": "langlinks", "lllang": lang, "titles": title,
+            "format": "json", "formatversion": 2})
+        pages = ((links or {}).get("query") or {}).get("pages") or []
+        linked = ((pages[0].get("langlinks") or [{}])[0].get("title")) if pages and isinstance(pages[0], dict) else None
+        if isinstance(linked, str) and linked.strip():
+            found.insert(0, (lang, linked))
     preferred = sorted(dict.fromkeys(found), key=lambda item: item[0] != lang)
     return preferred[:2]
 

@@ -154,6 +154,15 @@ class BodyLimitMiddleware:
         await self.app(scope, bounded_receive, send)
 
 
+def _session_rate() -> int:
+    """New sessions per client IP per minute; demos behind one NAT/tunnel IP may need ~60."""
+    try:
+        value = int(os.getenv("GUIDE_SESSION_RATE_PER_MIN", "10"))
+    except ValueError:
+        return 10
+    return value if 1 <= value <= 1000 else 10
+
+
 def create_app(runtime_dir: Path | None = None, worker_token: str | None = None) -> FastAPI:
     app = FastAPI(title="Hangul Donghaeng", version="0.1.0")
     app.add_middleware(BodyLimitMiddleware)
@@ -161,6 +170,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
     app.state.store = store
     token = worker_token or os.getenv("WORKER_TOKEN", "")
     cookie_secure = os.getenv("GUIDE_COOKIE_SECURE", "false").lower() == "true"
+    session_rate = _session_rate()
     allowed_origins = set(os.getenv("GUIDE_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000").split(","))
 
     @app.exception_handler(HTTPException)
@@ -233,7 +243,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                 return {"session_id": existing.id}
             client_ip = request.client.host if request.client else "unknown"
             attempts = store.session_attempts.setdefault(client_ip, [])
-            if len(attempts) >= 10:
+            if len(attempts) >= session_rate:
                 abort(429, "SESSION_RATE_LIMIT", "Please wait a minute before starting another session.")
             if len(store.sessions) >= 64:
                 abort(503, "SESSION_LIMIT", "All demo sessions are in use. Please try again later.")

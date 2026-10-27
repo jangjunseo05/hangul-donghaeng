@@ -1,13 +1,15 @@
 """Broker-side speech synthesis through a self-hosted NVIDIA Magpie TTS NIM.
 
-TTS_BASE_URL (e.g. http://127.0.0.1:9000 through infra/open_tts_tunnel.sh),
-TTS_VOICE_KO, TTS_VOICE_EN. The voice is fixed by the server, never by the
-browser. Unset or unreachable -> TtsUnavailable so the browser uses its own TTS.
+TTS_BASE_URL (http://127.0.0.1:9100 through infra/open_tts_tunnel.sh: infra/tts_postfx.py
+in front of Magpie on the GPU host, adding the approved tempo/brightness filter),
+TTS_VOICE_KO, TTS_VOICE_EN, TTS_SSML_PITCH (x-high = approved tone; empty = plain text).
+The voice is fixed by the server, never by the browser. Unset or unreachable ->
+TtsUnavailable so the browser uses its own TTS.
 HTTP API per the NIM Speech TTS REST reference (research M3-2, documents only):
 POST /v1/audio/synthesize, multipart/form-data text/language/voice -> 200 audio/wav;
 an unknown voice is a 400, so the configured voice is checked once against
-GET /v1/audio/list_voices and omitted (model default) when absent. Unverified
-against a live server until Magpie is deployed.
+GET /v1/audio/list_voices and omitted (model default) when absent. Verified
+against Magpie NIM 1.10.1 (M4 live check).
 """
 from __future__ import annotations
 
@@ -16,6 +18,7 @@ import os
 import re
 import threading
 from urllib.parse import urlsplit
+from xml.sax.saxutils import escape
 
 import httpx
 
@@ -49,6 +52,22 @@ def speakable(text: str) -> str:
     value = re.sub(r"\s+([,.!?。])", r"\1", value)
     value = re.sub(r",\s*([,.!?。])", r"\1", value)
     return value.strip(" ,")
+
+
+# Magpie honours SSML prosody pitch names (x-high verified); rate is ignored and semitone/percent
+# pitch values are rejected with 400 (orchestrator measurement 2026-10-27), so only names pass.
+SSML_PITCHES = {"x-low", "low", "medium", "high", "x-high"}
+
+
+def ssml_pitch() -> str | None:
+    value = os.getenv("TTS_SSML_PITCH", "").strip()
+    return value if value in SSML_PITCHES else None
+
+
+def to_ssml(text: str, pitch: str) -> str:
+    """Wrap already-normalized text; &, <, > and quotes are escaped so user text stays text."""
+    body = escape(text, {'"': "&quot;", "'": "&apos;"})
+    return f'<speak><prosody pitch="{pitch}">{body}</prosody></speak>'
 
 
 class TtsUnavailable(Exception):
@@ -103,7 +122,8 @@ def synthesize(text: str, lang: str, session_id: str) -> tuple[bytes, str, str]:
     text = speakable(text)
     if not text:
         raise TtsUnavailable()
-    key = (lang, voice, text)
+    pitch = ssml_pitch()
+    key = (lang, voice, pitch, text)  # a pitch change must not replay cached audio
     with _LOCK:
         if key in _CACHE:
             _CACHE.move_to_end(key)
@@ -120,7 +140,8 @@ def synthesize(text: str, lang: str, session_id: str) -> tuple[bytes, str, str]:
                 listed = _listed_voices(client, base) if voice else None
                 used = voice if voice and (listed is None or voice in listed) else ""
                 # multipart/form-data, as the NIM reference specifies.
-                form = {"text": (None, text), "language": (None, LANGUAGE_CODES[lang])}
+                spoken = to_ssml(text, pitch) if pitch else text  # brackets were normalized above
+                form = {"text": (None, spoken), "language": (None, LANGUAGE_CODES[lang])}
                 if used:
                     form["voice"] = (None, used)
                 with client.stream("POST", base + SYNTH_PATH, files=form) as response:

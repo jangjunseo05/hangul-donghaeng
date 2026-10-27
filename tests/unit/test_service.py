@@ -224,3 +224,14 @@ def test_tts_stub_requires_session_and_signals_browser_fallback(app):
         assert response.json()["error_code"] == "TTS_UNAVAILABLE"
         assert client.post("/api/tts", json={"text": "", "lang": "ko"}).status_code == 422
         assert client.post("/api/tts", json={"text": "hi", "lang": "ja"}).status_code == 422
+
+
+@pytest.mark.parametrize("configured, allowed", [("3", 3), ("60", 60), ("0", 10), ("many", 10)])
+def test_session_rate_is_configurable_with_safe_default(tmp_path, monkeypatch, configured, allowed):
+    monkeypatch.setenv("GUIDE_SESSION_RATE_PER_MIN", configured)
+    client = TestClient(create_app(tmp_path, worker_token="test-worker-token"))
+    for _ in range(allowed):
+        client.cookies.clear()
+        assert client.post("/api/sessions", json={}).status_code == 200
+    client.cookies.clear()
+    assert client.post("/api/sessions", json={}).json()["error_code"] == "SESSION_RATE_LIMIT"

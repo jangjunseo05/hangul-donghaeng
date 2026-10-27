@@ -125,7 +125,7 @@ CHECK_CODES = {"invalid_content", "unknown_food", "unknown_place", "unknown_sour
                "historical_scope_mismatch", "historical_source_mismatch", "unrelated_conflict_sources",
                "itinerary_not_requested", "fictional_start_time_unknown", "itinerary_duration_mismatch",
                "dated_source_misrepresented", "historical_uncertainty_lost",
-               "operation_in_story", "card_length", "unknown_candidate"}
+               "operation_in_story", "card_length", "unknown_candidate", "multi_sentence", "ko_style"}
 VALIDATION_TYPES = {"missing", "extra_forbidden", "too_long", "too_short", "string_type",
                     "string_too_long", "string_too_short", "list_type", "model_type", "literal_error",
                     "int_parsing", "int_type", "bool_parsing", "bool_type", "string_pattern_mismatch"}
@@ -142,6 +142,8 @@ REPAIR_HINTS = {
     "historical_uncertainty_lost": "1961 plaque dating is estimated. The 1987 entry is re-quoted from a ledger whose original is unverified. Preserve both limits or omit the detail.",
     "operation_in_story": "Remove opening hours, fees, closures and access from the four blocks; visit_note=null.",
     "card_length": "Keep one sentence per block: English 50-90 words total, Korean 100-200 characters total.",
+    "multi_sentence": "Write exactly one sentence per block; merge or drop extra sentences.",
+    "ko_style": "Korean blocks end with ~예요/~이에요/~해요/~어요, never ~입니다/~습니다, and use no Chinese characters.",
     "unknown_candidate": "place_id must be exactly one listed candidate id or \"unknown\".",
 }
 

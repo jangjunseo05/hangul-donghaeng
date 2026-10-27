@@ -133,4 +133,28 @@ def test_short_budget_bounds_a_hanging_provider(osm, monkeypatch):
     monkeypatch.setattr(nearby, "_TRANSPORT", httpx.MockTransport(hang))
     started = time.monotonic()
     found = nearby.search_nearby(landmark_name=None, location=SEOCHON, radius_m=500, tab="landmark", budget_s=1.0)
-    assert found["error_code"] == "nearby_timeout" and time.monotonic() - started < 2.0
+    assert found["error_code"] in {"nearby_timeout", "overpass_timeout"} and time.monotonic() - started < 2.0
+
+
+def test_overpass_falls_back_to_the_next_fixed_endpoint(osm, monkeypatch):
+    hosts = []
+
+    def handler(request):
+        hosts.append(request.url.host)
+        if request.url.host == "overpass-api.de":
+            return httpx.Response(504)
+        return httpx.Response(200, json={"elements": [element(1, {"amenity": "cafe", "name": "Cafe A"})]})
+
+    monkeypatch.setattr(nearby, "_TRANSPORT", httpx.MockTransport(handler))
+    found = nearby.search_nearby(landmark_name=None, location=SEOCHON, radius_m=500, tab="food")
+    assert found["error_code"] is None and [p["place_id"] for p in found["places"]] == ["osm:node:1"]
+    assert hosts == ["overpass-api.de", "overpass.kumi.systems"]
+
+
+def test_all_overpass_endpoints_failing_reports_the_last_error(osm, monkeypatch):
+    hosts = []
+    monkeypatch.setattr(nearby, "_TRANSPORT", httpx.MockTransport(
+        lambda request: hosts.append(request.url.host) or httpx.Response(502)))
+    found = nearby.search_nearby(landmark_name=None, location=SEOCHON, radius_m=500, tab="food")
+    assert found["error_code"] == "overpass_http_502"
+    assert hosts == ["overpass-api.de", "overpass.kumi.systems", "overpass.private.coffee"]

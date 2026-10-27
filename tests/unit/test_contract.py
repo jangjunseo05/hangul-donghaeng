@@ -109,5 +109,19 @@ class ContentTests(unittest.TestCase):
         self.assertTrue(all(set(public[item["id"]]) == {"id", "source", "as_of", "type", "dataset_id"} for item in merged))
 
 
+
+class NearbyErrorCodeTests(unittest.TestCase):
+    def test_every_code_the_nearby_module_can_emit_is_in_the_contract(self):
+        import re
+        from shared.models import NEARBY_ERROR_PATTERN
+        source = (DIRECTORY.parent / "service" / "nearby.py").read_text(encoding="utf-8")
+        literals = set(re.findall(r'(?:_Failure|_empty)\("([a-z_]+)"', source))
+        dynamic = {provider + suffix for provider in ("geocode", "overpass") for suffix in (
+            "_timeout", "_transport_error", "_invalid_response", "_response_too_large", "_http_502")}
+        self.assertGreater(len(literals), 12)
+        self.assertEqual([code for code in literals | dynamic if not re.fullmatch(NEARBY_ERROR_PATTERN, code)], [])
+        self.assertIsNone(re.fullmatch(NEARBY_ERROR_PATTERN, "model_timeout"))
+
+
 if __name__ == "__main__":
     unittest.main()

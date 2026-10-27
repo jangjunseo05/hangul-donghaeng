@@ -211,6 +211,14 @@ class NearbyPlace(StrictModel):
     has_card: bool = False  # GET /api/landmarks/{place_id}/card is available
 
 
+# Every code service/nearby.py can produce (M4 decision 6); http_<status> keeps the upstream status.
+NEARBY_ERROR_PATTERN = (r"^(?:nearby_(?:disabled|busy|unavailable|timeout|provider_error)"
+                        r"|invalid_(?:tab|radius|landmark|location|provider)|location_required|landmark_not_found"
+                        r"|(?:geocode|overpass)_(?:timeout|transport_error|invalid_response|response_too_large"
+                        r"|incomplete_response|http_[0-9]{3}))$")
+NearbyErrorCode = Annotated[str, StringConstraints(pattern=NEARBY_ERROR_PATTERN)]
+
+
 class NearbyResponse(StrictModel):
     """GET /api/nearby?tab=food|landmark&lat&lng&radius_m. No model call."""
     schema_version: Literal[1] = 1
@@ -221,7 +229,7 @@ class NearbyResponse(StrictModel):
     evidence: list[Evidence] = Field(max_length=40)
     attribution: Text
     unknowns: list[Text] = Field(max_length=10)
-    error_code: Identifier | None = None
+    error_code: NearbyErrorCode | None = None
 
 
 class RouteStop(StrictModel):

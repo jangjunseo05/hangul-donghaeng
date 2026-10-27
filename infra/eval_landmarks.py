@@ -31,9 +31,12 @@ import statistics
 import time
 from urllib.parse import quote
 
+import sys
+
 import httpx
 
-from agent.core import AgentError, ModelSession
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # run as a script from any directory
+from agent.core import AgentError, ModelSession  # noqa: E402
 from agent.visual_observation import (CANDIDATE_PROMPT, CandidateObservation, VISUAL_PROMPT, VISUAL_SYSTEM,
                                       VisualObservation)
 from service.catalog import catalog_places
@@ -42,6 +45,7 @@ from service.content import distance_m
 ROOT = Path(__file__).resolve().parents[1]
 CANDIDATE_RADIUS_M = 1000
 COMPLEX_IDS = {"local:gwanghwamun", "local:geunjeongjeon", "local:gyeonghoeru"}
+THUMB_HOSTS = ("https://upload.wikimedia.org/", "https://thumb.wikimedia.org/")
 USER_AGENT = "HangulDonghaeng/0.2 (+https://github.com/jangjunseo05/hangul-donghaeng) eval"
 
 
@@ -181,28 +185,40 @@ def metrics(results: list[dict]) -> dict:
 
 
 def image_path(images: Path, sample: dict) -> Path:
-    return images / f"{sample['sample_id']}.jpg"
+    # One file per image: several rows (GPS conditions) share an image_id.
+    key = sample.get("image_id") or sample["sample_id"]
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", key):
+        raise ValueError("unsafe image_id")
+    return images / f"{key}.jpg"
 
 
-def download(samples: list[dict], images: Path, width: int = 960):
+def download(samples: list[dict], images: Path, width: int = 960) -> dict:
     """Commons thumbnails only (no originals), serial, 1 request/second, identifying UA."""
     images.mkdir(parents=True, exist_ok=True)
+    failed = {}
     with httpx.Client(timeout=20.0, headers={"User-Agent": USER_AGENT}, follow_redirects=True, trust_env=False) as client:
         for sample in samples:
             target = image_path(images, sample)
             if target.exists() or not sample["image"].startswith("commons:File:"):
                 continue
             title = sample["image"][len("commons:"):]
-            info = client.get("https://commons.wikimedia.org/w/api.php", params={
-                "action": "query", "titles": title, "prop": "imageinfo", "iiprop": "url", "iiurlwidth": width,
-                "format": "json"}).json()
-            page = next(iter(info["query"]["pages"].values()))
-            url = page["imageinfo"][0]["thumburl"]
-            if not url.startswith("https://upload.wikimedia.org/"):
-                raise ValueError("unexpected thumbnail host for " + quote(title))
+            try:
+                info = client.get("https://commons.wikimedia.org/w/api.php", params={
+                    "action": "query", "titles": title, "prop": "imageinfo", "iiprop": "url",
+                    "iiurlwidth": width, "format": "json"}).json()
+                page = next(iter(info["query"]["pages"].values()))
+                url = page["imageinfo"][0]["thumburl"]
+                if not url.startswith(THUMB_HOSTS):
+                    raise ValueError("unexpected thumbnail host")
+                time.sleep(1.0)
+                response = client.get(url)
+                if response.status_code != 200 or not response.headers.get("content-type", "").startswith("image/"):
+                    raise ValueError(f"thumbnail http {response.status_code}")
+                target.write_bytes(response.content)
+            except (httpx.HTTPError, KeyError, IndexError, StopIteration, ValueError) as exc:
+                failed[target.stem] = str(exc)[:120]
             time.sleep(1.0)
-            target.write_bytes(client.get(url).content)
-            time.sleep(1.0)
+    return failed
 
 
 async def run(samples, images: Path, base_url: str, model_id: str, use_osm: bool, transport=None) -> list[dict]:
@@ -236,7 +252,8 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     samples = load_samples(args.samples)
     if args.download:
-        download(samples, args.images)
+        failed = download(samples, args.images)
+        print(json.dumps({"download_failed": failed}, ensure_ascii=False))
     if not args.run:
         counts = Counter((item["split"], item["gps_condition"]) for item in samples)
         missing = sum(not image_path(args.images, item).exists() for item in samples)

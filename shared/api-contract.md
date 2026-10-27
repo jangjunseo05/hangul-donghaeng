@@ -284,3 +284,36 @@ Example: `{"request_id":"r-example","status":"running","stage":"matching","resul
   - Text that is empty after this normalization returns 503.
 - The broker sends `multipart/form-data` (`text`, `language`, `voice`) to Magpie. It checks the configured voice once against `GET /v1/audio/list_voices` and omits it (model default) when it is not listed. Voice ids look like `Magpie-Multilingual.KO-KR.Aria`.
 - Data `research-m3-2026-10-27.2.1` is merged with `python -B infra/merge_research_content.py <pack dir>`. That covers official KHS, VisitKorea and Seoul Hanok records, 15 research evidence records in total. Card labels: 경복궁 and 북촌 are `public_source` (one Wikipedia-cited block each); 광화문, 근정전 and 경회루 are `catalog`.
+
+### 2026-10-27 M4 additions (additive)
+
+- **`NearbyResponse.error_code`** (decision 6). The value is null or one of:
+  - `nearby_disabled|nearby_busy|nearby_unavailable|nearby_timeout|nearby_provider_error`
+  - `invalid_tab|invalid_radius|invalid_landmark|invalid_location|invalid_provider`
+  - `location_required|landmark_not_found`
+  - `geocode_*` or `overpass_*`, where `*` is `timeout|transport_error|invalid_response|response_too_large|incomplete_response|http_<3-digit status>`.
+
+  Schema pattern: `NEARBY_ERROR_PATTERN` in `shared/models.py`. Every non-null code means: show catalog results, with a "map data unavailable" note.
+- **Overpass endpoints** (decision 3) are tried in this fixed order: `overpass-api.de` → `overpass.kumi.systems` → `overpass.private.coffee`. They share the original time budget, and each attempt gets an equal share of what is left. The error is the last attempt's error. Success responses are cached as before.
+- **Session rate** (decision 5): `GUIDE_SESSION_RATE_PER_MIN` (default 10, valid 1-1000) sets how many sessions one client IP can create per minute. For a demo behind one tunnel or NAT IP, use 60. The `429 SESSION_RATE_LIMIT` response is unchanged.
+- **External place cards** (decision 4):
+  - The model gives each block a `support_quote`, a verbatim span of the cited Wikipedia text. This is server-internal only and never stored or served.
+  - A cited block whose quote is not an exact substring of the cited text, or whose numbers are absent from it, loses its citation and becomes `model_unverified`.
+  - Each block must be one sentence. Korean blocks must use the ~예요 style with no hanja. If a block breaks these rules, the model is asked to repair it once. If the repaired card still breaks them, it is kept as is.
+  - A ko card prefers the ko article: when only an en article is known, the broker follows its interlanguage link (`/w/api.php` `prop=langlinks`, fixed hosts).
+- **Source link captions** (decision 8): for `sources[].title` of a Wikipedia source, show `위키백과 「title」` or `Wikipedia “title”`. For any other source, show `title` (the publisher name).
+- **Warm-up** (decision 7): `python -B infra/warmup.py` sends one observe vision request (no location) and one ko TTS request through the broker. It exits 0 only if both succeed. Run it before presenting, because the first vision call after a vLLM restart can exceed 35 s.
+
+### 2026-10-27 TTS final voice (server config; API unchanged)
+
+- The user approved the voice `Magpie-Multilingual.EN-US.Mia` for **both** `ko` and `en` (no Calm variant), with SSML `<speak><prosody pitch="x-high">…</prosody></speak>` and post-processing `atempo=1.125,treble=g=6:f=3000,alimiter=limit=0.95` (1.125× tempo at the same pitch, +6 dB above 3 kHz).
+- Broker: `TTS_SSML_PITCH=x-high`.
+  - Only the names `x-low|low|medium|high|x-high` are sent. Magpie ignores SSML `rate` and rejects semitone or percent pitch values with 400.
+  - Text is bracket-normalized first, then XML-escaped (`& < > " '`), then wrapped.
+  - The cache key includes the pitch.
+- GPU host: `infra/tts_postfx.py` runs on `127.0.0.1:9100` in front of Magpie `127.0.0.1:9000`.
+  - It passes the multipart request through unchanged and applies the ffmpeg filter to a `200 audio/*` RIFF reply.
+  - It returns the original audio when ffmpeg is missing or fails, and marks this with the header `X-TTS-Postfx: applied|skipped`.
+  - It proxies `/v1/health/ready` and `/v1/audio/list_voices`.
+- Tunnel: `TTS_TUNNEL_PORT=9100 infra/open_tts_tunnel.sh` and `TTS_BASE_URL=http://127.0.0.1:9100`.
+- `POST /api/tts` keeps its contract: `200 audio/wav`, otherwise 503/429 → browser TTS.

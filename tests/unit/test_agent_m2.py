@@ -1,5 +1,6 @@
 """Phase 2 agent paths with HTTP-stub models: closed-set observation, catalog cards,
 and a public-source card for a confirmed OSM place through the real broker."""
+import json
 import tempfile
 from pathlib import Path
 import unittest
@@ -103,7 +104,7 @@ def card_reply(cite=True):
     ids = ["wikipedia:en:4242"] if cite else []
     return {"blocks": {
         "what_it_is": {"text": "Example Hall is a wooden hall that was built for royal ceremonies.", "evidence_ids": ids,
-                       "verification": "catalog"},
+                       "verification": "catalog", "support_quote": "a wooden hall built for royal ceremonies"},
         "why_it_matters": {"text": "Think of it as the stage where the court held its biggest moments together.",
                            "evidence_ids": [], "analogy": True},
         "what_to_look_for": {"text": "Look up at the painted wooden beams under the roof and count the colours you can see.",
@@ -174,6 +175,28 @@ class ExternalPlaceRoundTripTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((fun["evidence_ids"], fun["verification"]), ([], "model_unverified"))
         self.assertEqual(polled["result"]["landmark_card"]["blocks"]["what_it_is"]["verification"], "public_source")
 
+    async def test_citation_without_verbatim_support_quote_is_demoted(self):
+        for quote in (None, "a stone hall built for royal ceremonies"):
+            with self.subTest(quote=quote):
+                wiki._CACHE.clear()
+                reply = card_reply()
+                reply["blocks"]["what_it_is"]["support_quote"] = quote
+                outcome, polled, _ = await self.run_once([reply])
+                self.assertEqual(outcome, "saved")
+                block = polled["result"]["landmark_card"]["blocks"]["what_it_is"]
+                self.assertEqual((block["evidence_ids"], block["verification"]), ([], "model_unverified"))
+                self.assertNotIn("support_quote", json.dumps(polled["result"]))
+
+    async def test_multi_sentence_and_formal_korean_are_repaired_once_then_accepted(self):
+        bad = card_reply()
+        bad["blocks"]["why_it_matters"]["text"] = "It hosted ceremonies. Think of it as the court's stage."
+        outcome, polled, stub = await self.run_once([bad, card_reply()])
+        self.assertEqual(outcome, "saved")
+        self.assertIn("multi_sentence", stub.model_requests[1]["messages"][-1]["content"])
+        outcome, polled, stub = await self.run_once([bad, bad])  # second miss: keep the card
+        self.assertEqual(outcome, "saved")
+        self.assertEqual(len(stub.model_requests), 2)
+
     async def test_operation_facts_in_story_are_repaired(self):
         bad = card_reply()
         bad["blocks"]["what_to_look_for"]["text"] = "Admission tickets are sold at the gate, so check the opening hours first."
@@ -184,3 +207,23 @@ class ExternalPlaceRoundTripTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CardStyleHelperTests(unittest.TestCase):
+    def test_sentence_style_and_quote_helpers(self):
+        from agent.landmark_card import FORMAL_KO, HANJA, SENTENCE_BREAK, quote_supported
+        self.assertIsNone(SENTENCE_BREAK.search("Plan between 10 a.m. and 5 p.m. on weekdays."))
+        self.assertTrue(SENTENCE_BREAK.search("덕수궁이에요. 박물관이 있어요."))
+        self.assertTrue(FORMAL_KO.search("덕수궁은 왕궁입니다."))
+        self.assertIsNone(FORMAL_KO.search("덕수궁은 왕궁이에요."))
+        self.assertTrue(HANJA.search("궁殿 내부"))
+        source = "Deoksugung is a former royal palace in Seoul. It was the main palace during the Korean Empire."
+        self.assertTrue(quote_supported("“a former royal palace in Seoul.”", source))
+        self.assertFalse(quote_supported("a peaceful traditional garden", source))
+        self.assertFalse(quote_supported("Seoul", source))
+
+    def test_quotes_match_across_hanja_asides(self):
+        from agent.landmark_card import quote_supported
+        source = "덕수궁(德壽宮)은 서울 중구 정동(貞洞)에 있는 조선과 대한제국의 궁궐이다."
+        self.assertTrue(quote_supported("서울 중구 정동에 있는 조선과 대한제국의 궁궐", source))
+        self.assertFalse(quote_supported("서울 종로구에 있는 궁궐", source))

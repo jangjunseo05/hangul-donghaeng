@@ -303,3 +303,25 @@ def test_research_merge_is_idempotent(tmp_path):
     merge(pack, tmp_path)
     after = {name: (tmp_path / "data" / name).read_bytes() for name in ("evidence.json", "catalog.json")}
     assert after == before  # data/ already holds the current pack
+
+
+def test_tts_wraps_escaped_text_in_ssml_pitch_and_keys_cache_by_pitch(client, monkeypatch):
+    seen = []
+    monkeypatch.setenv("TTS_BASE_URL", "http://127.0.0.1:9100")
+    monkeypatch.setenv("TTS_VOICE_EN", "Magpie-Multilingual.EN-US.Mia.Calm")
+    monkeypatch.setenv("TTS_SSML_PITCH", "x-high")
+    monkeypatch.setattr(tts, "_TRANSPORT", httpx.MockTransport(tts_server(seen)))
+    tts._CACHE.clear()
+    tts._VOICES.clear()
+    text = 'Tom & Jerry <b> say "hi" (twice).'
+    assert client.post("/api/tts", json={"text": text, "lang": "en"}).status_code == 200
+    assert form_fields(seen[0])["text"] == (
+        '<speak><prosody pitch="x-high">Tom &amp; Jerry &lt;b&gt; say &quot;hi&quot;, twice.</prosody></speak>')
+    monkeypatch.setenv("TTS_SSML_PITCH", "")
+    assert client.post("/api/tts", json={"text": text, "lang": "en"}).status_code == 200
+    assert len(seen) == 2 and form_fields(seen[1])["text"] == 'Tom & Jerry <b> say "hi", twice.'
+    monkeypatch.setenv("TTS_SSML_PITCH", "+2st")  # rejected by Magpie (400): never forwarded
+    assert client.post("/api/tts", json={"text": text, "lang": "en"}).status_code == 200
+    assert len(seen) == 2  # same as plain text: served from cache
+    tts._CACHE.clear()
+    tts._VOICES.clear()

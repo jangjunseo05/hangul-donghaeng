@@ -255,9 +255,7 @@
     "error_code": {
       "anyOf": [
         {
-          "maxLength": 120,
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "pattern": "^(?:nearby_(?:disabled|busy|unavailable|timeout|provider_error)|invalid_(?:tab|radius|landmark|location|provider)|location_required|landmark_not_found|(?:geocode|overpass)_(?:timeout|transport_error|invalid_response|response_too_large|incomplete_response|http_[0-9]{3}))$",
           "type": "string"
         },
         {
