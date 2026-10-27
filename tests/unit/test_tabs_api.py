@@ -93,9 +93,11 @@ def test_only_issued_external_ids_can_be_confirmed(client):
 
 def test_catalog_card_route_recomputes_labels_and_hides_quotes(client):
     card = client.get("/api/landmarks/local:gyeongbokgung/card", params={"lang": "en"}).json()
-    assert card["blocks"]["what_it_is"]["verification"] == "public_source"  # cites wikipedia:gyeongbokgung
-    assert card["blocks"]["why_it_matters"]["verification"] == "catalog"
+    assert card["blocks"]["what_it_is"]["verification"] == "catalog"  # v2: KHS official record
+    assert card["blocks"]["what_to_look_for"]["verification"] == "public_source"  # cites wikipedia:gyeongbokgung
     assert card["verification"] == "public_source"
+    assert card["visit_note"]["as_of"]  # dated operation note
+    assert client.get("/api/landmarks/local:geunjeongjeon/card").json()["verification"] == "catalog"
     wiki_source = next(source for source in card["sources"] if source["id"] == "wikipedia:gyeongbokgung")
     assert wiki_source["license"].startswith("CC BY-SA 4.0") and wiki_source["title"] == "Gyeongbokgung"
     raw = json.dumps(card, ensure_ascii=False)
@@ -111,7 +113,8 @@ def test_routes_are_deterministic_near_filtered_and_note_bukchon_restriction(cli
     assert first["total_straight_line_m"] == 891 and second["total_straight_line_m"] == 1057
     assert all(leg["route_verified"] is False for route in body["routes"] for leg in route["legs"])
     assert first["visit_note"] is None
-    assert second["visit_note"]["evidence_ids"] == ["seoul:bukchon-visit-restriction"]
+    assert second["visit_note"]["evidence_ids"] == ["visitkorea:bukchon-operation", "seoul:bukchon-visit-restriction"]
+    assert second["visit_note"]["as_of"] == "2024-11-15"
     assert "2024" in second["visit_note"]["text"] and "2024" in second["ui_note"]
     assert client.get("/api/routes", params={"near": "48.85,2.35"}).json()["routes"] == []
     assert client.get("/api/routes", params={"near": "north"}).status_code == 422
@@ -187,10 +190,38 @@ def test_tts_unconfigured_is_503_and_rejects_plain_http_to_remote_hosts(client, 
     assert client.post("/api/tts", json={"text": "안녕하세요", "lang": "ko"}).status_code == 503
 
 
+VOICES = {"en-US,ko-KR": {"voices": ["Magpie-Multilingual.KO-KR.Aria", "Magpie-Multilingual.EN-US.Mia.Calm"]}}
+
+
+def form_fields(request) -> dict:
+    """Parse the multipart body the broker sends (NIM reference: multipart/form-data)."""
+    assert request.headers["content-type"].startswith("multipart/form-data; boundary=")
+    boundary = request.headers["content-type"].split("boundary=")[1].encode()
+    fields = {}
+    for part in request.content.split(b"--" + boundary)[1:-1]:
+        head, _, body = part.strip(b"\r\n").partition(b"\r\n\r\n")
+        name = head.decode().split('name="')[1].split('"')[0]
+        fields[name] = body.decode()
+    return fields
+
+
+def tts_server(seen, voices=VOICES):
+    def handler(request):
+        if request.url.path == "/v1/audio/list_voices":
+            return httpx.Response(200, json=voices)
+        seen.append(request)
+        if b"broken" in request.content:
+            return httpx.Response(500, text="upstream detail")
+        return httpx.Response(200, content=b"RIFFfakewav", headers={"content-type": "audio/wav"})
+    return handler
+
+
 def test_tts_proxies_fixed_voice_caches_and_falls_back_on_upstream_error(client, monkeypatch):
     seen = []
 
     def handler(request):
+        if request.url.path == "/v1/audio/list_voices":
+            return httpx.Response(200, json=VOICES)
         seen.append(request)
         if b"broken" in request.content:
             return httpx.Response(500, text="upstream detail")
@@ -200,17 +231,33 @@ def test_tts_proxies_fixed_voice_caches_and_falls_back_on_upstream_error(client,
     monkeypatch.setenv("TTS_VOICE_KO", "Magpie-Multilingual.KO-KR.Aria")
     monkeypatch.setattr(tts, "_TRANSPORT", httpx.MockTransport(handler))
     tts._CACHE.clear()
+    tts._VOICES.clear()
     response = client.post("/api/tts", json={"text": "경복궁에 오신 걸 환영해요!", "lang": "ko"})
     assert response.status_code == 200 and response.content == b"RIFFfakewav"
     assert response.headers["content-type"] == "audio/wav"
     assert response.headers["x-tts-voice"] == "Magpie-Multilingual.KO-KR.Aria"
-    form = seen[0].content.decode()
-    assert seen[0].url.path == "/v1/audio/synthesize" and "ko-KR" in form and "KO-KR.Aria" in form
+    fields = form_fields(seen[0])
+    assert seen[0].url.path == "/v1/audio/synthesize"
+    assert fields == {"text": "경복궁에 오신 걸 환영해요!", "language": "ko-KR", "voice": "Magpie-Multilingual.KO-KR.Aria"}
     assert client.post("/api/tts", json={"text": "경복궁에 오신 걸 환영해요!", "lang": "ko"}).status_code == 200
     assert len(seen) == 1  # cached
     failed = client.post("/api/tts", json={"text": "broken", "lang": "ko"})
     assert failed.status_code == 503 and "upstream" not in failed.text
     tts._CACHE.clear()
+
+
+def test_tts_unlisted_voice_falls_back_to_model_default(client, monkeypatch):
+    seen = []
+    monkeypatch.setenv("TTS_BASE_URL", "http://127.0.0.1:9000")
+    monkeypatch.setenv("TTS_VOICE_EN", "Magpie-Multilingual.EN-US.Nobody")
+    monkeypatch.setattr(tts, "_TRANSPORT", httpx.MockTransport(tts_server(seen)))
+    tts._CACHE.clear()
+    tts._VOICES.clear()
+    response = client.post("/api/tts", json={"text": "Hello there.", "lang": "en"})
+    assert response.status_code == 200 and response.headers["x-tts-voice"] == "default"
+    assert "voice" not in form_fields(seen[0])
+    tts._CACHE.clear()
+    tts._VOICES.clear()
 
 
 def test_tts_single_flight_per_session(monkeypatch):
@@ -221,3 +268,38 @@ def test_tts_single_flight_per_session(monkeypatch):
             tts.synthesize("hello", "en", "busy-session")
     finally:
         tts._ACTIVE_SESSIONS.discard("busy-session")
+
+
+def test_tts_speaks_text_without_brackets(client, monkeypatch):
+    seen = []
+    monkeypatch.setenv("TTS_BASE_URL", "http://127.0.0.1:9000")
+    monkeypatch.delenv("TTS_VOICE_KO", raising=False)
+    monkeypatch.setattr(tts, "_TRANSPORT", httpx.MockTransport(tts_server(seen)))
+    tts._CACHE.clear()
+    assert client.post("/api/tts", json={"text": "앞마당의 품계석(관리들이 설 자리 표시)을 찾아보세요.", "lang": "ko"}).status_code == 200
+    assert form_fields(seen[0])["text"] == "앞마당의 품계석을 찾아보세요."
+    assert client.post("/api/tts", json={"text": "()", "lang": "ko"}).status_code == 503
+    tts._CACHE.clear()
+
+
+def test_speakable_turns_free_standing_brackets_into_asides():
+    assert tts.speakable("Plan Bukchon (Bukchon-ro 11-gil; re-check).") == "Plan Bukchon, Bukchon-ro 11-gil; re-check."
+    assert tts.speakable("방문하세요(북촌로11길, 재확인 필요).") == "방문하세요, 북촌로11길, 재확인 필요."
+    assert tts.speakable("No brackets here.") == "No brackets here."
+
+
+def test_research_merge_is_idempotent(tmp_path):
+    import shutil
+    from infra.merge_research_content import merge
+    root = Path(__file__).resolve().parents[2]
+    pack = root.parent / ".orchestra" / "research" / "content"
+    if not pack.exists():
+        pytest.skip("research pack is outside this checkout")
+    (tmp_path / "data").mkdir()
+    for name in ("evidence.json", "catalog.json", "cards.json", "routes.json"):
+        shutil.copy(root / "data" / name, tmp_path / "data" / name)
+    before = {name: (tmp_path / "data" / name).read_bytes() for name in ("evidence.json", "catalog.json")}
+    merge(pack, tmp_path)
+    merge(pack, tmp_path)
+    after = {name: (tmp_path / "data" / name).read_bytes() for name in ("evidence.json", "catalog.json")}
+    assert after == before  # data/ already holds the current pack

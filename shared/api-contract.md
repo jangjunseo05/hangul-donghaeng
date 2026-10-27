@@ -274,3 +274,13 @@ Example: `{"request_id":"r-example","status":"running","stage":"matching","resul
 - If there are no candidates, or no location, observe falls back to free recognition, which reports `observed_place_source:'model'` when a name is recognised.
 
 **Stage hints**: `observing` (frame fetched), `matching` (closed-set choice), `writing` (draft or card). The hint is best effort, and a lost update never fails a job.
+
+### 2026-10-27 M3 additions (additive)
+
+- `StoryBlock.as_of: string|null` (default null) is set only on dated notes: a card's `visit_note` and `Route.visit_note`. It holds the reference date of the operation information, which is the newest `as_of` of the cited records, or the template's own date. Show it next to the note, for example "기준일 2024-11-15 · 재확인 필요". Story blocks always have `null`, because a source's `as_of` is not an event date.
+- `POST /api/tts` speaks a normalized form of `text`:
+  - An aside in brackets that runs straight into a Korean particle is dropped ("품계석(…)을" → "품계석을").
+  - Other brackets become a comma aside.
+  - Text that is empty after this normalization returns 503.
+- The broker sends `multipart/form-data` (`text`, `language`, `voice`) to Magpie. It checks the configured voice once against `GET /v1/audio/list_voices` and omits it (model default) when it is not listed. Voice ids look like `Magpie-Multilingual.KO-KR.Aria`.
+- Data `research-m3-2026-10-27.2.1` is merged with `python -B infra/merge_research_content.py <pack dir>`. That covers official KHS, VisitKorea and Seoul Hanok records, 15 research evidence records in total. Card labels: 경복궁 and 북촌 are `public_source` (one Wikipedia-cited block each); 광화문, 근정전 and 경회루 are `catalog`.

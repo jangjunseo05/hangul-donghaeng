@@ -120,3 +120,17 @@ def test_invalid_tab_and_provider_failure_are_explicit(osm, monkeypatch):
     monkeypatch.setattr(nearby, "_TRANSPORT", httpx.MockTransport(lambda request: httpx.Response(429)))
     found = nearby.search_nearby(landmark_name=None, location=SEOCHON, radius_m=500, tab="landmark")
     assert found["places"] == [] and found["error_code"] == "overpass_http_429"
+
+
+def test_short_budget_bounds_a_hanging_provider(osm, monkeypatch):
+    import asyncio
+    import time
+
+    async def hang(request):
+        await asyncio.sleep(5)
+        return httpx.Response(200, json={"elements": []})
+
+    monkeypatch.setattr(nearby, "_TRANSPORT", httpx.MockTransport(hang))
+    started = time.monotonic()
+    found = nearby.search_nearby(landmark_name=None, location=SEOCHON, radius_m=500, tab="landmark", budget_s=1.0)
+    assert found["error_code"] == "nearby_timeout" and time.monotonic() - started < 2.0

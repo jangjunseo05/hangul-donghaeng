@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# PLAN ONLY until the orchestrator approves: run on the L40S GPU host (never the shared RTX 4090 lab host).
-# Starts NVIDIA Magpie TTS Multilingual (Speech NIM >= 26.07, ko-KR support) bound to host loopback.
+# Run on the dedicated L40S host (hangul-l40s) only, with orchestrator approval; never the shared lab hosts.
+# Starts NVIDIA Magpie TTS Multilingual (Speech NIM 1.10.1 verified 2026-10-27, ko-KR) bound to host loopback.
+# Deployment findings (orchestrator, 2026-10-27):
+#  - vLLM must run with --gpu-memory-utilization 0.70 (serve_nemotron.sh GPU_MEM_UTIL); at 0.85 the
+#    Magpie TensorRT build runs out of memory.
+#  - Run with the image's default user: '-u $(id -u)' fails on /opt/nim/workspace permissions, so the
+#    host cache directory must be writable by that user (chmod 777 below).
 # Requires NGC_API_KEY in the shell (docker login nvcr.io -u '$oauthtoken'); never write it to files.
-# Image name/tag, ports 9000 (HTTP) / 50051 (gRPC) and the NIM cache path follow the Speech NIM docs
-# and are unverified against this host. Check free VRAM first: vLLM reserves 0.85 of the L40S.
+# Verified: POST /v1/audio/synthesize multipart (language, text, voice) -> 200 audio/wav;
+# voice ids look like Magpie-Multilingual.KO-KR.Aria.
 : "${NGC_API_KEY:?Export NGC_API_KEY in this shell only}"
 : "${MAGPIE_IMAGE:?Set MAGPIE_IMAGE=nvcr.io/nim/nvidia/magpie-tts-multilingual:<tag from NGC>}"
 NAME=hangul-magpie-01
@@ -17,10 +22,11 @@ fi
 free_mib=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits -i 0 | tr -d ' ')
 if [ "$free_mib" -lt "$MIN_FREE_MIB" ]; then
     echo "Only ${free_mib} MiB free on GPU 0 (< ${MIN_FREE_MIB}). Do not stop vLLM from this script;"
-    echo "plan B (restart vLLM with --gpu-memory-utilization 0.70) needs orchestrator approval."
+    echo "Restart vLLM with GPU_MEM_UTIL=0.70 (serve_nemotron.sh) first; that needs orchestrator approval."
     exit 3
 fi
 mkdir -p "$RUNTIME_DIR/nim-cache"
+chmod 777 "$RUNTIME_DIR/nim-cache"  # the container's default user must write the model cache
 docker run -d --name "$NAME" --gpus device=0 --shm-size 2g \
   -e NGC_API_KEY \
   -v "$RUNTIME_DIR/nim-cache:/opt/nim/.cache" \

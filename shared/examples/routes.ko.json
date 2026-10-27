@@ -145,17 +145,20 @@
       "total_straight_line_m": 1057,
       "total_dwell_min_estimate": 70,
       "distance_basis": "straight_line",
-      "ui_note": "직선거리 기준이에요. 실제 도보 경로는 확인되지 않았어요. 북촌은 오전 10시~오후 5시 사이에 방문하세요(북촌로11길, 2024년 공지 기준, 재확인 필요).",
+      "ui_note": "직선거리 기준이에요. 실제 도보 경로는 확인되지 않았어요. 북촌은 오전 10시~오후 5시 사이에 방문하세요(북촌로11길, 한국관광공사·2024년 서울시 공지 기준, 재확인 필요).",
       "evidence_ids": [
+        "visitkorea:bukchon-operation",
         "seoul:bukchon-visit-restriction"
       ],
       "visit_note": {
-        "text": "북촌은 오전 10시~오후 5시 사이에 방문하세요(북촌로11길, 2024년 공지 기준, 재확인 필요).",
+        "text": "북촌은 오전 10시~오후 5시 사이에 방문하세요(북촌로11길, 한국관광공사·2024년 서울시 공지 기준, 재확인 필요).",
         "evidence_ids": [
+          "visitkorea:bukchon-operation",
           "seoul:bukchon-visit-restriction"
         ],
         "verification": "catalog",
-        "analogy": false
+        "analogy": false,
+        "as_of": "2024-11-15"
       }
     }
   ],

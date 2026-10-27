@@ -62,21 +62,24 @@
     "lang": "en",
     "blocks": {
       "what_it_is": {
-        "text": "Gyeongbokgung is a royal palace built in 1395 — the first palace of Joseon, a Korean royal dynasty.",
+        "text": "Gyeongbokgung is the main royal palace of Joseon, a Korean royal dynasty, built in 1395.",
         "evidence_ids": [
-          "wikipedia:gyeongbokgung",
-          "visitseoul:gyeongbokgung-culture"
-        ],
-        "verification": "public_source",
-        "analogy": false
-      },
-      "why_it_matters": {
-        "text": "It was Joseon's main palace — think of it as the kingdom's headquarters.",
-        "evidence_ids": [
+          "khs:gyeongbokgung-intro",
           "visitseoul:gyeongbokgung-culture"
         ],
         "verification": "catalog",
-        "analogy": true
+        "analogy": false,
+        "as_of": null
+      },
+      "why_it_matters": {
+        "text": "It was the dynasty's primary palace — think of it as the kingdom's headquarters.",
+        "evidence_ids": [
+          "visitseoul:gyeongbokgung-culture",
+          "khs:gyeongbokgung-intro"
+        ],
+        "verification": "catalog",
+        "analogy": true,
+        "as_of": null
       },
       "what_to_look_for": {
         "text": "Inside the grounds you can find two museums: the National Palace Museum and the National Folk Museum of Korea.",
@@ -84,15 +87,17 @@
           "wikipedia:gyeongbokgung"
         ],
         "verification": "public_source",
-        "analogy": false
+        "analogy": false,
+        "as_of": null
       },
       "fun_fact": {
-        "text": "Its name means \"palace of great blessings.\"",
+        "text": "Its name carries a wish that the new dynasty would enjoy good fortune and prosper.",
         "evidence_ids": [
-          "wikipedia:gyeongbokgung"
+          "khs:gyeongbokgung-intro"
         ],
-        "verification": "public_source",
-        "analogy": false
+        "verification": "catalog",
+        "analogy": false,
+        "as_of": null
       }
     },
     "visit_note": {
@@ -101,15 +106,24 @@
         "visitseoul:gyeongbokgung-operation"
       ],
       "verification": "catalog",
-      "analogy": false
+      "analogy": false,
+      "as_of": "2026-10-07"
     },
     "evidence_ids": [
+      "khs:gyeongbokgung-intro",
       "visitseoul:gyeongbokgung-culture",
       "visitseoul:gyeongbokgung-operation",
       "wikipedia:gyeongbokgung"
     ],
     "verification": "public_source",
     "sources": [
+      {
+        "id": "khs:gyeongbokgung-intro",
+        "url": "https://royal.khs.go.kr/ENG/contents/E101010000.do",
+        "title": null,
+        "license": "Korea Heritage Service official page; short factual paraphrase only",
+        "verification": "catalog"
+      },
       {
         "id": "visitseoul:gyeongbokgung-culture",
         "url": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",

@@ -10,19 +10,22 @@
         "wikipedia:fixture-gate"
       ],
       "verification": "public_source",
-      "analogy": false
+      "analogy": false,
+      "as_of": null
     },
     "why_it_matters": {
       "text": "FIXTURE: model general knowledge only; confirm on site.",
       "evidence_ids": [],
       "verification": "model_unverified",
-      "analogy": false
+      "analogy": false,
+      "as_of": null
     },
     "what_to_look_for": {
       "text": "FIXTURE: look for the painted eaves.",
       "evidence_ids": [],
       "verification": "model_unverified",
-      "analogy": false
+      "analogy": false,
+      "as_of": null
     },
     "fun_fact": null
   },

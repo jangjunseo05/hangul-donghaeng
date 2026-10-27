@@ -1071,8 +1071,11 @@ async def _observe_candidates(request, request_id, photo, place_labels, api, mod
         if choice.place_id != "unknown" and choice.place_id not in by_id:
             raise ValueError("unknown_candidate")
 
+    parents = {item["place_id"]: place_labels.get(item.get("parent_place_id"), {}).get("name_en")
+               for item in catalog_data()["places"] if item.get("parent_place_id")}
     shown = [{"id": item["id"], "name_en": item["name_en"], "name_ko": item["name_ko"],
-              "kind": item["kind"], "distance_m": round(item["distance_m"])} for item in candidates]
+              "kind": item["kind"], "distance_m": round(item["distance_m"]),
+              **({"part_of": parents[item["id"]]} if parents.get(item["id"]) else {})} for item in candidates]
     choice = await model.structured(_messages(request, [], CANDIDATE_PROMPT + json.dumps(shown, ensure_ascii=False)
         + "\nReturn the observation in this schema: " + json.dumps(CandidateObservation.model_json_schema()),
         photo, visual_only=True), CandidateObservation, check)

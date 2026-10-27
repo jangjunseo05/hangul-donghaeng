@@ -253,7 +253,7 @@ def _run(name, location, radius, deadline, tab):
 
 
 def search_nearby(*, landmark_name: str | None, location: dict | None, radius_m: int,
-                  tab: str = "restaurant") -> dict:
+                  tab: str = "restaurant", budget_s: float = 15.0) -> dict:
     """Named OSM places around a landmark name or a user point; distance only, no quality claims.
 
     tab=restaurant: up to 3 Place-shaped restaurants (worker search, legacy shape).
@@ -294,13 +294,13 @@ def search_nearby(*, landmark_name: str | None, location: dict | None, radius_m:
     if not _FLIGHT.acquire(blocking=False):
         return _empty("nearby_busy", label=name or "User-selected location")
     try:
-        future = _POOL.submit(_run, name, center, radius_m, time.monotonic() + 14.5, tab)
+        future = _POOL.submit(_run, name, center, radius_m, time.monotonic() + max(0.5, budget_s - 0.5), tab)
     except RuntimeError:
         _FLIGHT.release()
         return _empty("nearby_unavailable")
     future.add_done_callback(lambda _: _FLIGHT.release())
     try:
-        result = future.result(timeout=15.0)
+        result = future.result(timeout=budget_s)
     except FutureTimeout:
         return _empty("nearby_timeout", label=name or "User-selected location")
     except Exception:

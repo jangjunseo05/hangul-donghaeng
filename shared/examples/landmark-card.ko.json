@@ -5,21 +5,24 @@
   "lang": "ko",
   "blocks": {
     "what_it_is": {
-      "text": "경복궁은 1395년에 지은 궁궐로, 조선 왕조가 처음 세운 궁궐이에요.",
+      "text": "경복궁은 1395년에 지은, 조선 왕조의 으뜸 궁궐이에요.",
       "evidence_ids": [
-        "wikipedia:gyeongbokgung",
-        "visitseoul:gyeongbokgung-culture"
-      ],
-      "verification": "public_source",
-      "analogy": false
-    },
-    "why_it_matters": {
-      "text": "조선의 중심 궁궐이었어요. 나라의 '본부' 같은 곳이라고 생각하면 쉬워요.",
-      "evidence_ids": [
+        "khs:gyeongbokgung-intro",
         "visitseoul:gyeongbokgung-culture"
       ],
       "verification": "catalog",
-      "analogy": true
+      "analogy": false,
+      "as_of": null
+    },
+    "why_it_matters": {
+      "text": "조선의 으뜸 궁궐이었으니, 나라의 '본부' 같은 곳이라고 생각하면 쉬워요.",
+      "evidence_ids": [
+        "visitseoul:gyeongbokgung-culture",
+        "khs:gyeongbokgung-intro"
+      ],
+      "verification": "catalog",
+      "analogy": true,
+      "as_of": null
     },
     "what_to_look_for": {
       "text": "궁 안에 국립고궁박물관과 국립민속박물관, 두 박물관이 있어요.",
@@ -27,15 +30,17 @@
         "wikipedia:gyeongbokgung"
       ],
       "verification": "public_source",
-      "analogy": false
+      "analogy": false,
+      "as_of": null
     },
     "fun_fact": {
-      "text": "'경복궁'은 '큰 복을 누리는 궁궐'이라는 뜻이에요.",
+      "text": "'경복'이라는 이름에는 새 나라가 큰 복을 누리며 번영하라는 바람이 담겨 있어요.",
       "evidence_ids": [
-        "wikipedia:gyeongbokgung"
+        "khs:gyeongbokgung-intro"
       ],
-      "verification": "public_source",
-      "analogy": false
+      "verification": "catalog",
+      "analogy": false,
+      "as_of": null
     }
   },
   "visit_note": {
@@ -44,15 +49,24 @@
       "visitseoul:gyeongbokgung-operation"
     ],
     "verification": "catalog",
-    "analogy": false
+    "analogy": false,
+    "as_of": "2026-10-07"
   },
   "evidence_ids": [
+    "khs:gyeongbokgung-intro",
     "visitseoul:gyeongbokgung-culture",
     "visitseoul:gyeongbokgung-operation",
     "wikipedia:gyeongbokgung"
   ],
   "verification": "public_source",
   "sources": [
+    {
+      "id": "khs:gyeongbokgung-intro",
+      "url": "https://royal.khs.go.kr/ENG/contents/E101010000.do",
+      "title": null,
+      "license": "Korea Heritage Service official page; short factual paraphrase only",
+      "verification": "catalog"
+    },
     {
       "id": "visitseoul:gyeongbokgung-culture",
       "url": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",

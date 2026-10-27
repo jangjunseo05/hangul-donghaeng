@@ -206,6 +206,205 @@
       "source_locator": "Introduction: multipurpose broadcasting/observatory tower and city view"
     },
     {
+      "id": "khs:gyeongbokgung-intro",
+      "source": "https://royal.khs.go.kr/ENG/contents/E101010000.do",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Royal Palaces and Tombs Center (Korea Heritage Service) English page: Gyeongbokgung Palace and Its History, introduction",
+      "quotes": [
+        "Gyeongbokgung Palace is the primary palace of the Joseon dynasty that was established in 1395",
+        "The name \"Gyeongbok\" means that \"the new dynasty shall have good fortunes and prosper.\""
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "경복궁은 1395년에 세운 조선 왕조의 법궁(으뜸 궁궐)이다. '경복'은 새 왕조가 큰 복을 누리며 번영하라는 뜻이다.",
+      "license": "Korea Heritage Service official page; short factual paraphrase only",
+      "place_ids": [
+        "local:gyeongbokgung"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "khs:gwanghwamun-story",
+      "source": "https://royal.khs.go.kr/ENG/contents/E101020000.do?schBdcode=gbg&pageType=story&bdProgramCode=storyCtg3",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Stories of Gyeongbokgung Palace > Gwanghwamun Gate (story id 20231123030313000617)",
+      "quotes": [
+        "Gwanghwamun Gate is the main gate of Gyeongbokgung Palace.",
+        "Its name \"Gwanghwa\" means \"virtuous influence by the King,\" and \"-mun\" is a suffix that denotes \"gate.\"",
+        "Unlike other palaces' main gates, Gwanghwamun Gate has a double-roofed pavilion over a high stone foundation the way the gates of fortresses are built, boasting a magnificent aura.",
+        "The gate consists of three arched openings. The king used the central arch, while the crown prince and officials entered through the openings on either side.",
+        "The gate restored to its original shape and place as a wooden structure in 2010."
+      ],
+      "quote_capture": "html_ajax_text",
+      "text": "광화문은 경복궁의 정문이다. '광화'는 '임금의 덕이 널리 비친다'는 뜻이다. 다른 궁궐 정문과 달리 높은 석축 위에 2층 누각을 올려 성문처럼 웅장하다. 홍예문 셋 중 가운데는 왕, 양옆은 왕세자와 신하가 썼다. 2010년 원래 모습과 자리에 목조로 복원되었다.",
+      "license": "Korea Heritage Service official page; short factual paraphrase only",
+      "place_ids": [
+        "local:gwanghwamun"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "khs:geunjeongjeon-story",
+      "source": "https://royal.khs.go.kr/ENG/contents/E101020000.do?schBdcode=gbg&pageType=story&bdProgramCode=storyCtg3",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Stories of Gyeongbokgung Palace > Geunjeongjeon Hall and Geunjeongmun Gate & Corridors (story id 20231123030313006700)",
+      "quotes": [
+        "Geunjeongjeon Hall is the throne hall of the palace, where the king held a coronation ceremony, granted audiences to his officials, met foreign envoys and presided over large official functions.",
+        "\"Geunjeong\" means \"to work diligently and perform a wise ruling,\"",
+        "The hall is the largest and most formal hall in Gyeongbokgung Palace.",
+        "The courtyard also has stone posts that dictate state officials' positions by their ranks.",
+        "Behind the throne is a wall screen painted with the sun, moon and a five-peak mountain which symbolize royal authority.",
+        "Jeongjong, Sejong, Sejo, Jungjong and Seonjo were crowned king at Geunjeongjeon Hall"
+      ],
+      "quote_capture": "html_ajax_text",
+      "text": "근정전은 경복궁의 정전으로 즉위식, 신하 조회, 외국 사신 접견, 큰 국가 행사가 열렸다. '근정'은 '부지런히 일해 바르게 다스린다'는 뜻이다. 경복궁에서 가장 크고 격식 높은 건물이다. 앞마당에 품계석이 있다. 어좌 뒤 일월오봉도는 왕의 권위를 상징한다.",
+      "license": "Korea Heritage Service official page; short factual paraphrase only",
+      "coordinates": {
+        "lat": 37.57861,
+        "lng": 126.97694,
+        "basis": "Wikipedia infobox (KHS page has no coordinates)"
+      },
+      "place_ids": [
+        "local:geunjeongjeon"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null,
+      "caveat": "Coronation list differs from the Wikipedia extract (KHS: Jeongjong, Sejong, Sejo, Jungjong, Seonjo at the hall; Danjong, Seongjong, Myeongjong at the gate). Do not use the list in cards."
+    },
+    {
+      "id": "khs:gyeonghoeru-story",
+      "source": "https://royal.khs.go.kr/ENG/contents/E101020000.do?schBdcode=gbg&pageType=story&bdProgramCode=storyCtg3",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Stories of Gyeongbokgung Palace > Gyeonghoeru Pavilion (story id 20231123030313005682)",
+      "quotes": [
+        "\"Gyeonghoe\" means \"a joyous banquet,\" and \"-ru\" is a suffix that denotes \"pavilion.\"",
+        "It is built inside the pond in the western part of the palace's living quarters.",
+        "It served as a venue for large-scale feasts for the king, court officials, and foreign envoys.",
+        "Gyeonghoeru Pavilion was restored when Gyeongbokgung Palace was rebuilt in 1867",
+        "The pavilion's first floor consists of 48 high stone pillars: 24 round pillars and 24 square pillars.",
+        "On the hip rafter lies 11 decorative tiles in zodiac animal sign shapes, which is the most among Korea's buildings."
+      ],
+      "quote_capture": "html_ajax_text",
+      "text": "'경회'는 '즐거운 잔치'라는 뜻이다. 경회루는 궁궐 생활 공간 서쪽 연못 안에 지었고 왕·신하·외국 사신을 위한 큰 잔치를 열었다. 1867년 경복궁 중건 때 복원되었다. 1층은 높은 돌기둥 48개(원형 24, 사각 24). 지붕 마루의 잡상 11개는 국내 건물 중 가장 많다.",
+      "license": "Korea Heritage Service official page; short factual paraphrase only",
+      "coordinates": {
+        "lat": 37.57975,
+        "lng": 126.975889,
+        "basis": "Wikipedia infobox (KHS page has no coordinates)"
+      },
+      "place_ids": [
+        "local:gyeonghoeru"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "visitkorea:bukchon-overview",
+      "source": "https://english.visitkorea.or.kr/svc/whereToGo/locIntrdn/rgnContentsView.do?vcontsId=97932",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Overview",
+      "quotes": [
+        "Surrounded by Gyeongbokgung Palace, Changdeokgung Palace and Jongmyo Shrine,",
+        "The name Bukchon, which literally translates to \"northern village,\"",
+        "Today, many of these hanoks operate as cultural centers, guesthouses, restaurants and tea houses,",
+        "visitors are advised to be respectful at all times while looking around."
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "북촌은 경복궁·창덕궁·종묘에 둘러싸인 한옥 동네다. '북촌'은 '북쪽 마을'이라는 뜻이다. 오늘날 많은 한옥이 문화공간·게스트하우스·식당·찻집으로 운영된다. 둘러볼 때 예의를 지키도록 안내한다.",
+      "license": "KTO page content; short factual paraphrase only",
+      "place_ids": [
+        "local:bukchon"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "visitkorea:bukchon-operation",
+      "source": "https://english.visitkorea.or.kr/svc/whereToGo/locIntrdn/rgnContentsView.do?vcontsId=97932",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "operation",
+      "source_locator": "Details: operating hours, address",
+      "quotes": [
+        "10:00-17:00",
+        "37 Gyedong-gil, Jongno-gu, Seoul"
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "한국관광공사 페이지는 북촌로11길 도로에 대해 10:00-17:00를 안내하며 주소를 서울 종로구 계동길 37로 표기한다. 표시 수정일 없음. 방문일 재확인 필요.",
+      "license": "KTO page content; short factual paraphrase only",
+      "place_ids": [
+        "local:bukchon"
+      ],
+      "claim_scopes": [
+        "operation"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "seoulhanok:bukchon-history",
+      "source": "https://hanok.seoul.go.kr/front/eng/town/town01.do",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Seoul Hanok Portal (Seoul Metropolitan Government) English: Bukchon Hanok Village",
+      "quotes": [
+        "Located between Gyeongbokgung Palace and Changdeokgung Palace",
+        "Bukchon was traditionally a residential area of the nobility during the Joseon period"
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "북촌은 경복궁과 창덕궁 사이에 있으며 조선 시대 양반(귀족)의 주거지였다.",
+      "license": "Seoul city official page; short factual paraphrase only",
+      "place_ids": [
+        "local:bukchon"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
       "id": "visitkorea:gwanghwamun-main-gate",
       "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
       "as_of": null,
@@ -291,7 +490,8 @@
       ],
       "observed_at": "2026-10-27",
       "valid_from": null,
-      "valid_to": null
+      "valid_to": null,
+      "note": "v2: no card block cites this record."
     },
     {
       "id": "wikipedia:geunjeongjeon",
@@ -308,7 +508,7 @@
         "It is a designated National Treasure of South Korea."
       ],
       "quote_capture": "webfetch_extract",
-      "text": "근정전은 경복궁의 중심 건물(정전)로, 의식과 교서 반포 같은 큰 행사에 쓰였다. 정종·세종·단종·중종·선조 다섯 왕이 이곳에서 즉위했다. 앞마당의 품계석은 의식 때 관리들이 품계별로 설 자리를 표시한다. 대한민국 국보다.",
+      "text": "근정전은 경복궁의 중심 건물(정전)로, 의식과 교서 반포 같은 큰 행사에 쓰였다. 앞마당의 품계석은 의식 때 관리들이 품계별로 설 자리를 표시한다. 대한민국 국보다.",
       "license": "CC BY-SA 4.0 (Wikipedia text); attribution + link required",
       "coordinates": {
         "lat": 37.57861,
@@ -324,7 +524,7 @@
       "observed_at": "2026-10-27",
       "valid_from": null,
       "valid_to": null,
-      "caveat": "Five-kings coronation list is from the fetched page summary; spot-check before display."
+      "note": "v2: no card block cites this record; kept as coordinate source and backup."
     },
     {
       "id": "wikipedia:gyeonghoeru",
@@ -357,7 +557,8 @@
       ],
       "observed_at": "2026-10-27",
       "valid_from": null,
-      "valid_to": null
+      "valid_to": null,
+      "note": "v2: no card block cites this record; kept as coordinate source and backup."
     },
     {
       "id": "wikipedia:bukchon",
@@ -418,7 +619,33 @@
       "observed_at": "2026-10-27",
       "valid_from": "2025-03-01",
       "valid_to": null,
-      "caveat": "Notice dated 2024-11-15; exceptions (residents, shop/lodging guests) reported in press but not on this page. Treat as possibly outdated."
+      "caveat": "Notice dated 2024-11-15; exceptions reported in press only. VisitKorea's 10:00-17:00 (visitkorea:bukchon-operation) is consistent."
+    },
+    {
+      "id": "khs:jongmyo-intro",
+      "source": "https://royal.khs.go.kr/ENG/contents/E105010000.do",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Royal Palaces and Tombs Center (Korea Heritage Service) English page: Jongmyo Shrine, introduction",
+      "quotes": [
+        "Jongmyo Shrine is a royal shrine where the ancestral tablets of the kings and queens of the Joseon dynasty",
+        "It is also where rites are performed."
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "종묘는 조선 왕과 왕비의 신주를 모시고 제례를 올리는 왕실 사당이다. 북촌 카드의 '종묘' 풀이 근거로만 쓴다.",
+      "license": "Korea Heritage Service official page; short factual paraphrase only",
+      "place_ids": [
+        "local:bukchon"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null,
+      "note": "Gloss support only; Jongmyo is not a catalog place. place_ids points to the card that cites it."
     }
   ],
   "fictional_task": [

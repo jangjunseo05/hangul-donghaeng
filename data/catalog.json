@@ -108,6 +108,7 @@
       "visit_complex_id": "gyeongbokgung-complex",
       "food_ids": [],
       "culture_evidence_ids": [
+        "khs:geunjeongjeon-story",
         "wikipedia:geunjeongjeon"
       ],
       "operation_evidence_ids": [
@@ -132,6 +133,7 @@
       "visit_complex_id": "gyeongbokgung-complex",
       "food_ids": [],
       "culture_evidence_ids": [
+        "khs:gyeonghoeru-story",
         "wikipedia:gyeonghoeru"
       ],
       "operation_evidence_ids": [
@@ -148,15 +150,20 @@
       "name_ko": "북촌한옥마을",
       "name_en": "Bukchon Hanok Village",
       "kind": "heritage",
+      "address_ko": "서울특별시 종로구 계동길 37",
+      "address_en": "37 Gyedong-gil, Jongno-gu, Seoul",
       "lat": 37.58306,
       "lng": 126.98361,
       "source_id": "wikipedia:bukchon",
-      "coordinate_note": "Wikipedia neighborhood coordinate; not an entrance. Residential area with visiting-hour restrictions.",
+      "coordinate_note": "Wikipedia neighborhood coordinate; not an entrance. Address from VisitKorea (visitkorea:bukchon-operation). Residential area with visiting-hour restrictions.",
       "food_ids": [],
       "culture_evidence_ids": [
+        "visitkorea:bukchon-overview",
+        "seoulhanok:bukchon-history",
         "wikipedia:bukchon"
       ],
       "operation_evidence_ids": [
+        "visitkorea:bukchon-operation",
         "seoul:bukchon-visit-restriction"
       ],
       "currently_open": null,

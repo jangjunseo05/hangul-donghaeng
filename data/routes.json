@@ -1,5 +1,5 @@
 {
-  "content_version": "research-m1-2026-10-27.1",
+  "content_version": "research-m2-2026-10-27.2",
   "notes": [
     "Distances are straight-line (haversine, R=6371008.8 m) between the listed coordinates, rounded to metres. Real walking routes, open gates and accessibility are NOT verified.",
     "est_walk_min is a rough estimate = straight_line_m x 1.3 detour factor / 70 m per minute, rounded up. It is a model-free heuristic, not a measured route; label it 'estimate' in UI.",
@@ -84,11 +84,13 @@
       "total_dwell_min_estimate": 70,
       "total_straight_line_m": 1057,
       "time_window_note": {
-        "text_en": "Plan Bukchon between 10 a.m. and 5 p.m. (2024 notice for Bukchon-ro 11-gil; re-check).",
-        "text_ko": "북촌은 오전 10시~오후 5시 사이에 방문하세요(북촌로11길, 2024년 공지 기준, 재확인 필요).",
+        "text_en": "Plan Bukchon between 10 a.m. and 5 p.m. (Bukchon-ro 11-gil; VisitKorea and 2024 Seoul notice; re-check).",
+        "text_ko": "북촌은 오전 10시~오후 5시 사이에 방문하세요(북촌로11길, 한국관광공사·2024년 서울시 공지 기준, 재확인 필요).",
         "evidence_ids": [
+          "visitkorea:bukchon-operation",
           "seoul:bukchon-visit-restriction"
-        ]
+        ],
+        "as_of": "2024-11-15"
       },
       "stops": [
         {

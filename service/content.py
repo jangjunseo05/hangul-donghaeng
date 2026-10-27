@@ -54,8 +54,8 @@ def routes(lang: str, near: tuple[float, float] | None = None) -> dict:
                          "est_walk_min": math.ceil(meters * WALK_DETOUR / WALK_M_PER_MIN), "route_verified": False,
                          "note": notes.get((a["place_id"], b["place_id"])) if lang == "en" else None})
         window = template.get("time_window_note")
-        visit_note = relabel_block({"text": window["text_" + lang], "evidence_ids": window["evidence_ids"]},
-                                   evidence) if window else None
+        visit_note = relabel_block({"text": window["text_" + lang], "evidence_ids": window["evidence_ids"],
+                                    "as_of": window.get("as_of")}, evidence, dated=True) if window else None
         result.append({
             "route_id": template["route_id"], "title": template["title_" + lang],
             "summary": template["summary_" + lang],

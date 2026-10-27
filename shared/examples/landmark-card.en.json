@@ -8,27 +8,30 @@
       "text": "Gwanghwamun is the main south gate of Gyeongbokgung Palace — the palace's front door.",
       "evidence_ids": [
         "visitkorea:gwanghwamun-culture",
-        "wikipedia:gwanghwamun"
-      ],
-      "verification": "public_source",
-      "analogy": true
-    },
-    "why_it_matters": {
-      "text": "As the main gate, it is bigger and fancier than the palace's other gates.",
-      "evidence_ids": [
-        "visitkorea:gwanghwamun-main-gate"
+        "khs:gwanghwamun-story"
       ],
       "verification": "catalog",
-      "analogy": false
+      "analogy": true,
+      "as_of": null
+    },
+    "why_it_matters": {
+      "text": "Unlike other palace gates, it has a two-layer roof on a high stone base, built like a fortress gate to look grand.",
+      "evidence_ids": [
+        "khs:gwanghwamun-story"
+      ],
+      "verification": "catalog",
+      "analogy": false,
+      "as_of": null
     },
     "what_to_look_for": {
       "text": "Count the three arched openings: the middle one was for the king, the side ones for the crown prince and officials.",
       "evidence_ids": [
-        "visitkorea:gwanghwamun-culture",
-        "visitkorea:gwanghwamun-main-gate"
+        "khs:gwanghwamun-story",
+        "visitkorea:gwanghwamun-culture"
       ],
       "verification": "catalog",
-      "analogy": false
+      "analogy": false,
+      "as_of": null
     },
     "fun_fact": {
       "text": "After restoration work, the gate reopened to the public on August 15, 2010.",
@@ -36,7 +39,8 @@
         "visitkorea:gwanghwamun-culture"
       ],
       "verification": "catalog",
-      "analogy": false
+      "analogy": false,
+      "as_of": null
     }
   },
   "visit_note": {
@@ -45,16 +49,23 @@
       "visitkorea:gwanghwamun-operation"
     ],
     "verification": "catalog",
-    "analogy": false
+    "analogy": false,
+    "as_of": null
   },
   "evidence_ids": [
+    "khs:gwanghwamun-story",
     "visitkorea:gwanghwamun-culture",
-    "visitkorea:gwanghwamun-main-gate",
-    "visitkorea:gwanghwamun-operation",
-    "wikipedia:gwanghwamun"
+    "visitkorea:gwanghwamun-operation"
   ],
-  "verification": "public_source",
+  "verification": "catalog",
   "sources": [
+    {
+      "id": "khs:gwanghwamun-story",
+      "url": "https://royal.khs.go.kr/ENG/contents/E101020000.do?schBdcode=gbg&pageType=story&bdProgramCode=storyCtg3",
+      "title": null,
+      "license": "Korea Heritage Service official page; short factual paraphrase only",
+      "verification": "catalog"
+    },
     {
       "id": "visitkorea:gwanghwamun-culture",
       "url": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
@@ -63,25 +74,11 @@
       "verification": "catalog"
     },
     {
-      "id": "visitkorea:gwanghwamun-main-gate",
-      "url": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
-      "title": "Korea Tourism Organization",
-      "license": "KTO page content; short factual paraphrase only",
-      "verification": "catalog"
-    },
-    {
       "id": "visitkorea:gwanghwamun-operation",
       "url": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
       "title": "Korea Tourism Organization",
       "license": null,
       "verification": "catalog"
-    },
-    {
-      "id": "wikipedia:gwanghwamun",
-      "url": "https://en.wikipedia.org/wiki/Gwanghwamun",
-      "title": "Gwanghwamun",
-      "license": "CC BY-SA 4.0 (Wikipedia text); attribution + link required",
-      "verification": "public_source"
     }
   ]
 }

@@ -109,6 +109,8 @@ class StoryBlock(StrictModel):
     evidence_ids: list[Identifier] = Field(max_length=10)
     verification: Verification
     analogy: bool = False  # Explanatory framing, not a factual claim.
+    # Reference date of a dated note (visit_note only): newest as_of among its cited sources.
+    as_of: str | None = Field(default=None, max_length=40)
 
     @model_validator(mode="after")
     def _grounded(self):

@@ -92,6 +92,19 @@
           "default": false,
           "title": "Analogy",
           "type": "boolean"
+        },
+        "as_of": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "As Of"
         }
       },
       "required": [

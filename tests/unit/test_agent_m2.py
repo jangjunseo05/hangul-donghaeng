@@ -164,6 +164,16 @@ class ExternalPlaceRoundTripTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("royal ceremonies", prompt)
         self.assertIn("allow_unverified", prompt)
 
+    async def test_cited_block_with_numbers_absent_from_source_is_demoted(self):
+        reply = card_reply()
+        reply["blocks"]["fun_fact"] = {"text": "Its fountain was built in the 19th century and still runs today.",
+                                       "evidence_ids": ["wikipedia:en:4242"]}
+        outcome, polled, _ = await self.run_once([reply])
+        self.assertEqual(outcome, "saved")
+        fun = polled["result"]["landmark_card"]["blocks"]["fun_fact"]
+        self.assertEqual((fun["evidence_ids"], fun["verification"]), ([], "model_unverified"))
+        self.assertEqual(polled["result"]["landmark_card"]["blocks"]["what_it_is"]["verification"], "public_source")
+
     async def test_operation_facts_in_story_are_repaired(self):
         bad = card_reply()
         bad["blocks"]["what_to_look_for"]["text"] = "Admission tickets are sold at the gate, so check the opening hours first."

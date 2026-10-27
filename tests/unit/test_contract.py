@@ -104,7 +104,7 @@ class ContentTests(unittest.TestCase):
         from service.catalog import evidence_for_mode
         data = json.loads((DIRECTORY.parent / "data" / "evidence.json").read_text(encoding="utf-8"))["real_place"]
         merged = [item for item in data if item.get("quote_capture")]
-        self.assertEqual(len(merged), 7)
+        self.assertEqual(len(merged), 15)  # research v1 (7) + v2 official (7) + v2.1 khs:jongmyo-intro
         public = {item["id"]: item for item in evidence_for_mode("real_place")}
         self.assertTrue(all(set(public[item["id"]]) == {"id", "source", "as_of", "type", "dataset_id"} for item in merged))
 

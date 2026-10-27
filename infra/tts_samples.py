@@ -29,17 +29,19 @@ LANGUAGE_CODES = {"ko": "ko-KR", "en": "en-US"}
 
 
 def listed_voices(client: httpx.Client, base: str) -> dict[str, list[str]]:
-    """Map 'ko'/'en' to server voice ids whose name contains a candidate speaker."""
+    """'ko'/'en' -> server voice ids (Magpie-Multilingual.<LOCALE>.<Name>[.<Emotion>]) for candidate speakers.
+
+    list_voices returns {"<comma-separated locales>": {"voices": [...]}} (research M3-2).
+    """
     response = client.get(base + "/v1/audio/list_voices")
     response.raise_for_status()
-    text = json.dumps(response.json())
+    listed = {voice for entry in response.json().values() if isinstance(entry, dict)
+              for voice in entry.get("voices", []) if isinstance(voice, str)}
     found = {}
     for lang, speakers in SPEAKERS.items():
-        code = LANGUAGE_CODES[lang]
-        ids = sorted({token.strip('"') for token in text.replace(",", " ").split()
-                      if code.casefold() in token.casefold()
-                      and any(speaker.casefold() in token.casefold() for speaker in speakers)})
-        found[lang] = ids
+        locale = LANGUAGE_CODES[lang].upper()
+        found[lang] = sorted(voice for voice in listed
+                             if f".{locale}." in voice and voice.split(f".{locale}.", 1)[1].split(".")[0] in speakers)
     return found
 
 
@@ -67,8 +69,8 @@ def main(argv=None) -> int:
         for lang, ids in voices.items():
             for voice in ids:
                 started = time.perf_counter()
-                response = client.post(args.base_url + "/v1/audio/synthesize",
-                                       data={"text": SENTENCES[lang], "language": LANGUAGE_CODES[lang], "voice": voice})
+                response = client.post(args.base_url + "/v1/audio/synthesize", files={  # multipart/form-data
+                    "text": (None, SENTENCES[lang]), "language": (None, LANGUAGE_CODES[lang]), "voice": (None, voice)})
                 elapsed = round(time.perf_counter() - started, 3)
                 ok = response.status_code == 200 and response.headers.get("content-type", "").startswith("audio/")
                 name = f"{lang}-{voice.replace('/', '_').replace(':', '_')}.wav"

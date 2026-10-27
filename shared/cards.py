@@ -26,15 +26,21 @@ def evidence_label(evidence_id: str) -> str:
     return "public_source" if evidence_id.startswith(PUBLIC_PREFIXES) else "catalog"
 
 
-def relabel_block(block: dict | None, known: dict[str, dict]) -> dict | None:
-    """Drop unknown ids and recompute the label; an uncited block becomes model_unverified."""
+def relabel_block(block: dict | None, known: dict[str, dict], *, dated: bool = False) -> dict | None:
+    """Drop unknown ids and recompute the label; an uncited block becomes model_unverified.
+
+    dated=True (visit notes): attach the reference date, the block's own as_of or else the
+    newest as_of of its cited records. Story blocks carry none: as_of is not an event date.
+    """
     if block is None:
         return None
     ids = [item for item in dict.fromkeys(block.get("evidence_ids", [])) if item in known]
     labels = [known[item].get("verification") or evidence_label(item) for item in ids]
     label = max(labels, key=VERIFICATION_ORDER.index) if labels else "model_unverified"
+    dates = [known[item]["as_of"] for item in ids if isinstance(known[item].get("as_of"), str)]
+    as_of = (block.get("as_of") or max(dates, default=None)) if dated else None
     return {"text": block["text"], "evidence_ids": ids, "verification": label,
-            "analogy": bool(block.get("analogy", False))}
+            "analogy": bool(block.get("analogy", False)), "as_of": as_of}
 
 
 def source_title(url: str) -> str | None:
@@ -49,7 +55,7 @@ def build_card(place_id: str | None, name: str, lang: str, blocks: dict, visit_n
                known: dict[str, dict]) -> dict:
     """known maps evidence id -> record with source and optional title/license/verification."""
     relabeled = {key: relabel_block(blocks.get(key), known) for key in BLOCKS}
-    note = relabel_block(visit_note, known)
+    note = relabel_block(visit_note, known, dated=True)
     if note is not None and note["verification"] == "model_unverified":
         note = None  # Operation facts are never written from model knowledge.
     present = [block for block in (*relabeled.values(), note) if block is not None]

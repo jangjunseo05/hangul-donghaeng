@@ -145,17 +145,20 @@
       "total_straight_line_m": 1057,
       "total_dwell_min_estimate": 70,
       "distance_basis": "straight_line",
-      "ui_note": "Straight-line distances. Actual walking route not verified. Plan Bukchon between 10 a.m. and 5 p.m. (2024 notice for Bukchon-ro 11-gil; re-check).",
+      "ui_note": "Straight-line distances. Actual walking route not verified. Plan Bukchon between 10 a.m. and 5 p.m. (Bukchon-ro 11-gil; VisitKorea and 2024 Seoul notice; re-check).",
       "evidence_ids": [
+        "visitkorea:bukchon-operation",
         "seoul:bukchon-visit-restriction"
       ],
       "visit_note": {
-        "text": "Plan Bukchon between 10 a.m. and 5 p.m. (2024 notice for Bukchon-ro 11-gil; re-check).",
+        "text": "Plan Bukchon between 10 a.m. and 5 p.m. (Bukchon-ro 11-gil; VisitKorea and 2024 Seoul notice; re-check).",
         "evidence_ids": [
+          "visitkorea:bukchon-operation",
           "seoul:bukchon-visit-restriction"
         ],
         "verification": "catalog",
-        "analogy": false
+        "analogy": false,
+        "as_of": "2024-11-15"
       }
     }
   ],

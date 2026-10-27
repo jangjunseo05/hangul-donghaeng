@@ -50,6 +50,9 @@ OPERATION_TERMS = re.compile(
     r"|요금|휴무|휴관|개방 시간|관람 ?시간|입장료", re.I)
 
 
+NUMBER = re.compile(r"\d+")
+
+
 class DraftBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
     text: str = Field(min_length=1, max_length=600)
@@ -114,6 +117,14 @@ async def explain_public_place(request, request_id: str, place: dict, api, model
               for key, value in draft.blocks}
     if blocks["fun_fact"] and OPERATION_TERMS.search(blocks["fun_fact"]["text"]):
         blocks["fun_fact"] = None
+    # A citation must at least carry the block's numbers (years, counts); otherwise the block is
+    # model knowledge wearing a source label (live smoke 2026-10-27: an invented "19th-century fountain").
+    texts = {item["id"]: item["text"] for item in records}
+    for block in blocks.values():
+        if block and block["evidence_ids"]:
+            cited = " ".join(texts.get(item, "") for item in block["evidence_ids"])
+            if not set(NUMBER.findall(block["text"])) <= set(NUMBER.findall(cited)):
+                block["evidence_ids"] = []
     card = build_card(place["place_id"], name, lang, blocks, None, known)
     story = [card["blocks"][key] for key in ("what_it_is", "why_it_matters", "what_to_look_for", "fun_fact")
              if card["blocks"][key]]

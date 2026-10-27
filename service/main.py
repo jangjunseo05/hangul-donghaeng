@@ -38,6 +38,8 @@ OBSERVE_FRAME_RING = 2
 ISSUED_PLACE_LIMIT = 200
 CANDIDATE_LIMIT = 5
 CANDIDATE_RADIUS_M = 1000
+# Observe waits at most this long for OSM; catalog candidates alone are enough to proceed.
+CANDIDATE_OSM_BUDGET_S = 4.0
 OSM_ATTRIBUTION = "© OpenStreetMap contributors (ODbL)"
 
 
@@ -528,7 +530,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
         radius = min(body.radius_m, CANDIDATE_RADIUS_M)
         lat, lng = round(location["lat"], 4), round(location["lng"], 4)
         found = search_nearby(landmark_name=None, location={"lat": lat, "lng": lng, "origin": location["origin"]},
-                              radius_m=radius, tab="landmark")
+                              radius_m=radius, tab="landmark", budget_s=CANDIDATE_OSM_BUDGET_S)
         external = [place for place in found.get("places", []) if place["place_id"].startswith("osm:")]
         local = catalog_nearby("landmark", location["lat"], location["lng"], radius)
         merged, kept = merge_external(local, [nearby_entry(place, place["distance_m"], has_card=False)

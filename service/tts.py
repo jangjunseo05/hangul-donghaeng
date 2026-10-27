@@ -3,19 +3,24 @@
 TTS_BASE_URL (e.g. http://127.0.0.1:9000 through infra/open_tts_tunnel.sh),
 TTS_VOICE_KO, TTS_VOICE_EN. The voice is fixed by the server, never by the
 browser. Unset or unreachable -> TtsUnavailable so the browser uses its own TTS.
-HTTP API path and form fields follow the Speech NIM docs and are unverified
+HTTP API per the NIM Speech TTS REST reference (research M3-2, documents only):
+POST /v1/audio/synthesize, multipart/form-data text/language/voice -> 200 audio/wav;
+an unknown voice is a 400, so the configured voice is checked once against
+GET /v1/audio/list_voices and omitted (model default) when absent. Unverified
 against a live server until Magpie is deployed.
 """
 from __future__ import annotations
 
 from collections import OrderedDict
 import os
+import re
 import threading
 from urllib.parse import urlsplit
 
 import httpx
 
 SYNTH_PATH = "/v1/audio/synthesize"
+VOICES_PATH = "/v1/audio/list_voices"
 LANGUAGE_CODES = {"ko": "ko-KR", "en": "en-US"}
 LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
 TIMEOUT_SECONDS = 10.0
@@ -25,6 +30,25 @@ _LOCK = threading.Lock()
 _CACHE: OrderedDict = OrderedDict()
 _ACTIVE_SESSIONS: set[str] = set()
 _CAPACITY = threading.BoundedSemaphore(2)
+_VOICES: dict[str, set[str] | None] = {}  # base url -> listed voice ids (None: listing unavailable)
+
+
+# An aside glued to a Korean particle ("품계석(…)을") is dropped so the sentence stays grammatical;
+# other brackets become a comma aside.
+_GLUED_ASIDE = re.compile(r"\s*[(（［\[][^()（）［］\[\]]*[)）］\]](?=[가-힣])")
+_OPEN = re.compile(r"\s*[(（［\[]\s*")
+_CLOSE = re.compile(r"\s*[)）］\]]\s*")
+
+
+def speakable(text: str) -> str:
+    """Spoken form of on-screen text: no brackets, which TTS reads badly (research M2-3 B)."""
+    value = _GLUED_ASIDE.sub("", text)
+    value = _OPEN.sub(", ", value)
+    value = _CLOSE.sub(" ", value)
+    value = re.sub(r"\s+", " ", value)
+    value = re.sub(r"\s+([,.!?。])", r"\1", value)
+    value = re.sub(r",\s*([,.!?。])", r"\1", value)
+    return value.strip(" ,")
 
 
 class TtsUnavailable(Exception):
@@ -52,12 +76,33 @@ def configured() -> bool:
     return _base_url() is not None
 
 
+def _listed_voices(client: httpx.Client, base: str) -> set[str] | None:
+    """Voice ids from list_voices ({"<locales>": {"voices": [...]}}); cached per base URL."""
+    if base in _VOICES:
+        return _VOICES[base]
+    voices = None
+    try:
+        response = client.get(base + VOICES_PATH)
+        if response.status_code == 200 and len(response.content) <= 1_000_000:
+            data = response.json()
+            voices = {voice for entry in data.values() if isinstance(entry, dict)
+                      for voice in entry.get("voices", []) if isinstance(voice, str)} if isinstance(data, dict) else None
+    except (httpx.HTTPError, ValueError):
+        voices = None
+    if voices is not None:
+        _VOICES[base] = voices  # A failed listing is retried next time (server may be initializing).
+    return voices
+
+
 def synthesize(text: str, lang: str, session_id: str) -> tuple[bytes, str, str]:
     """Return (audio, content_type, voice). Raises TtsUnavailable or TtsBusy."""
     base = _base_url()
     if base is None or lang not in LANGUAGE_CODES:
         raise TtsUnavailable()
     voice = os.getenv("TTS_VOICE_KO" if lang == "ko" else "TTS_VOICE_EN", "").strip()
+    text = speakable(text)
+    if not text:
+        raise TtsUnavailable()
     key = (lang, voice, text)
     with _LOCK:
         if key in _CACHE:
@@ -70,12 +115,15 @@ def synthesize(text: str, lang: str, session_id: str) -> tuple[bytes, str, str]:
         if not _CAPACITY.acquire(timeout=1.0):
             raise TtsBusy()
         try:
-            form = {"text": text, "language": LANGUAGE_CODES[lang]}
-            if voice:
-                form["voice"] = voice
             with httpx.Client(follow_redirects=False, trust_env=False, transport=_TRANSPORT,
                               timeout=httpx.Timeout(TIMEOUT_SECONDS, connect=2.0)) as client:
-                with client.stream("POST", base + SYNTH_PATH, data=form) as response:
+                listed = _listed_voices(client, base) if voice else None
+                used = voice if voice and (listed is None or voice in listed) else ""
+                # multipart/form-data, as the NIM reference specifies.
+                form = {"text": (None, text), "language": (None, LANGUAGE_CODES[lang])}
+                if used:
+                    form["voice"] = (None, used)
+                with client.stream("POST", base + SYNTH_PATH, files=form) as response:
                     content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
                     if response.status_code != 200 or not content_type.startswith("audio/"):
                         raise TtsUnavailable()
@@ -90,7 +138,7 @@ def synthesize(text: str, lang: str, session_id: str) -> tuple[bytes, str, str]:
             _CAPACITY.release()
         if not audio:
             raise TtsUnavailable()
-        value = (bytes(audio), content_type, voice or "default")
+        value = (bytes(audio), content_type, used or "default")
         with _LOCK:
             _CACHE[key] = value
             while len(_CACHE) > 64:
