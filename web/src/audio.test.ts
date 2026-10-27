@@ -16,6 +16,25 @@ describe('female-first voice choice', () => {
   })
 })
 
+// Platform voice lists from research phase2 §M2-2 (Readium Speech DB). Names only; not real-device dumps.
+const PLATFORMS: { platform: string; ko: [string, string][]; en: [string, string][]; female: { ko: string; en: string } }[] = [
+  { platform: 'iOS / macOS', ko: [['Minsu', 'ko-KR'], ['Jian', 'ko-KR'], ['Yuna', 'ko-KR'], ['Suhyun', 'ko-KR']], en: [['Alex', 'en-US'], ['Aaron', 'en-US'], ['Evan', 'en-US'], ['Ava', 'en-US'], ['Nathan', 'en-US'], ['Samantha', 'en-US']], female: { ko: 'Yuna', en: 'Ava' } },
+  { platform: 'Android Google TTS (names)', ko: [['Google 한국어 3 (Natural)', 'ko-KR'], ['Google 한국어 4 (Natural)', 'ko-KR'], ['Google 한국어 1 (Natural)', 'ko-KR'], ['Google 한국어 2 (Natural)', 'ko-KR']], en: [['Google US English 3 (Natural)', 'en-US'], ['Google US English 4 (Natural)', 'en-US'], ['Google US English 6 (Natural)', 'en-US'], ['Google US English 1 (Natural)', 'en-US'], ['Google US English 5 (Natural)', 'en-US']], female: { ko: 'Google 한국어 2 (Natural)', en: 'Google US English 5 (Natural)' } },
+  { platform: 'Android Google TTS (voice ids)', ko: [['ko-kr-x-koc-local', 'ko_KR'], ['ko-kr-x-kod-network', 'ko_KR'], ['ko-kr-x-ism-local', 'ko_KR']], en: [['en-us-x-iom-local', 'en_US'], ['en-us-x-iol-network', 'en_US'], ['en-us-x-tpd-local', 'en_US'], ['en-us-x-iog-local', 'en_US']], female: { ko: 'ko-kr-x-ism-local', en: 'en-us-x-iog-local' } },
+  { platform: 'Edge online', ko: [['Microsoft InJoon Online (Natural) - Korean (Korea)', 'ko-KR'], ['Microsoft Hyunsu Online (Natural) - Korean (Korea)', 'ko-KR'], ['Microsoft SunHi Online (Natural) - Korean (Korea)', 'ko-KR']], en: [['Microsoft Guy Online (Natural) - English (United States)', 'en-US'], ['Microsoft Jenny Online (Natural) - English (United States)', 'en-US']], female: { ko: 'Microsoft SunHi Online (Natural) - Korean (Korea)', en: 'Microsoft Jenny Online (Natural) - English (United States)' } },
+  { platform: 'Windows / Chrome desktop', ko: [['Microsoft Heami - Korean (Korean)', 'ko-KR'], ['Google 한국의', 'ko-KR']], en: [['Microsoft David - English (United States)', 'en-US'], ['Microsoft Zira - English (United States)', 'en-US'], ['Google US English', 'en-US']], female: { ko: 'Google 한국의', en: 'Microsoft Zira - English (United States)' } },
+]
+describe('female voice ranks first on each platform (research §M2-2)', () => {
+  for (const { platform, ko, en, female } of PLATFORMS) it(platform, () => {
+    const voices = [...ko, ...en].map(([name, lang]) => voice(name, lang))
+    expect(pickVoice(voices, 'ko')?.name).toBe(female.ko)
+    expect(pickVoice(voices, 'en')?.name).toBe(female.en)
+  })
+  it('a male "Google US English 3/4/6" never beats the generic female "Google US English"', () => {
+    expect(pickVoice([voice('Google US English 3 (Natural)', 'en-US'), voice('Google US English', 'en-US')], 'en')?.name).toBe('Google US English')
+  })
+})
+
 const player = (impl: AudioPlayer['play']): AudioPlayer => ({ play: vi.fn(impl), stop: vi.fn() })
 describe('server voice first, browser voice as fallback', () => {
   it('falls back when the server voice is unavailable (e.g. 503)', async () => {

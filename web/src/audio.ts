@@ -11,13 +11,18 @@ export class TtsUnavailable extends Error {
   constructor(public reason: string) { super(reason); this.name = 'TtsUnavailable' }
 }
 
-// Female voice names known on common platforms, best first. Names are matched case-insensitively as substrings.
-// Unverified on real devices for every OS version; the list only orders the voices a browser already offers.
+// Female/male voice names per platform, best first (research phase2 §M2-2, Readium Speech voice DB).
+// Matched case-insensitively as substrings. Android Chrome may expose locale-only names, in which case no hint matches.
 export const FEMALE_VOICE_HINTS: Record<Language, string[]> = {
-  ko: ['sunhi', 'heami', 'yuna', 'sora', 'jimin', 'seoyeon', 'google 한국의', 'ko-kr-standard-a', 'ko-kr-wavenet-a', 'female', '여성'],
-  en: ['jenny', 'aria', 'ava', 'samantha', 'allison', 'susan', 'zira', 'karen', 'moira', 'tessa', 'serena', 'google us english', 'female'],
+  ko: ['sunhi', 'yuna', 'jian', 'ko-kr-x-kob', 'google 한국어 2', 'ko-kr-x-ism', 'google 한국어 1', 'google 한국의',
+    'suhyun', 'sora', 'heami', 'jimin', 'female', '여성'],
+  en: ['jenny', 'aria', 'ava', 'emma', 'samantha', 'zoe', 'allison', 'en-us-x-tpc', 'google us english 5', 'en-us-x-iob',
+    'google us english 1', 'en-us-x-iog', 'google us english 2', 'en-us-x-tpf', 'google us english 7', 'en-us-x-sfg',
+    'michelle', 'nicky', 'joelle', 'zira', 'google us english', 'female'],
 }
-export const MALE_VOICE_HINTS = ['male', 'daniel', 'alex', 'fred', 'david', 'mark', 'guy', 'injoon', 'hyunsu', 'aaron', 'tom', 'rishi', '남성']
+export const MALE_VOICE_HINTS = ['male', 'daniel', 'alex', 'fred', 'david', 'mark', 'guy', 'injoon', 'hyunsu', 'aaron', 'tom', 'rishi', '남성',
+  'minsu', 'evan', 'nathan', 'ko-kr-x-koc', 'ko-kr-x-kod', 'google 한국어 3', 'google 한국어 4',
+  'en-us-x-iom', 'en-us-x-iol', 'en-us-x-tpd', 'google us english 3', 'google us english 4', 'google us english 6']
 
 type VoiceLike = Pick<SpeechSynthesisVoice, 'name' | 'lang' | 'localService' | 'default'>
 /** Picks the best voice for a language: female-name hints first, known male names last. */

@@ -2,12 +2,12 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { ArrowUpRight, CalendarClock, Copy, Info, Lightbulb, ShieldCheck, Volume2, VolumeX } from 'lucide-react'
 import type { Evidence, Language } from '../types'
-import type { StoryBlock, StoryBlocks, Verification } from '../contract'
+import type { CardSource, StoryBlock, StoryBlocks, Verification } from '../contract'
 import { safeSourceUrl } from '../api'
 
 type T = (en: string, ko: string) => string
 /** A LandmarkCard, or a partial story built from older results (missing blocks are simply not shown). */
-export type Story = { name: string; name_local?: string | null; blocks: Partial<Record<keyof StoryBlocks, StoryBlock | null>>; visit_note?: StoryBlock | null; verification: Verification; evidence_ids: string[] }
+export type Story = { name: string; name_local?: string | null; blocks: Partial<Record<keyof StoryBlocks, StoryBlock | null>>; visit_note?: StoryBlock | null; verification: Verification; evidence_ids: string[]; sources?: CardSource[] }
 
 const BLOCKS: [keyof StoryBlocks, string, string][] = [
   ['what_it_is', 'What it is', '어떤 곳?'],
@@ -22,6 +22,7 @@ export function VerificationBadge({ value, t, compact = false }: { value: Verifi
   return <span className="verify-badge"><ShieldCheck size={12}/>{value === 'catalog' ? t('Checked source', '검수 자료') : t('Public source', '공개 자료')}</span>
 }
 
+const hostOf = (url: string) => { try { return new URL(url).hostname } catch { return url } }
 const WIKI_LICENSE = 'https://creativecommons.org/licenses/by-sa/4.0/'
 function wikiTitle(url: string | undefined) {
   if (!url) return null
@@ -29,29 +30,48 @@ function wikiTitle(url: string | undefined) {
 }
 /**
  * Source line for a block (research phase2 §4). Wikipedia: link + licence only — the source text is never quoted on screen.
+ * Card `sources` (URL/title per cited id, contract M2) win; otherwise Result/nearby `evidence` URLs, then prefix labels.
  */
-export function SourceLine({ ids, evidence, t }: { ids: string[]; evidence?: Evidence[]; t: T }) {
+export function SourceLine({ ids, evidence, sources, t }: { ids: string[]; evidence?: Evidence[]; sources?: CardSource[]; t: T }) {
   if (!ids.length) return null
-  const prefixes = new Set(ids.map(id => id.split(':')[0]))
   const parts: ReactNode[] = []
-  if (prefixes.has('wikipedia')) {
-    const record = evidence?.find(item => ids.includes(item.id) && item.id.startsWith('wikipedia:'))
-    const href = record ? safeSourceUrl(record.source) : undefined
-    const title = wikiTitle(href)
-    parts.push(<span key="wiki">{t('Source: Wikipedia', '출처: 위키백과')}{title && <> {href ? <a href={href} target="_blank" rel="noopener noreferrer">{t(`“${title}”`, `「${title}」`)}<ArrowUpRight size={10}/></a> : t(`“${title}”`, `「${title}」`)}</>}, <a href={WIKI_LICENSE} target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>. {t('Text adapted.', '내용을 쉽게 고쳐 썼어요.')}</span>)
+  const seen = new Set<string>()
+  const link = (href: string | undefined, label: string) => href ? <a href={href} target="_blank" rel="noopener noreferrer">{label}<ArrowUpRight size={10}/></a> : label
+  for (const id of ids) {
+    const prefix = id.split(':')[0]
+    const source = sources?.find(item => item.id === id)
+    const record = evidence?.find(item => item.id === id)
+    const href = source ? safeSourceUrl(source.url) : record ? safeSourceUrl(record.source) : undefined
+    if (prefix === 'wikipedia') {
+      const title = source?.title ?? wikiTitle(href)
+      const key = 'wiki:' + (href ?? title ?? id)
+      if (seen.has(key)) continue
+      seen.add(key)
+      parts.push(<span key={key}>{t('Source: Wikipedia', '출처: 위키백과')}{title && <> {link(href, t(`“${title}”`, `「${title}」`))}</>}, <a href={WIKI_LICENSE} target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>. {t('Text adapted.', '내용을 쉽게 고쳐 썼어요.')}</span>)
+    } else if (prefix === 'osm') {
+      if (seen.has('osm')) continue
+      seen.add('osm')
+      parts.push(<span key="osm"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">{t('© OpenStreetMap contributors', '© OpenStreetMap 기여자')}</a></span>)
+    } else if (source) {
+      const key = 'src:' + source.url + (source.title ?? '')
+      if (seen.has(key)) continue
+      seen.add(key)
+      parts.push(<span key={key}>{t('Source: ', '출처: ')}{link(href, source.title ?? hostOf(source.url))}</span>)
+    } else {
+      const label = prefix === 'visitseoul' || prefix === 'visitkorea' ? t('Source: Visit Seoul / Korea Tourism Organization', '출처: 서울관광재단 / 한국관광공사')
+        : prefix === 'seoul' ? t('Source: Seoul Metropolitan Government notice', '출처: 서울시 안내') : id
+      if (seen.has('label:' + label)) continue
+      seen.add('label:' + label)
+      parts.push(<span key={'label:' + label}>{link(href, label)}</span>)
+    }
   }
-  if (prefixes.has('visitseoul') || prefixes.has('visitkorea')) parts.push(<span key="official">{t('Source: Visit Seoul / Korea Tourism Organization', '출처: 서울관광재단 / 한국관광공사')}</span>)
-  if (prefixes.has('seoul')) parts.push(<span key="seoul">{t('Source: Seoul Metropolitan Government notice', '출처: 서울시 안내')}</span>)
-  if (prefixes.has('osm')) parts.push(<span key="osm"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">{t('© OpenStreetMap contributors', '© OpenStreetMap 기여자')}</a></span>)
-  const other = ids.filter(id => !['wikipedia', 'visitseoul', 'visitkorea', 'seoul', 'osm'].includes(id.split(':')[0]))
-  if (other.length) parts.push(<span key="other">{other.join(' · ')}</span>)
   return <small className="source-line">{parts}</small>
 }
 
-function Block({ label, block, t, evidence }: { label: string; block: StoryBlock; t: T; evidence?: Evidence[] }) {
+function Block({ label, block, t, evidence, sources }: { label: string; block: StoryBlock; t: T; evidence?: Evidence[]; sources?: CardSource[] }) {
   return <div className={'story-block' + (block.verification === 'model_unverified' ? ' is-unverified' : '')}>
     <dt>{label}{block.analogy && <span className="analogy-tag" title={t('An explanatory comparison, not a fact', '사실이 아니라 이해를 돕는 비유예요')}><Lightbulb size={11}/>{t('analogy', '비유')}</span>}</dt>
-    <dd>{block.text}{block.verification === 'model_unverified' && <VerificationBadge value="model_unverified" t={t}/>}<SourceLine ids={block.evidence_ids} evidence={evidence} t={t}/></dd>
+    <dd>{block.text}{block.verification === 'model_unverified' && <VerificationBadge value="model_unverified" t={t}/>}<SourceLine ids={block.evidence_ids} evidence={evidence} sources={sources} t={t}/></dd>
   </div>
 }
 
@@ -62,8 +82,8 @@ export function StoryCard({ story, t, speaking, onListen, onStop, evidence, fixt
     <span className="overline">{t('In 30 seconds', '30초 이야기')}</span>
     <div className="story-head"><div><h3>{story.name}</h3>{story.name_local && <p className="story-local">{story.name_local}</p>}</div>
       <button type="button" className={'listen-button' + (speaking ? ' playing' : '')} onClick={() => speaking ? onStop() : onListen(text)} disabled={!text} aria-label={speaking ? t('Stop listening to the story', '이야기 듣기 멈추기') : t('Listen to the story', '이야기 듣기')}>{speaking ? <VolumeX size={18}/> : <Volume2 size={18}/>}<span>{speaking ? t('Stop', '멈춤') : t('Listen', '듣기')}</span></button></div>
-    <dl className="story-blocks">{BLOCKS.map(([key, en, ko]) => { const block = story.blocks[key]; return block ? <Block key={key} label={t(en, ko)} block={block} t={t} evidence={evidence}/> : null })}</dl>
-    {story.visit_note && <div className="visit-note"><CalendarClock size={14}/><div><strong>{t('Before you go', '방문 전 확인')}</strong><p>{story.visit_note.text}</p>{story.visit_note.verification === 'model_unverified' && <VerificationBadge value="model_unverified" t={t}/>}<SourceLine ids={story.visit_note.evidence_ids} evidence={evidence} t={t}/></div></div>}
+    <dl className="story-blocks">{BLOCKS.map(([key, en, ko]) => { const block = story.blocks[key]; return block ? <Block key={key} label={t(en, ko)} block={block} t={t} evidence={evidence} sources={story.sources}/> : null })}</dl>
+    {story.visit_note && <div className="visit-note"><CalendarClock size={14}/><div><strong>{t('Before you go', '방문 전 확인')}</strong><p>{story.visit_note.text}</p>{story.visit_note.verification === 'model_unverified' && <VerificationBadge value="model_unverified" t={t}/>}<SourceLine ids={story.visit_note.evidence_ids} evidence={evidence} sources={story.sources} t={t}/></div></div>}
     <div className="story-foot"><VerificationBadge value={story.verification} t={t} compact/>{fixture && <span className="fixture-tag">{t('Contract example (fixture)', '계약 예시(fixture)')}</span>}</div>
   </article>
 }

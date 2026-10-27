@@ -8,9 +8,11 @@ export const VERIFICATION_RANK: Record<Verification, number> = { catalog: 0, pub
 
 export type StoryBlock = { text: string; evidence_ids: string[]; verification: Verification; analogy?: boolean }
 export type StoryBlocks = { what_it_is: StoryBlock; why_it_matters: StoryBlock; what_to_look_for: StoryBlock; fun_fact: StoryBlock | null }
+/** Attribution for a cited record: link + licence only, never the quoted source text. */
+export type CardSource = { id: string; url: string; title: string | null; license: string | null; verification: 'catalog' | 'public_source' }
 export type LandmarkCard = {
   schema_version: 1; place_id: string | null; name: string; lang: Language;
-  blocks: StoryBlocks; visit_note: StoryBlock | null; evidence_ids: string[]; verification: Verification;
+  blocks: StoryBlocks; visit_note: StoryBlock | null; evidence_ids: string[]; verification: Verification; sources?: CardSource[];
 }
 
 export type NearbyTab = 'food' | 'landmark'
@@ -28,6 +30,8 @@ export type RouteLeg = { from_place_id: string; to_place_id: string; straight_li
 export type Route = {
   route_id: string; title: string; summary: string; stops: RouteStop[]; legs: RouteLeg[];
   total_straight_line_m: number; total_dwell_min_estimate: number; distance_basis: 'straight_line'; ui_note: string; evidence_ids: string[];
+  /** Dated visiting restriction for the route (e.g. Bukchon); check again on the visit day. */
+  visit_note?: StoryBlock | null;
 }
 export type RoutesResponse = { schema_version: 1; lang: Language; routes: Route[]; unknowns: string[] }
 

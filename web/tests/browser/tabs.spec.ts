@@ -60,9 +60,17 @@ test('live nearby: list, attribution, card with per-block source and no fixture 
   await expect(page.locator('.fixture-note')).toHaveCount(0)
   await page.locator('.sheet-list button').filter({ hasText: 'Gwanghwamun' }).click()
   await expect(page.locator('.story-card')).toContainText('What it is')
-  await expect(page.locator('.story-card .source-line').first()).toContainText('Wikipedia')
-  await expect(page.locator('.story-card .source-line a', { hasText: 'CC BY-SA 4.0' }).first()).toHaveAttribute('href', 'https://creativecommons.org/licenses/by-sa/4.0/')
-  await expect(page.locator('.story-card .analogy-tag').first()).toBeVisible()
+  // Expectations come from the imported contract example, so a re-merged example does not break the test.
+  const sources = (cardEn as { sources?: { id: string; url: string; title: string | null }[] }).sources ?? []
+  const wiki = sources.find(source => source.id.startsWith('wikipedia:'))
+  if (wiki) {
+    await expect(page.locator('.story-card .source-line', { hasText: 'Wikipedia' }).first()).toBeVisible()
+    await expect(page.locator('.story-card .source-line a', { hasText: 'CC BY-SA 4.0' }).first()).toHaveAttribute('href', 'https://creativecommons.org/licenses/by-sa/4.0/')
+    if (wiki.title) await expect(page.locator('.story-card .source-line a', { hasText: wiki.title }).first()).toHaveAttribute('href', wiki.url)
+  }
+  const official = sources.find(source => !source.id.startsWith('wikipedia:') && source.title)
+  if (official) await expect(page.locator('.story-card .source-line a', { hasText: official.title! }).first()).toHaveAttribute('href', official.url)
+  if (Object.values(cardEn.blocks as Record<string, { analogy?: boolean } | null>).some(block => block?.analogy)) await expect(page.locator('.story-card .analogy-tag').first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'Start from here', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Ask the guide here', exact: true })).toBeVisible()
 })
@@ -94,6 +102,9 @@ test('routes: both templates, ui_note, walk estimate and the Bukchon restriction
   await expect(page.locator('.restriction-note')).toHaveCount(0)
   await page.getByRole('tab', { name: 'Palace to hanok village' }).click()
   await expect(page.locator('.restriction-note')).toContainText('restricted in part of Bukchon')
+  // Route.visit_note (dated) wins over the undated fallback.
+  const visitNote = (routesEn.routes[1] as { visit_note?: { text: string } | null }).visit_note
+  if (visitNote) await expect(page.locator('.restriction-note')).toContainText(visitNote.text)
 })
 
 test('a map tap proposes a starting point; only the confirm button sets it', async ({ page }) => {

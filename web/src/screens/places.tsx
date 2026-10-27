@@ -16,10 +16,11 @@ const osmLink = (place: NearbyPlace) => place.osm_url ?? `https://www.openstreet
 const displayName = (place: NearbyPlace) => place.name_en && place.name_en !== place.name ? place.name_en : place.name
 
 export function nearbyErrorText(code: string, t: T) {
-  if (code === 'nearby_timeout') return t('The map search took too long. Please try again.', '지도 검색이 오래 걸렸어요. 다시 시도해 주세요.')
+  // Live servers also report upstream codes such as overpass_timeout / overpass_http_502; a client TIMEOUT is a slow map search too.
+  if (code === 'nearby_timeout' || code === 'TIMEOUT' || code === 'overpass_timeout') return t('The map search took too long. Please try again.', '지도 검색이 오래 걸렸어요. 다시 시도해 주세요.')
   if (code === 'nearby_busy') return t('The map search is busy. Please try again in a moment.', '지도 검색이 붐벼요. 잠시 후 다시 시도해 주세요.')
-  if (code === 'nearby_unavailable' || code === 'nearby_invalid_response') return t('Nearby places are unavailable right now.', '지금은 주변 장소를 불러올 수 없어요.')
-  if (code === 'OFFLINE' || code === 'TIMEOUT') return t('Your guide is not reachable. Check the connection.', '가이드에 연결할 수 없어요. 연결을 확인해 주세요.')
+  if (code === 'nearby_unavailable' || code === 'nearby_invalid_response' || code.startsWith('overpass_')) return t('Nearby places are unavailable right now.', '지금은 주변 장소를 불러올 수 없어요.')
+  if (code === 'OFFLINE') return t('Your guide is not reachable. Check the connection.', '가이드에 연결할 수 없어요. 연결을 확인해 주세요.')
   return t('Nearby places could not be loaded.', '주변 장소를 불러오지 못했어요.')
 }
 export function FixtureTag({ t }: { t: T }) {
@@ -34,7 +35,8 @@ function useOrigin(g: Guide): { origin: Location; demo: boolean } {
 function useNearby(g: Guide, tab: NearbyTab) {
   const { origin, demo } = useOrigin(g)
   const [retry, setRetry] = useState(0)
-  const key = `${tab}|${origin.lat.toFixed(5)}|${origin.lng.toFixed(5)}|${g.radius}|${retry}`
+  // Tab routes need the session cookie: wait for it instead of failing with 401 on a fast first tap.
+  const key = g.session ? `${tab}|${origin.lat.toFixed(5)}|${origin.lng.toFixed(5)}|${g.radius}|${retry}|${g.session}` : null
   const state = useLoaded<NearbyResponse>(key, signal => loadNearby(tab, origin, g.radius, signal))
   return { state, origin, demo, retry: () => setRetry(value => value + 1) }
 }
@@ -46,10 +48,11 @@ function NearbyList({ g, tab, nearby, onSelect }: { g: Guide; tab: NearbyTab; ne
   return <>
     <LocationControls g={g}/>
     {demo && <p className="scope-note demo-note"><Flag size={12}/>{t('Showing around the Seochon demo point until you choose a starting point.', '출발점을 고르기 전에는 서촌 데모 지점 주변을 보여줘요.')}</p>}
-    {state.status === 'loading' && <div className="list-skeleton" aria-busy="true" aria-label={t('Loading nearby places', '주변 장소를 불러오는 중')}><i/><i/><i/></div>}
+    {!g.session && <div className="note-box" role="status"><Info size={14}/><span>{t('Connecting to your guide…', '가이드에 연결하고 있어요…')}</span><button type="button" className="button button-light small" onClick={() => void g.reconnect()}><RotateCcw size={13}/>{t('Reconnect', '다시 연결')}</button></div>}
+    {g.session && state.status === 'loading' && <div className="list-skeleton" aria-busy="true" aria-label={t('Loading nearby places', '주변 장소를 불러오는 중')}><i/><i/><i/></div>}
     {state.status === 'error' && <div className="note-box" role="alert"><Info size={14}/><span>{nearbyErrorText(state.code, t)}</span><button type="button" className="button button-light small" onClick={retry}><RotateCcw size={13}/>{t('Retry', '다시 시도')}</button></div>}
     {state.status === 'ready' && <>
-      {state.data.error_code && <div className="note-box" role="alert"><Info size={14}/><span>{nearbyErrorText(state.data.error_code, t)}</span><button type="button" className="button button-light small" onClick={retry}><RotateCcw size={13}/>{t('Retry', '다시 시도')}</button></div>}
+      {state.data.error_code && <div className="note-box" role="alert"><Info size={14}/><span>{state.data.places.length ? t('The live map search failed, so only our checked places are shown.', '실시간 지도 검색에 실패해 검수된 장소만 보여드려요.') : nearbyErrorText(state.data.error_code, t)}</span><button type="button" className="button button-light small" onClick={retry}><RotateCcw size={13}/>{t('Retry', '다시 시도')}</button></div>}
       {!state.data.error_code && state.data.places.length === 0 && <p className="scope-note"><Info size={12}/>{t('Nothing found in this radius. Try a wider radius.', '이 반경에서는 찾지 못했어요. 반경을 넓혀 보세요.')}</p>}
       <ol className="sheet-list">{state.data.places.map((place, index) => <li key={place.place_id}><button type="button" onClick={() => onSelect(place, state.data, state.fixture)}>
         <span className={'list-number' + (tab === 'landmark' ? ' green' : '')}>{index + 1}</span>
@@ -82,7 +85,7 @@ function PlaceActions({ g, place, onTab }: { g: Guide; place: NearbyPlace; onTab
 function LandmarkDetail({ g, selection, onTab }: { g: Guide; selection: Selection; onTab(tab: Tab): void }) {
   const { t, language, speech } = g
   const { place, response } = selection
-  const card = useLoaded(place.has_card ? `${place.place_id}|${language}` : null, signal => loadCard(place.place_id, language, signal))
+  const card = useLoaded(place.has_card && g.session ? `${place.place_id}|${language}|${g.session}` : null, signal => loadCard(place.place_id, language, signal))
   return <div className="place-detail">
     {!place.has_card && <><span className="overline">{place.category ?? t('Landmark', '랜드마크')} · {Math.round(place.distance_m)} m</span><h2>{displayName(place)}</h2>{place.name_en && place.name_en !== place.name && <p className="story-local">{place.name}</p>}<p className="scope-note"><Info size={12}/>{t('No story card for this place yet. Ask the guide with your camera for an explanation.', '이 장소의 이야기 카드는 아직 없어요. 카메라로 가이드에게 물어보세요.')}</p></>}
     {place.has_card && card.status === 'loading' && <div className="story-skeleton" aria-busy="true"><i/><i/><i/><i/></div>}

@@ -20,6 +20,8 @@ export function useGuide() {
   const [language, setLanguage] = useState<Language>('en')
   const t = (en: string, ko: string) => language === 'ko' ? ko : en
   const [session, setSession] = useState<string | null>(null)
+  const sessionRef = useRef(session)
+  sessionRef.current = session
   const [health, setHealth] = useState<Health | null>(null)
   const [healthFailed, setHealthFailed] = useState(false)
   const [checkedAt, setCheckedAt] = useState<string | null>(null)
@@ -91,10 +93,13 @@ export function useGuide() {
       if (!Array.isArray(value.places)) throw new ApiError('INVALID_RESPONSE')
       if (active) { setCatalog(value); setCatalogFailed(false) }
     }).catch(() => { if (active) setCatalogFailed(true) })
-    const refresh = () => { api.health().then(value => { if (active) { setHealth(value); setHealthFailed(false); setCheckedAt(new Date().toLocaleTimeString()) } }).catch(() => { if (active) setHealthFailed(true) }) }
-    refresh()
+    // A failed first session request is retried while the service is reachable (tabs wait for the cookie).
+    const ensureSession = () => { if (!sessionRef.current) api.session().then(value => { if (active && typeof value.session_id === 'string') setSession(value.session_id) }).catch(() => {}) }
+    const refresh = (retrySession = true) => { api.health().then(value => { if (active) { setHealth(value); setHealthFailed(false); setCheckedAt(new Date().toLocaleTimeString()); if (retrySession) ensureSession() } }).catch(() => { if (active) setHealthFailed(true) }) }
+    refresh(false)
     const timer = window.setInterval(refresh, 15000)
-    return () => { active = false; clearInterval(timer); controller.current?.abort(); sequence.current += 1; if (previewUrl.current) URL.revokeObjectURL(previewUrl.current) }
+    const sessionRetry = window.setTimeout(ensureSession, 3000)
+    return () => { active = false; clearInterval(timer); clearTimeout(sessionRetry); controller.current?.abort(); sequence.current += 1; if (previewUrl.current) URL.revokeObjectURL(previewUrl.current) }
   }, [])
   useEffect(() => { document.documentElement.lang = language }, [language])
   useEffect(() => {

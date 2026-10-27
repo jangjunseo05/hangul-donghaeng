@@ -29,6 +29,8 @@ async function choosePhoto(page: Page) {
   await page.locator('input[type=file]').first().setInputFiles({ name: 'development-fixture.png', mimeType: 'image/png', buffer: png })
 }
 test('actual local service proxy, mobile layout, and capability observation', async ({ page }, testInfo) => {
+  // Decision 3 (M3): needs a real broker on 127.0.0.1:8000; run with HD_LIVE_BROKER=1.
+  test.skip(process.env.HD_LIVE_BROKER !== '1', 'Live broker test: set HD_LIVE_BROKER=1 with the broker running on 127.0.0.1:8000')
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/')

@@ -7,24 +7,29 @@ import type { Route, RouteStop, RoutesResponse } from '../contract'
 import { loadCard, loadRoutes } from '../tabsApi'
 import { useLoaded } from './useLoaded'
 import { BottomSheet } from '../components/shell'
-import { SourceLine, StoryCard } from '../components/cards'
+import { SourceLine, StoryCard, VerificationBadge } from '../components/cards'
 import { FixtureTag } from './places'
 
 const RESTRICTION_EVIDENCE = 'seoul:bukchon-visit-restriction'
 const totalMinutes = (route: Route) => Math.round((route.total_dwell_min_estimate + route.legs.reduce((sum, leg) => sum + leg.est_walk_min, 0)) / 5) * 5
 
-/** Visiting-hour restriction for a route (decision 8): the card's dated visit_note, or a dated-source fallback. */
+/**
+ * Visiting restriction for a route (decision 8). Order: the route's own dated `visit_note` (contract M2),
+ * then the Bukchon card's `visit_note`, then an undated fallback that says to check on the day.
+ */
 function RestrictionNotice({ g, route }: { g: Guide; route: Route }) {
   const { t, language } = g
   const stop = route.stops.find(item => item.place_id === 'local:bukchon')
-  const restricted = route.evidence_ids.includes(RESTRICTION_EVIDENCE) || Boolean(stop)
-  const card = useLoaded(restricted && stop?.has_card ? `${stop.place_id}|${language}` : null, signal => loadCard(stop!.place_id, language, signal))
+  const restricted = Boolean(route.visit_note) || route.evidence_ids.includes(RESTRICTION_EVIDENCE) || Boolean(stop)
+  const card = useLoaded(!route.visit_note && restricted && stop?.has_card && g.session ? `${stop.place_id}|${language}|${g.session}` : null, signal => loadCard(stop!.place_id, language, signal))
   if (!restricted) return null
-  const note = card.status === 'ready' ? card.data?.visit_note : null
+  const cardData = card.status === 'ready' ? card.data : null
+  const note = route.visit_note ?? cardData?.visit_note ?? null
   return <div className="restriction-note" role="note"><AlertTriangle size={15}/><div>
-    <strong>{t('Visiting hours are restricted in part of Bukchon', '북촌 일부 구역은 방문 시간이 제한돼요')}</strong>
+    <strong>{stop ? t('Visiting hours are restricted in part of Bukchon', '북촌 일부 구역은 방문 시간이 제한돼요') : t('Check visiting rules before you go', '방문 전 규정을 확인하세요')}</strong>
     <p>{note?.text ?? t('Bukchon is a residential area. Part of it limits tourist visits at certain hours. Check the current rules on the day you visit.', '북촌은 주민이 사는 동네예요. 일부 구역은 정해진 시간에 관광객 방문을 제한해요. 방문일에 현재 규정을 확인하세요.')}</p>
-    <SourceLine ids={note?.evidence_ids ?? [RESTRICTION_EVIDENCE]} t={t}/>
+    {note?.verification === 'model_unverified' && <VerificationBadge value="model_unverified" t={t}/>}
+    <SourceLine ids={note?.evidence_ids ?? [RESTRICTION_EVIDENCE]} sources={cardData?.sources} t={t}/>
   </div></div>
 }
 
@@ -52,14 +57,14 @@ function RouteDetail({ g, route, onStop }: { g: Guide; route: Route; onStop(stop
 /** Template routes from GET /api/routes (straight lines only; route_verified is always false). */
 export default function RoutesScreen({ g }: { g: Guide }) {
   const { t, language, speech, location, selectLocation } = g
-  const state = useLoaded<RoutesResponse>(`${language}|${location?.lat ?? ''}|${location?.lng ?? ''}`, signal => loadRoutes(language, location, signal))
+  const state = useLoaded<RoutesResponse>(g.session ? `${language}|${location?.lat ?? ''}|${location?.lng ?? ''}|${g.session}` : null, signal => loadRoutes(language, location, signal))
   const [chosen, setChosen] = useState<string | null>(null)
   const [storyStop, setStoryStop] = useState<RouteStop | null>(null)
   const routes = state.status === 'ready' ? state.data.routes : []
   const route = routes.find(item => item.route_id === chosen) ?? routes[0]
   const places = useMemo<Place[]>(() => (route?.stops ?? []).map(stop => ({ place_id: stop.place_id, name: stop.name, lat: stop.lat, lng: stop.lng, distance_m: 0, source_id: 'route', catalog_version: 'route', kind: stop.kind === 'restaurant' ? 'restaurant' : 'heritage' })), [route])
   const line = useMemo<[number, number][]>(() => (route?.stops ?? []).map(stop => [stop.lat, stop.lng]), [route])
-  const card = useLoaded(storyStop ? `${storyStop.place_id}|${language}` : null, signal => loadCard(storyStop!.place_id, language, signal))
+  const card = useLoaded(storyStop && g.session ? `${storyStop.place_id}|${language}|${g.session}` : null, signal => loadCard(storyStop!.place_id, language, signal))
   return <section className="tab-screen" aria-label={t('Routes', '루트')}>
     <div className="screen-map"><MapView location={null} places={places} language={language} onLocation={selectLocation} onChoosePlace={place => { const stop = route?.stops.find(item => item.place_id === place.place_id); if (stop?.has_card) setStoryStop(stop) }} route={line} showHint={false}/></div>
     <BottomSheet t={t} className="screen-sheet" title={storyStop
