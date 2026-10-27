@@ -10,7 +10,7 @@
         "visitkorea:gwanghwamun-culture",
         "wikipedia:gwanghwamun"
       ],
-      "verification": "catalog",
+      "verification": "public_source",
       "analogy": true
     },
     "why_it_matters": {
@@ -18,7 +18,8 @@
       "evidence_ids": [
         "visitkorea:gwanghwamun-main-gate"
       ],
-      "verification": "public_source"
+      "verification": "catalog",
+      "analogy": false
     },
     "what_to_look_for": {
       "text": "Count the three arched openings: the middle one was for the king, the side ones for the crown prince and officials.",
@@ -26,14 +27,16 @@
         "visitkorea:gwanghwamun-culture",
         "visitkorea:gwanghwamun-main-gate"
       ],
-      "verification": "catalog"
+      "verification": "catalog",
+      "analogy": false
     },
     "fun_fact": {
       "text": "After restoration work, the gate reopened to the public on August 15, 2010.",
       "evidence_ids": [
         "visitkorea:gwanghwamun-culture"
       ],
-      "verification": "catalog"
+      "verification": "catalog",
+      "analogy": false
     }
   },
   "visit_note": {
@@ -41,7 +44,8 @@
     "evidence_ids": [
       "visitkorea:gwanghwamun-operation"
     ],
-    "verification": "catalog"
+    "verification": "catalog",
+    "analogy": false
   },
   "evidence_ids": [
     "visitkorea:gwanghwamun-culture",
@@ -49,5 +53,35 @@
     "visitkorea:gwanghwamun-operation",
     "wikipedia:gwanghwamun"
   ],
-  "verification": "public_source"
+  "verification": "public_source",
+  "sources": [
+    {
+      "id": "visitkorea:gwanghwamun-culture",
+      "url": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+      "title": "Korea Tourism Organization",
+      "license": null,
+      "verification": "catalog"
+    },
+    {
+      "id": "visitkorea:gwanghwamun-main-gate",
+      "url": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+      "title": "Korea Tourism Organization",
+      "license": "KTO page content; short factual paraphrase only",
+      "verification": "catalog"
+    },
+    {
+      "id": "visitkorea:gwanghwamun-operation",
+      "url": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+      "title": "Korea Tourism Organization",
+      "license": null,
+      "verification": "catalog"
+    },
+    {
+      "id": "wikipedia:gwanghwamun",
+      "url": "https://en.wikipedia.org/wiki/Gwanghwamun",
+      "title": "Gwanghwamun",
+      "license": "CC BY-SA 4.0 (Wikipedia text); attribution + link required",
+      "verification": "public_source"
+    }
+  ]
 }

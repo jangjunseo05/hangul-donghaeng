@@ -204,6 +204,221 @@
       "entity_names": ["남산타워", "N서울타워", "N Seoul Tower", "Namsan Tower", "남산서울타워"],
       "observed_at": "2026-10-07",
       "source_locator": "Introduction: multipurpose broadcasting/observatory tower and city view"
+    },
+    {
+      "id": "visitkorea:gwanghwamun-main-gate",
+      "source": "https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=110592&menuSn=351",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Overview paragraph",
+      "quotes": [
+        "It is also the main gate of the palace, therefore larger and fancier in comparison to the other gates.",
+        "Gwanghwamun Gate consists of three arched gates;",
+        "Gwanghwamun Gate was fully restored to its original form and was open to the public on August 15, 2010."
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "광화문은 경복궁의 정문이라 다른 문보다 크고 화려하다. 아치형 문 세 개로 이루어져 있다.",
+      "license": "KTO page content; short factual paraphrase only",
+      "place_ids": [
+        "local:gwanghwamun"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "wikipedia:gyeongbokgung",
+      "source": "https://en.wikipedia.org/wiki/Gyeongbokgung",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Lead section, name section, history (Imjin War)",
+      "quotes": [
+        "Established in 1395, it was the first royal palace of the Joseon dynasty.",
+        "Gyeongbokgung means 'great blessings palace'.",
+        "In 1592, amidst the Imjin War, the palace was completely burned down.",
+        "It contains the National Folk Museum of Korea and the National Palace Museum of Korea."
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "경복궁은 1395년에 세운 조선 왕조 최초의 궁궐이다. 이름은 '큰 복을 누리는 궁궐'이라는 뜻이다. 1592년 임진왜란 때 모두 불탔다. 궁 안에 국립민속박물관과 국립고궁박물관이 있다.",
+      "license": "CC BY-SA 4.0 (Wikipedia text); attribution + link required",
+      "coordinates": {
+        "lat": 37.579884,
+        "lng": 126.9768,
+        "basis": "Wikipedia infobox; not used to override catalog map point"
+      },
+      "place_ids": [
+        "local:gyeongbokgung"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "wikipedia:gwanghwamun",
+      "source": "https://en.wikipedia.org/wiki/Gwanghwamun",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Lead section",
+      "quotes": [
+        "the main and south gate of the palace Gyeongbokgung",
+        "It has a statue of a xiezhi (haetae) in front of it."
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "광화문은 경복궁의 남쪽 정문이다. 문 앞에 해태(상상의 동물) 석상이 있다.",
+      "license": "CC BY-SA 4.0 (Wikipedia text); attribution + link required",
+      "coordinates": {
+        "lat": 37.5760444,
+        "lng": 126.9770194,
+        "basis": "Wikipedia infobox"
+      },
+      "place_ids": [
+        "local:gwanghwamun"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "wikipedia:geunjeongjeon",
+      "source": "https://en.wikipedia.org/wiki/Geunjeongjeon",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Lead section, history, description (rank stones), infobox",
+      "quotes": [
+        "is the main hall of the palace Gyeongbokgung in Seoul, South Korea.",
+        "was used for major events like ceremonies and the issuing of edicts.",
+        "mark where officials of various ranks are to stand during ceremonies.",
+        "It is a designated National Treasure of South Korea."
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "근정전은 경복궁의 중심 건물(정전)로, 의식과 교서 반포 같은 큰 행사에 쓰였다. 정종·세종·단종·중종·선조 다섯 왕이 이곳에서 즉위했다. 앞마당의 품계석은 의식 때 관리들이 품계별로 설 자리를 표시한다. 대한민국 국보다.",
+      "license": "CC BY-SA 4.0 (Wikipedia text); attribution + link required",
+      "coordinates": {
+        "lat": 37.57861,
+        "lng": 126.97694,
+        "basis": "Wikipedia infobox 37°34′43″N 126°58′37″E"
+      },
+      "place_ids": [
+        "local:geunjeongjeon"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null,
+      "caveat": "Five-kings coronation list is from the fetched page summary; spot-check before display."
+    },
+    {
+      "id": "wikipedia:gyeonghoeru",
+      "source": "https://en.wikipedia.org/wiki/Gyeonghoeru",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Lead section, description, history",
+      "quotes": [
+        "an elevated banquet hall in the palace Gyeongbokgung in Seoul, South Korea.",
+        "a small artificial island on the east side of a large artificial pond.",
+        "It is supported by 48 stone pillars on its first floor.",
+        "From 1983 to 2007, the South Korean 10,000 won note featured an image of Gyeonghoeru.",
+        "It is a designated National Treasure."
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "경회루는 경복궁 안의 높은 연회 건물로, 큰 인공 연못 동쪽의 작은 인공 섬 위에 있다. 1층은 돌기둥 48개가 받친다. 1983~2007년 만 원권 지폐에 경회루 그림이 실렸다. 국보다.",
+      "license": "CC BY-SA 4.0 (Wikipedia text); attribution + link required",
+      "coordinates": {
+        "lat": 37.57975,
+        "lng": 126.975889,
+        "basis": "Wikipedia infobox 37°34′47.1″N 126°58′33.2″E"
+      },
+      "place_ids": [
+        "local:gyeonghoeru"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "wikipedia:bukchon",
+      "source": "https://en.wikipedia.org/wiki/Bukchon_Hanok_Village",
+      "as_of": null,
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "culture",
+      "source_locator": "Lead section, etymology, tourism section",
+      "quotes": [
+        "It has many restored traditional Korean houses, called hanok.",
+        "which means \"north village\", is so named because it is located north of the stream Cheonggyecheon and Jongno.",
+        "The area contains many hanok that date to the late 19th and early 20th centuries.",
+        "In 2024, the area received 6.4 million visitors, compared to the around 6,100 residents in the village.",
+        "The Seoul tourism website advises visitors to keep noise levels to a minimum."
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "북촌은 복원된 한옥이 많은 동네다. 청계천과 종로의 북쪽에 있어 '북촌'이라 부른다. 19세기 말~20세기 초 한옥이 많다. 2024년 방문객 640만 명, 주민 약 6,100명. 소음을 줄이도록 안내한다.",
+      "license": "CC BY-SA 4.0 (Wikipedia text); attribution + link required",
+      "coordinates": {
+        "lat": 37.58306,
+        "lng": 126.98361,
+        "basis": "Wikipedia infobox 37°34′59″N 126°59′01″E; neighborhood point, not a single entrance"
+      },
+      "place_ids": [
+        "local:bukchon"
+      ],
+      "claim_scopes": [
+        "culture"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "seoul:bukchon-visit-restriction",
+      "source": "https://tchinese.seoul.go.kr/?p=171726",
+      "as_of": "2024-11-15",
+      "type": "document",
+      "dataset_id": "real_place",
+      "scope": "operation",
+      "source_locator": "Seoul Metropolitan Government notice (English section): Red zone",
+      "quotes": [
+        "Bukchon-ro 11-gil (approx. 34,000 m2)",
+        "From 5:00 p.m. to 10:00a.m.",
+        "No tourist visits during restricted hours",
+        "KRW 100,000"
+      ],
+      "quote_capture": "webfetch_extract",
+      "text": "북촌로11길 일대(레드존)는 오후 5시~오전 10시 관광객 방문이 제한되며 위반 시 과태료 10만 원(2025-03-01 시행)으로 안내되었다. 방문일 현재 규정은 재확인 필요.",
+      "license": "Seoul city official notice; factual summary",
+      "place_ids": [
+        "local:bukchon"
+      ],
+      "claim_scopes": [
+        "operation"
+      ],
+      "observed_at": "2026-10-27",
+      "valid_from": "2025-03-01",
+      "valid_to": null,
+      "caveat": "Notice dated 2024-11-15; exceptions (residents, shop/lodging guests) reported in press but not on this page. Treat as possibly outdated."
     }
   ],
   "fictional_task": [

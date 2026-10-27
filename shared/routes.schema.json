@@ -71,6 +71,17 @@
           "maxItems": 30,
           "title": "Evidence Ids",
           "type": "array"
+        },
+        "visit_note": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StoryBlock"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -222,6 +233,49 @@
         "dwell_min_estimate"
       ],
       "title": "RouteStop",
+      "type": "object"
+    },
+    "StoryBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "maxLength": 600,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "verification": {
+          "enum": [
+            "catalog",
+            "public_source",
+            "model_unverified"
+          ],
+          "title": "Verification",
+          "type": "string"
+        },
+        "analogy": {
+          "default": false,
+          "title": "Analogy",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "text",
+        "evidence_ids",
+        "verification"
+      ],
+      "title": "StoryBlock",
       "type": "object"
     }
   },

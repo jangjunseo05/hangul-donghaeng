@@ -78,5 +78,36 @@ class ContractTests(unittest.TestCase):
             RoutesResponse.model_validate(total)
 
 
+
+class ContentTests(unittest.TestCase):
+    def test_route_examples_are_the_deterministic_server_output(self):
+        from service import content
+        for lang in ("en", "ko"):
+            self.assertEqual(example(f"routes.{lang}.json"), content.routes(lang, (37.579, 126.973)))
+
+    def test_card_examples_match_prepared_cards_and_all_ten_cards_relabel(self):
+        from shared.cards import catalog_card
+        self.assertEqual(example("landmark-card.ko.json"), catalog_card("local:gyeongbokgung", "ko"))
+        self.assertEqual(example("result.story.json")["landmark_card"], catalog_card("local:gyeongbokgung", "en"))
+        cards = [catalog_card(place, lang) for place in ("local:gyeongbokgung", "local:gwanghwamun",
+                 "local:geunjeongjeon", "local:gyeonghoeru", "local:bukchon") for lang in ("en", "ko")]
+        self.assertTrue(all(cards))
+        for card in cards:
+            for block in [*card["blocks"].values(), card["visit_note"]]:
+                if block is None:
+                    continue
+                public = any(item.startswith("wikipedia:") for item in block["evidence_ids"])
+                self.assertEqual(block["verification"], "public_source" if public else "catalog")
+            self.assertNotIn("quotes", json.dumps(card))
+
+    def test_merged_research_evidence_keeps_quotes_out_of_public_records(self):
+        from service.catalog import evidence_for_mode
+        data = json.loads((DIRECTORY.parent / "data" / "evidence.json").read_text(encoding="utf-8"))["real_place"]
+        merged = [item for item in data if item.get("quote_capture")]
+        self.assertEqual(len(merged), 7)
+        public = {item["id"]: item for item in evidence_for_mode("real_place")}
+        self.assertTrue(all(set(public[item["id"]]) == {"id", "source", "as_of", "type", "dataset_id"} for item in merged))
+
+
 if __name__ == "__main__":
     unittest.main()

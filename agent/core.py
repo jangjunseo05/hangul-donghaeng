@@ -14,8 +14,11 @@ from typing import Literal
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from shared.cards import catalog_card
 from shared.models import Claim, Conflict, GuideRequest, GuideResult, ItineraryItem
-from agent.visual_observation import VisualObservation, VISUAL_PROMPT, VISUAL_SYSTEM
+from agent.landmark_card import explain_public_place
+from agent.visual_observation import (CANDIDATE_PROMPT, CandidateObservation, VisualObservation, VISUAL_PROMPT,
+                                      VISUAL_SYSTEM)
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 MODEL_CALL_TIMEOUT_SECONDS = 35.0
@@ -121,7 +124,8 @@ CHECK_CODES = {"invalid_content", "unknown_food", "unknown_place", "unknown_sour
                "stale_dietary_answer", "dietary_question_not_addressed", "empty_answer",
                "historical_scope_mismatch", "historical_source_mismatch", "unrelated_conflict_sources",
                "itinerary_not_requested", "fictional_start_time_unknown", "itinerary_duration_mismatch",
-               "dated_source_misrepresented", "historical_uncertainty_lost"}
+               "dated_source_misrepresented", "historical_uncertainty_lost",
+               "operation_in_story", "card_length", "unknown_candidate"}
 VALIDATION_TYPES = {"missing", "extra_forbidden", "too_long", "too_short", "string_type",
                     "string_too_long", "string_too_short", "list_type", "model_type", "literal_error",
                     "int_parsing", "int_type", "bool_parsing", "bool_type", "string_pattern_mismatch"}
@@ -136,6 +140,9 @@ REPAIR_HINTS = {
     "itinerary_duration_mismatch": "Each next stage must allow the stated duration plus buffer. Preserve 90 minutes and conditional 18/28-minute routes; otherwise use relative stages.",
     "dated_source_misrepresented": "The blog is dated 2025-05-03. The north-gate route note has unknown date; it is not proven current and cannot replace a different-gate route.",
     "historical_uncertainty_lost": "1961 plaque dating is estimated. The 1987 entry is re-quoted from a ledger whose original is unverified. Preserve both limits or omit the detail.",
+    "operation_in_story": "Remove opening hours, fees, closures and access from the four blocks; visit_note=null.",
+    "card_length": "Keep one sentence per block: English 50-90 words total, Korean 100-200 characters total.",
+    "unknown_candidate": "place_id must be exactly one listed candidate id or \"unknown\".",
 }
 
 
@@ -301,7 +308,7 @@ class ModelSession:
                                   "previous_output_truncated": isinstance(content, str) and len(content) > 6000},
                                  ensure_ascii=False)}]
             finally:
-                print(json.dumps({"event": "model_call", "stage": "decision" if issubclass(schema, (Decision, VisualObservation)) else "draft",
+                print(json.dumps({"event": "model_call", "stage": "decision" if issubclass(schema, (Decision, VisualObservation, CandidateObservation)) else "draft",
                     "schema": schema.__name__, "call": self.calls, "error_code": error_code,
                     "validation": feedback, "finish_reason": finish_reason, "usage": usage,
                     **({"configured_model": self.model, "response_model_match": True} if response_model_match else {}),
@@ -566,6 +573,13 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
     if request.confirmed_shop_id and request.confirmed_shop_id not in place_map:
         raise AgentError("unknown_shop_id")
     if request.confirmed_place_id and request.confirmed_place_id not in place_map:
+        external = job.get("confirmed_external_place")
+        # Only a broker-issued OSM place for this session reaches here (broker validated it).
+        if (mode == "real_place" and request.interaction_mode == "ask" and not request.confirmed_shop_id
+                and isinstance(external, dict) and external.get("place_id") == request.confirmed_place_id
+                and isinstance(external.get("name"), str)):
+            await _stage(api, request, request_id, "writing")
+            return await explain_public_place(request, request_id, external, api, model)
         raise AgentError("unknown_place_id")
     if request.confirmed_place_id and request.confirmed_shop_id and request.confirmed_place_id != request.confirmed_shop_id:
         raise AgentError("conflicting_place_confirmation")
@@ -578,6 +592,7 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
         return await _answer_observed_place(request, request_id, observed_followup, available, data, model)
     photo = None
     if mode == "real_place" and request.photo_id:
+        await _stage(api, request, request_id, "observing")
         photo = await api.photo(request.photo_id, request_id)
     history = job.get("history", [])
     decision_schema = FictionalDecision if mode == "fictional_task" else Decision
@@ -621,6 +636,10 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
         if mode == "fictional_task" and (decision.search_places or decision.food_ids or decision.place_ids or decision.search_kinds):
             raise ValueError("fictional_search_forbidden")
 
+    if observing and request.location is not None:
+        closed = await _observe_candidates(request, request_id, photo, place_labels, api, model)
+        if closed is not None:
+            return closed
     if observing:
         visual = await model.structured(_messages(request, [],
             VISUAL_PROMPT + json.dumps(VisualObservation.model_json_schema()), photo, visual_only=True), VisualObservation)
@@ -654,6 +673,7 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
             "speech_text": question or "", "response_language": request.response_language,
             "scene": {"food_candidates": [], "place_candidates": [place_labels[item] for item in decision.place_ids],
                       "observed_place_name": visual.landmark_name if supported else None,
+                      "observed_place_source": "model" if supported and visual.landmark_name else None,
                       "confirmed_food_id": request.confirmed_food_id,
                       "confirmed_shop_id": request.confirmed_shop_id,
                       "confirmed_place_id": request.confirmed_place_id},
@@ -900,6 +920,7 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
                 "Visual candidates are unconfirmed. No historical facts are asserted before confirmation."],
             next_question=None, order_ko=None)
     else:
+        await _stage(api, request, request_id, "writing")
         draft = await model.structured(_messages(request, history, prompt, None), draft_schema, check_draft)
     ko = request.response_language == "ko"
     if mode == "real_place" and ko and not dietary:
@@ -1023,5 +1044,60 @@ async def execute_job(job: dict, api, model: ModelSession) -> dict:
         "evidence": [{key: item[key] for key in ("id", "source", "as_of", "type", "dataset_id")} for item in evidence] if not clarification_only else [],
         "conflicts": [item.model_dump() for item in draft.conflicts],
         "itinerary": [item.model_dump() for item in draft.itinerary], "order_ko": draft.order_ko,
-        "unknowns": unknowns, "next_question": next_question, "error_code": None}
+        "unknowns": unknowns, "next_question": next_question, "error_code": None,
+        # Pre-authored 4-block story for a confirmed catalog place; no extra model call.
+        "landmark_card": (catalog_card(confirmed_target, request.response_language)
+                          if mode == "real_place" and confirmed_target and not observing else None)}
     return GuideResult.model_validate(result).model_dump(mode="json")
+
+
+async def _stage(api, request, request_id, stage):
+    progress = getattr(api, "progress", None)
+    if progress is not None:
+        await progress(request.session_id, request_id, stage)
+
+
+async def _observe_candidates(request, request_id, photo, place_labels, api, model):
+    """GPS candidates + closed-set choice. None means no candidates: use free recognition."""
+    found = await api.search({"session_id": request.session_id, "request_id": request_id, "food_id": None,
+                              "shop_id": None, "radius_m": request.radius_m, "kind": "landmark", "live": True})
+    candidates = [item for item in found.get("candidates", []) if isinstance(item, dict)][:5]
+    if not candidates:
+        return None
+    by_id = {item["id"]: item for item in candidates}
+    await _stage(api, request, request_id, "matching")
+
+    def check(choice):
+        if choice.place_id != "unknown" and choice.place_id not in by_id:
+            raise ValueError("unknown_candidate")
+
+    shown = [{"id": item["id"], "name_en": item["name_en"], "name_ko": item["name_ko"],
+              "kind": item["kind"], "distance_m": round(item["distance_m"])} for item in candidates]
+    choice = await model.structured(_messages(request, [], CANDIDATE_PROMPT + json.dumps(shown, ensure_ascii=False)
+        + "\nReturn the observation in this schema: " + json.dumps(CandidateObservation.model_json_schema()),
+        photo, visual_only=True), CandidateObservation, check)
+    ko = request.response_language == "ko"
+    selected = by_id.get(choice.place_id) if choice.scene_kind == "landmark" else None
+    free_name = None
+    if selected is None and choice.scene_kind == "landmark" and choice.place_id == "unknown" and choice.landmark_name:
+        free_name = " ".join(choice.landmark_name.split())[:120] or None
+    name = (selected["name_ko" if ko else "name_en"] if selected else free_name)
+    question = None
+    if name:
+        question = (f"{name}으로 보이는데, 이 장소의 문화와 역사를 알아볼까요?" if ko else
+                    f"This may be {name}. Would you like to explore this place's culture and history?")
+    ordered = ([selected] if selected else []) + [item for item in candidates if item is not selected]
+    chips = [{"id": item["id"], "name_ko": item["name_ko"], "name_en": item["name_en"]} for item in ordered[:3]] if name else []
+    return GuideResult.model_validate({
+        "schema_version": 1, "session_id": request.session_id, "request_id": request_id,
+        "captured_at": datetime.now(timezone.utc).isoformat(), "dataset_mode": request.dataset_mode,
+        "status": "need_confirmation" if name else "ready", "speech_text": question or "",
+        "response_language": request.response_language,
+        "scene": {"food_candidates": [], "place_candidates": chips, "observed_place_name": name,
+                  "observed_place_source": (selected["source"] if selected else "model") if name else None,
+                  "observed_place_confidence": choice.confidence if name else None,
+                  "confirmed_food_id": request.confirmed_food_id, "confirmed_shop_id": request.confirmed_shop_id,
+                  "confirmed_place_id": request.confirmed_place_id},
+        "places": [], "menus": [], "claims": [], "evidence": [], "conflicts": [], "itinerary": [],
+        "order_ko": None, "unknowns": [], "next_question": question, "error_code": None,
+    }).model_dump(mode="json")

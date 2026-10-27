@@ -147,10 +147,12 @@ OpenShell 정책은 worker의 코드·자료 읽기, 임시 공간 쓰기, 지�
 |---|---|
 | 읽기 전용 | `/app`의 코드·근거, `/usr`, `/lib`, `/lib64`, `/etc`, `/proc`, `/dev/urandom`: Python 실행·라이브러리·시스템 정보·난수 사용. 코드와 자료 변경 권한은 부여하지 않습니다. |
 | 임시 쓰기 | `/tmp`, `/dev/null`: 실행 중 임시 파일·출력 처리. `read_write`에는 삭제도 포함되므로 이 공간의 삭제 차단을 주장하지 않습니다. |
-| broker 통신 | 고정 host의 `GET /api/health`, 작업·배정 사진 조회, `POST /worker/search`, `/worker/results`, `/worker/fail`: 작업 수행·검증된 검색·결과 반환에 필요합니다. broker가 세션/작업 소유권을 별도 검사합니다. |
+| broker 통신 | 고정 host의 `GET /api/health`, 작업·배정 사진 조회, `POST /worker/search`, `/worker/results`, `/worker/fail`, `/worker/progress`(진행 단계 힌트), `/worker/wiki`(확정된 외부 장소의 공개 근거 요청): 작업 수행·검증된 검색·결과 반환에 필요합니다. broker가 세션/작업 소유권을 별도 검사합니다. worker는 위키백과·OSM에 직접 접속하지 않습니다. |
 | 모델 통신 | 고정 모델 host의 `GET /v1/models`, `POST /v1/chat/completions`: 모델 확인·추론만 허용합니다. 실제 구성은 자체 GPU이며 hosted API를 선택하면 NVIDIA 인증은 해당 공식 endpoint에만 결합합니다. 임의 목적지·예약 API는 허용하지 않습니다. |
 | 실행·영구 결과 | non-root UID/GID 1000, Landlock 필수·REST `enforce`. worker는 영구 결과를 직접 쓰지 않고 broker가 검증 후 `.runtime/output`에 저장합니다. |
-| broker의 실시간 OSM 조회 | 고정 HTTPS Nominatim/Overpass endpoint에서 장소 이름·좌표로 주변 음식점을 조회합니다. 사진·인증정보·모델이 정한 임의 URL/쿼리는 전달하지 않습니다. 결과와 출처를 작업에 결합해 검사하며 외부 식당을 기본 카탈로그 확인 ID로 위장하지 않습니다. 이 조회는 trusted broker 경계이며 worker allowlist 확장이 아닙니다. |
+| broker의 실시간 OSM 조회 | 고정 HTTPS Nominatim/Overpass endpoint에서 장소 이름·좌표로 주변 음식점·카페와 랜드마크(tourism/historic)를 국가 제한 없이 조회합니다(맛집·랜드마크 탭, observe 후보). Nominatim은 초당 1회 이하·캐시·식별 User-Agent를 지킵니다. 사진·인증정보·모델이 정한 임의 URL/쿼리는 전달하지 않습니다. 결과와 출처를 작업에 결합해 검사하며 외부 식당을 기본 카탈로그 확인 ID로 위장하지 않습니다. 이 조회는 trusted broker 경계이며 worker allowlist 확장이 아닙니다. |
+| broker의 위키백과 조회 | 사용자가 확정한 OSM 장소에 한해 고정 HTTPS en/ko Wikipedia REST summary와 Wikidata sitelink를 조회합니다. 제목은 OSM `wikipedia`/`wikidata` 태그 또는 이름과 정확히 같은 문서 제목에서만 정합니다. 사진·사용자 문장·모델 출력은 보내지 않습니다. 결과는 `public_source` 근거로 작업에 기록하며, 화면에는 원문 인용 없이 링크와 CC BY-SA 4.0 표기만 노출합니다. |
+| broker의 TTS 호출 | `TTS_BASE_URL`(SSH 터널 `127.0.0.1:9000`의 Magpie TTS NIM)에 고정 경로 `/v1/audio/synthesize`로 화면 문장만 보냅니다. 화자는 서버 설정(`TTS_VOICE_KO/EN`)으로 고정합니다. 평문 HTTP는 loopback에만 허용하고, 미설정·실패 시 브라우저 TTS로 폴백합니다. worker 정책과 무관합니다. |
 | 브라우저 외부 서비스 | 사용자 동의 카메라·마이크·위치, 브라우저 음성 서비스, OpenStreetMap 타일. worker 정책 밖의 기능이며 사용자 사진을 지도 서비스에 보내는 흐름은 없습니다. |
 
 [통제된 경계 시험 11조건 PASS](docs/runtime/evidence/boundary-combined-verdict.json)는 허용·차단 로그와 수신기 카운트를 결합한 결과입니다. 모든 목적지나 모든 제품 시나리오를 시험했다는 뜻은 아닙니다. 정책을 바꾸면 실효 정책과 실행 근거를 다시 확인합니다.

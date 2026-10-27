@@ -1,6 +1,6 @@
 {
-  "catalog_version": "2026-10-07.2",
-  "scope_label": "경복궁·광화문 문화 지점 2개와 기존 토속촌 1곳; 광화문은 경복궁의 정문; 직선거리 기준 / Two heritage anchors and one restaurant; straight-line distance",
+  "catalog_version": "2026-10-27.1",
+  "scope_label": "경복궁 일대 문화 지점 5곳(경복궁·광화문·근정전·경회루·북촌)과 토속촌 1곳; 직선거리 기준 / Five heritage points around Gyeongbokgung and one restaurant; straight-line distance",
   "places": [
     {
       "place_id": "local:tosokchon",
@@ -90,6 +90,74 @@
       ],
       "operation_evidence_ids": [
         "visitkorea:gwanghwamun-operation"
+      ],
+      "currently_open": null,
+      "admission_fee": null
+    },
+    {
+      "place_id": "local:geunjeongjeon",
+      "name": "근정전",
+      "name_ko": "근정전",
+      "name_en": "Geunjeongjeon Hall",
+      "kind": "heritage",
+      "lat": 37.57861,
+      "lng": 126.97694,
+      "source_id": "wikipedia:geunjeongjeon",
+      "coordinate_note": "Wikipedia infobox coordinate; not surveyed. Inside the paid palace area (admission/opening unverified).",
+      "parent_place_id": "local:gyeongbokgung",
+      "visit_complex_id": "gyeongbokgung-complex",
+      "food_ids": [],
+      "culture_evidence_ids": [
+        "wikipedia:geunjeongjeon"
+      ],
+      "operation_evidence_ids": [
+        "visitseoul:gyeongbokgung-operation"
+      ],
+      "currently_open": null,
+      "admission_fee": null,
+      "nearby_search": false,
+      "nearby_search_note": "Interior stop of the paid palace area: shown in cards, routes and the landmark tab, not as a separate nearby destination in conversational heritage search."
+    },
+    {
+      "place_id": "local:gyeonghoeru",
+      "name": "경회루",
+      "name_ko": "경회루",
+      "name_en": "Gyeonghoeru Pavilion",
+      "kind": "heritage",
+      "lat": 37.57975,
+      "lng": 126.975889,
+      "source_id": "wikipedia:gyeonghoeru",
+      "coordinate_note": "Wikipedia infobox coordinate; not surveyed. Inside the paid palace area; interior access unverified.",
+      "parent_place_id": "local:gyeongbokgung",
+      "visit_complex_id": "gyeongbokgung-complex",
+      "food_ids": [],
+      "culture_evidence_ids": [
+        "wikipedia:gyeonghoeru"
+      ],
+      "operation_evidence_ids": [
+        "visitseoul:gyeongbokgung-operation"
+      ],
+      "currently_open": null,
+      "admission_fee": null,
+      "nearby_search": false,
+      "nearby_search_note": "Interior stop of the paid palace area: shown in cards, routes and the landmark tab, not as a separate nearby destination in conversational heritage search."
+    },
+    {
+      "place_id": "local:bukchon",
+      "name": "북촌한옥마을",
+      "name_ko": "북촌한옥마을",
+      "name_en": "Bukchon Hanok Village",
+      "kind": "heritage",
+      "lat": 37.58306,
+      "lng": 126.98361,
+      "source_id": "wikipedia:bukchon",
+      "coordinate_note": "Wikipedia neighborhood coordinate; not an entrance. Residential area with visiting-hour restrictions.",
+      "food_ids": [],
+      "culture_evidence_ids": [
+        "wikipedia:bukchon"
+      ],
+      "operation_evidence_ids": [
+        "seoul:bukchon-visit-restriction"
       ],
       "currently_open": null,
       "admission_fee": null

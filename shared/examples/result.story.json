@@ -67,7 +67,8 @@
           "wikipedia:gyeongbokgung",
           "visitseoul:gyeongbokgung-culture"
         ],
-        "verification": "catalog"
+        "verification": "public_source",
+        "analogy": false
       },
       "why_it_matters": {
         "text": "It was Joseon's main palace — think of it as the kingdom's headquarters.",
@@ -82,14 +83,16 @@
         "evidence_ids": [
           "wikipedia:gyeongbokgung"
         ],
-        "verification": "public_source"
+        "verification": "public_source",
+        "analogy": false
       },
       "fun_fact": {
         "text": "Its name means \"palace of great blessings.\"",
         "evidence_ids": [
           "wikipedia:gyeongbokgung"
         ],
-        "verification": "public_source"
+        "verification": "public_source",
+        "analogy": false
       }
     },
     "visit_note": {
@@ -97,13 +100,37 @@
       "evidence_ids": [
         "visitseoul:gyeongbokgung-operation"
       ],
-      "verification": "catalog"
+      "verification": "catalog",
+      "analogy": false
     },
     "evidence_ids": [
       "visitseoul:gyeongbokgung-culture",
       "visitseoul:gyeongbokgung-operation",
       "wikipedia:gyeongbokgung"
     ],
-    "verification": "public_source"
+    "verification": "public_source",
+    "sources": [
+      {
+        "id": "visitseoul:gyeongbokgung-culture",
+        "url": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+        "title": "Visit Seoul",
+        "license": null,
+        "verification": "catalog"
+      },
+      {
+        "id": "visitseoul:gyeongbokgung-operation",
+        "url": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+        "title": "Visit Seoul",
+        "license": null,
+        "verification": "catalog"
+      },
+      {
+        "id": "wikipedia:gyeongbokgung",
+        "url": "https://en.wikipedia.org/wiki/Gyeongbokgung",
+        "title": "Gyeongbokgung",
+        "license": "CC BY-SA 4.0 (Wikipedia text); attribution + link required",
+        "verification": "public_source"
+      }
+    ]
   }
 }

@@ -124,6 +124,15 @@ class StoryBlocks(StrictModel):
     fun_fact: StoryBlock | None = None
 
 
+class CardSource(StrictModel):
+    """Attribution for a cited record: link + license only, never the quoted source text."""
+    id: Identifier
+    url: str = Field(max_length=300)
+    title: str | None = Field(default=None, max_length=200)
+    license: str | None = Field(default=None, max_length=160)
+    verification: Literal["catalog", "public_source"]
+
+
 class LandmarkCard(StrictModel):
     schema_version: Literal[1] = 1
     place_id: Identifier | None  # null only for a model-only (unmatched) landmark
@@ -134,6 +143,7 @@ class LandmarkCard(StrictModel):
     visit_note: StoryBlock | None = None
     evidence_ids: list[Identifier] = Field(max_length=30)  # union of block evidence
     verification: Verification  # weakest block verification
+    sources: list[CardSource] = Field(default_factory=list, max_length=30)
 
     @model_validator(mode="after")
     def _summary(self):
@@ -143,6 +153,8 @@ class LandmarkCard(StrictModel):
             raise ValueError("evidence_ids must be the union of block evidence")
         if self.verification != max((block.verification for block in blocks), key=VERIFICATION_ORDER.index):
             raise ValueError("verification must be the weakest block verification")
+        if self.sources and {source.id for source in self.sources} != set(self.evidence_ids):
+            raise ValueError("sources must describe exactly the cited evidence")
         return self
 
 
@@ -242,6 +254,8 @@ class Route(StrictModel):
     distance_basis: Literal["straight_line"] = "straight_line"
     ui_note: Text
     evidence_ids: list[Identifier] = Field(max_length=30)
+    # Dated visiting restriction for the route (e.g. Bukchon red zone); check again on the visit day.
+    visit_note: StoryBlock | None = None
 
     @model_validator(mode="after")
     def _connected(self):
@@ -275,9 +289,33 @@ class SearchRequest(StrictModel):
     food_id: Identifier | None
     shop_id: Identifier | None
     radius_m: Radius
-    kind: Literal["restaurant", "heritage"] | None = None
+    # landmark (live only): catalog heritage + OSM landmark candidates for closed-set observation.
+    kind: Literal["restaurant", "heritage", "landmark"] | None = None
     landmark_name: str | None = Field(default=None, min_length=1, max_length=120)
     live: bool = False
+
+
+class PlaceCandidate(StrictModel):
+    """Broker-issued recognition candidate; ids become confirmable for this session."""
+    id: Identifier
+    name_ko: Text
+    name_en: Text
+    kind: Literal["heritage", "landmark"]
+    distance_m: float = Field(ge=0, le=3000)
+    source: Literal["catalog", "osm"]
+
+
+class WorkerProgress(StrictModel):
+    session_id: Identifier
+    request_id: Identifier
+    stage: JobStage
+
+
+class WikiRequest(StrictModel):
+    """Worker asks the broker to fetch public evidence for the job's confirmed external place."""
+    session_id: Identifier
+    request_id: Identifier
+    lang: Language
 
 
 class WorkerResult(StrictModel):

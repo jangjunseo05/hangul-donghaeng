@@ -10,7 +10,8 @@
         "wikipedia:gyeongbokgung",
         "visitseoul:gyeongbokgung-culture"
       ],
-      "verification": "catalog"
+      "verification": "public_source",
+      "analogy": false
     },
     "why_it_matters": {
       "text": "조선의 중심 궁궐이었어요. 나라의 '본부' 같은 곳이라고 생각하면 쉬워요.",
@@ -25,14 +26,16 @@
       "evidence_ids": [
         "wikipedia:gyeongbokgung"
       ],
-      "verification": "public_source"
+      "verification": "public_source",
+      "analogy": false
     },
     "fun_fact": {
       "text": "'경복궁'은 '큰 복을 누리는 궁궐'이라는 뜻이에요.",
       "evidence_ids": [
         "wikipedia:gyeongbokgung"
       ],
-      "verification": "public_source"
+      "verification": "public_source",
+      "analogy": false
     }
   },
   "visit_note": {
@@ -40,12 +43,36 @@
     "evidence_ids": [
       "visitseoul:gyeongbokgung-operation"
     ],
-    "verification": "catalog"
+    "verification": "catalog",
+    "analogy": false
   },
   "evidence_ids": [
     "visitseoul:gyeongbokgung-culture",
     "visitseoul:gyeongbokgung-operation",
     "wikipedia:gyeongbokgung"
   ],
-  "verification": "public_source"
+  "verification": "public_source",
+  "sources": [
+    {
+      "id": "visitseoul:gyeongbokgung-culture",
+      "url": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+      "title": "Visit Seoul",
+      "license": null,
+      "verification": "catalog"
+    },
+    {
+      "id": "visitseoul:gyeongbokgung-operation",
+      "url": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+      "title": "Visit Seoul",
+      "license": null,
+      "verification": "catalog"
+    },
+    {
+      "id": "wikipedia:gyeongbokgung",
+      "url": "https://en.wikipedia.org/wiki/Gyeongbokgung",
+      "title": "Gyeongbokgung",
+      "license": "CC BY-SA 4.0 (Wikipedia text); attribution + link required",
+      "verification": "public_source"
+    }
+  ]
 }

@@ -1,5 +1,64 @@
 {
   "$defs": {
+    "CardSource": {
+      "additionalProperties": false,
+      "description": "Attribution for a cited record: link + license only, never the quoted source text.",
+      "properties": {
+        "id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "url": {
+          "maxLength": 300,
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License"
+        },
+        "verification": {
+          "enum": [
+            "catalog",
+            "public_source"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "url",
+        "verification"
+      ],
+      "title": "CardSource",
+      "type": "object"
+    },
     "Claim": {
       "additionalProperties": false,
       "properties": {
@@ -487,6 +546,14 @@
           ],
           "title": "Verification",
           "type": "string"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/CardSource"
+          },
+          "maxItems": 30,
+          "title": "Sources",
+          "type": "array"
         }
       },
       "required": [

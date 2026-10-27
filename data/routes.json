@@ -1,0 +1,137 @@
+{
+  "content_version": "research-m1-2026-10-27.1",
+  "notes": [
+    "Distances are straight-line (haversine, R=6371008.8 m) between the listed coordinates, rounded to metres. Real walking routes, open gates and accessibility are NOT verified.",
+    "est_walk_min is a rough estimate = straight_line_m x 1.3 detour factor / 70 m per minute, rounded up. It is a model-free heuristic, not a measured route; label it 'estimate' in UI.",
+    "dwell_min values are editorial estimates (research), not from any source.",
+    "Palace-interior stops (Geunjeongjeon, Gyeonghoeru) require palace entry; hours, closures (Tuesday) and fees must be checked on the visit day (visitseoul:gyeongbokgung-operation).",
+    "Coordinates: gwanghwamun/tosokchon = data/catalog.json; geunjeongjeon/gyeonghoeru/bukchon = Wikipedia infobox (see landmarks.json evidence)."
+  ],
+  "routes": [
+    {
+      "route_id": "route:palace-in-a-nutshell",
+      "title_en": "Palace in a nutshell",
+      "title_ko": "경복궁 한눈에",
+      "summary_en": "Front gate, throne hall, banquet pavilion, then a samgyetang lunch nearby.",
+      "summary_ko": "정문, 중심 건물, 연회장을 보고 근처에서 삼계탕 점심.",
+      "total_dwell_min_estimate": 105,
+      "total_straight_line_m": 891,
+      "stops": [
+        {
+          "order": 1,
+          "place_id": "local:gwanghwamun",
+          "dwell_min": 10,
+          "lat": 37.5760179589004,
+          "lng": 126.976788008924
+        },
+        {
+          "order": 2,
+          "place_id": "local:geunjeongjeon",
+          "dwell_min": 20,
+          "lat": 37.57861,
+          "lng": 126.97694
+        },
+        {
+          "order": 3,
+          "place_id": "local:gyeonghoeru",
+          "dwell_min": 15,
+          "lat": 37.57975,
+          "lng": 126.975889
+        },
+        {
+          "order": 4,
+          "place_id": "local:tosokchon",
+          "dwell_min": 60,
+          "lat": 37.57760304027,
+          "lng": 126.971632166657,
+          "note": "Lunch. Opening, stock and dietary suitability unverified.",
+          "note_ko": "점심. 영업·재고·식이 적합성은 미확인이에요."
+        }
+      ],
+      "legs": [
+        {
+          "from": "local:gwanghwamun",
+          "to": "local:geunjeongjeon",
+          "straight_line_m": 289,
+          "est_walk_min": 6,
+          "route_verified": false
+        },
+        {
+          "from": "local:geunjeongjeon",
+          "to": "local:gyeonghoeru",
+          "straight_line_m": 157,
+          "est_walk_min": 3,
+          "route_verified": false
+        },
+        {
+          "from": "local:gyeonghoeru",
+          "to": "local:tosokchon",
+          "straight_line_m": 445,
+          "est_walk_min": 9,
+          "route_verified": false,
+          "note": "Requires leaving the palace; the west gate Yeongchumun (opened Dec 2018, links to Seochon per visitseoul:gyeongbokgung-culture) is a candidate exit but its current opening and the street path are unverified."
+        }
+      ],
+      "ui_label_en": "Straight-line distances. Actual walking route not verified.",
+      "ui_label_ko": "직선거리 기준이에요. 실제 도보 경로는 확인되지 않았어요."
+    },
+    {
+      "route_id": "route:palace-to-hanok",
+      "title_en": "Palace to hanok village",
+      "title_ko": "궁궐에서 한옥마을까지",
+      "summary_en": "Royal gate and throne hall, then the lanes of Bukchon's traditional houses.",
+      "summary_ko": "궁궐 정문과 중심 건물을 보고 북촌 한옥 골목으로.",
+      "total_dwell_min_estimate": 70,
+      "total_straight_line_m": 1057,
+      "time_window_note": {
+        "text_en": "Plan Bukchon between 10 a.m. and 5 p.m. (2024 notice for Bukchon-ro 11-gil; re-check).",
+        "text_ko": "북촌은 오전 10시~오후 5시 사이에 방문하세요(북촌로11길, 2024년 공지 기준, 재확인 필요).",
+        "evidence_ids": [
+          "seoul:bukchon-visit-restriction"
+        ]
+      },
+      "stops": [
+        {
+          "order": 1,
+          "place_id": "local:gwanghwamun",
+          "dwell_min": 10,
+          "lat": 37.5760179589004,
+          "lng": 126.976788008924
+        },
+        {
+          "order": 2,
+          "place_id": "local:geunjeongjeon",
+          "dwell_min": 20,
+          "lat": 37.57861,
+          "lng": 126.97694
+        },
+        {
+          "order": 3,
+          "place_id": "local:bukchon",
+          "dwell_min": 40,
+          "lat": 37.58306,
+          "lng": 126.98361
+        }
+      ],
+      "legs": [
+        {
+          "from": "local:gwanghwamun",
+          "to": "local:geunjeongjeon",
+          "straight_line_m": 289,
+          "est_walk_min": 6,
+          "route_verified": false
+        },
+        {
+          "from": "local:geunjeongjeon",
+          "to": "local:bukchon",
+          "straight_line_m": 768,
+          "est_walk_min": 15,
+          "route_verified": false,
+          "note": "Requires exiting the palace (east-side exit unverified); Bukchon point is a neighborhood centroid, not an entrance."
+        }
+      ],
+      "ui_label_en": "Straight-line distances. Actual walking route not verified.",
+      "ui_label_ko": "직선거리 기준이에요. 실제 도보 경로는 확인되지 않았어요."
+    }
+  ]
+}

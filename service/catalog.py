@@ -85,6 +85,8 @@ def search_places(food_id, shop_id, location, radius_m, kind=None) -> dict:
     for place in _load("catalog.json")["places"]:
         if kind is not None and place.get("kind", "restaurant") != kind:
             continue
+        if place.get("nearby_search", True) is False:
+            continue  # Interior stops stay out of conversational destination search.
         if shop_id is not None and place["place_id"] != shop_id:
             continue
         if food_id is not None and food_id not in place.get("food_ids", []):
@@ -95,3 +97,8 @@ def search_places(food_id, shop_id, location, radius_m, kind=None) -> dict:
     result["places"].sort(key=lambda place: place["distance_m"])
     result["places"] = result["places"][:3]
     return result
+
+
+def catalog_places() -> list[dict]:
+    """Full catalog place records (broker-side use: nearby tabs and candidates)."""
+    return _load("catalog.json")["places"]

@@ -1,0 +1,399 @@
+{
+  "content_version": "research-m1-2026-10-27.1",
+  "source": "research M1 landmarks.json cards[]",
+  "label_rule": "server recomputes verification from evidence ids (decision 7); labels below are informational",
+  "cards": [
+    {
+      "place_id": "local:gyeongbokgung",
+      "lang": "en",
+      "blocks": {
+        "what_it_is": {
+          "text": "Gyeongbokgung is a royal palace built in 1395 — the first palace of Joseon, a Korean royal dynasty.",
+          "evidence_ids": [
+            "wikipedia:gyeongbokgung",
+            "visitseoul:gyeongbokgung-culture"
+          ],
+          "verification": "catalog"
+        },
+        "why_it_matters": {
+          "text": "It was Joseon's main palace — think of it as the kingdom's headquarters.",
+          "evidence_ids": [
+            "visitseoul:gyeongbokgung-culture"
+          ],
+          "verification": "catalog",
+          "analogy": true
+        },
+        "what_to_look_for": {
+          "text": "Inside the grounds you can find two museums: the National Palace Museum and the National Folk Museum of Korea.",
+          "evidence_ids": [
+            "wikipedia:gyeongbokgung"
+          ],
+          "verification": "public_source"
+        },
+        "fun_fact": {
+          "text": "Its name means \"palace of great blessings.\"",
+          "evidence_ids": [
+            "wikipedia:gyeongbokgung"
+          ],
+          "verification": "public_source"
+        }
+      },
+      "visit_note": {
+        "text": "Closed on Tuesdays with holiday exceptions; check hours and tickets on the day.",
+        "evidence_ids": [
+          "visitseoul:gyeongbokgung-operation"
+        ],
+        "verification": "catalog"
+      }
+    },
+    {
+      "place_id": "local:gyeongbokgung",
+      "lang": "ko",
+      "blocks": {
+        "what_it_is": {
+          "text": "경복궁은 1395년에 지은 궁궐로, 조선 왕조가 처음 세운 궁궐이에요.",
+          "evidence_ids": [
+            "wikipedia:gyeongbokgung",
+            "visitseoul:gyeongbokgung-culture"
+          ],
+          "verification": "catalog"
+        },
+        "why_it_matters": {
+          "text": "조선의 중심 궁궐이었어요. 나라의 '본부' 같은 곳이라고 생각하면 쉬워요.",
+          "evidence_ids": [
+            "visitseoul:gyeongbokgung-culture"
+          ],
+          "verification": "catalog",
+          "analogy": true
+        },
+        "what_to_look_for": {
+          "text": "궁 안에 국립고궁박물관과 국립민속박물관, 두 박물관이 있어요.",
+          "evidence_ids": [
+            "wikipedia:gyeongbokgung"
+          ],
+          "verification": "public_source"
+        },
+        "fun_fact": {
+          "text": "'경복궁'은 '큰 복을 누리는 궁궐'이라는 뜻이에요.",
+          "evidence_ids": [
+            "wikipedia:gyeongbokgung"
+          ],
+          "verification": "public_source"
+        }
+      },
+      "visit_note": {
+        "text": "화요일 정기 휴궁(공휴일 예외 있음). 관람시간·요금은 방문일에 확인하세요.",
+        "evidence_ids": [
+          "visitseoul:gyeongbokgung-operation"
+        ],
+        "verification": "catalog"
+      }
+    },
+    {
+      "place_id": "local:gwanghwamun",
+      "lang": "en",
+      "blocks": {
+        "what_it_is": {
+          "text": "Gwanghwamun is the main south gate of Gyeongbokgung Palace — the palace's front door.",
+          "evidence_ids": [
+            "visitkorea:gwanghwamun-culture",
+            "wikipedia:gwanghwamun"
+          ],
+          "verification": "catalog",
+          "analogy": true
+        },
+        "why_it_matters": {
+          "text": "As the main gate, it is bigger and fancier than the palace's other gates.",
+          "evidence_ids": [
+            "visitkorea:gwanghwamun-main-gate"
+          ],
+          "verification": "public_source"
+        },
+        "what_to_look_for": {
+          "text": "Count the three arched openings: the middle one was for the king, the side ones for the crown prince and officials.",
+          "evidence_ids": [
+            "visitkorea:gwanghwamun-culture",
+            "visitkorea:gwanghwamun-main-gate"
+          ],
+          "verification": "catalog"
+        },
+        "fun_fact": {
+          "text": "After restoration work, the gate reopened to the public on August 15, 2010.",
+          "evidence_ids": [
+            "visitkorea:gwanghwamun-culture"
+          ],
+          "verification": "catalog"
+        }
+      },
+      "visit_note": {
+        "text": "Passing through the gate and entering the palace may follow different rules; check on the day.",
+        "evidence_ids": [
+          "visitkorea:gwanghwamun-operation"
+        ],
+        "verification": "catalog"
+      }
+    },
+    {
+      "place_id": "local:gwanghwamun",
+      "lang": "ko",
+      "blocks": {
+        "what_it_is": {
+          "text": "광화문은 경복궁의 남쪽 정문, 즉 궁궐의 '현관'이에요.",
+          "evidence_ids": [
+            "visitkorea:gwanghwamun-culture",
+            "wikipedia:gwanghwamun"
+          ],
+          "verification": "catalog",
+          "analogy": true
+        },
+        "why_it_matters": {
+          "text": "정문이라서 궁궐의 다른 문보다 크고 화려해요.",
+          "evidence_ids": [
+            "visitkorea:gwanghwamun-main-gate"
+          ],
+          "verification": "public_source"
+        },
+        "what_to_look_for": {
+          "text": "아치 모양 문 세 개를 찾아보세요. 가운데는 왕이, 양옆은 왕세자와 신하들이 다녔대요.",
+          "evidence_ids": [
+            "visitkorea:gwanghwamun-culture",
+            "visitkorea:gwanghwamun-main-gate"
+          ],
+          "verification": "catalog"
+        },
+        "fun_fact": {
+          "text": "복원 공사를 마치고 2010년 8월 15일에 다시 공개됐어요.",
+          "evidence_ids": [
+            "visitkorea:gwanghwamun-culture"
+          ],
+          "verification": "catalog"
+        }
+      },
+      "visit_note": {
+        "text": "문 통과와 궁궐 입장 규칙은 다를 수 있어요. 방문일에 확인하세요.",
+        "evidence_ids": [
+          "visitkorea:gwanghwamun-operation"
+        ],
+        "verification": "catalog"
+      }
+    },
+    {
+      "place_id": "local:geunjeongjeon",
+      "lang": "en",
+      "blocks": {
+        "what_it_is": {
+          "text": "Geunjeongjeon is the main hall of Gyeongbokgung Palace.",
+          "evidence_ids": [
+            "wikipedia:geunjeongjeon"
+          ],
+          "verification": "public_source"
+        },
+        "why_it_matters": {
+          "text": "The biggest royal events happened here — state ceremonies and the announcing of royal orders.",
+          "evidence_ids": [
+            "wikipedia:geunjeongjeon"
+          ],
+          "verification": "public_source"
+        },
+        "what_to_look_for": {
+          "text": "Look for the rows of small stone markers in front of the hall: they showed officials where to stand by rank during ceremonies.",
+          "evidence_ids": [
+            "wikipedia:geunjeongjeon"
+          ],
+          "verification": "public_source"
+        },
+        "fun_fact": {
+          "text": "The hall is a designated National Treasure of South Korea.",
+          "evidence_ids": [
+            "wikipedia:geunjeongjeon"
+          ],
+          "verification": "public_source"
+        }
+      }
+    },
+    {
+      "place_id": "local:geunjeongjeon",
+      "lang": "ko",
+      "blocks": {
+        "what_it_is": {
+          "text": "근정전은 경복궁의 중심 건물이에요.",
+          "evidence_ids": [
+            "wikipedia:geunjeongjeon"
+          ],
+          "verification": "public_source"
+        },
+        "why_it_matters": {
+          "text": "나라의 큰 의식이나 왕의 명령을 알리는 행사가 여기서 열렸어요.",
+          "evidence_ids": [
+            "wikipedia:geunjeongjeon"
+          ],
+          "verification": "public_source"
+        },
+        "what_to_look_for": {
+          "text": "건물 앞에 줄지어 선 작은 비석(품계석)을 찾아보세요. 의식 때 관리들이 계급별로 설 자리를 알려 줬어요.",
+          "evidence_ids": [
+            "wikipedia:geunjeongjeon"
+          ],
+          "verification": "public_source"
+        },
+        "fun_fact": {
+          "text": "근정전은 대한민국 국보예요.",
+          "evidence_ids": [
+            "wikipedia:geunjeongjeon"
+          ],
+          "verification": "public_source"
+        }
+      }
+    },
+    {
+      "place_id": "local:gyeonghoeru",
+      "lang": "en",
+      "blocks": {
+        "what_it_is": {
+          "text": "Gyeonghoeru is a raised banquet hall standing on a small artificial island in a large pond.",
+          "evidence_ids": [
+            "wikipedia:gyeonghoeru"
+          ],
+          "verification": "public_source"
+        },
+        "why_it_matters": {
+          "text": "It was the palace's party hall for royal banquets, and today it is a designated National Treasure.",
+          "evidence_ids": [
+            "wikipedia:gyeonghoeru"
+          ],
+          "verification": "public_source"
+        },
+        "what_to_look_for": {
+          "text": "Count the stone pillars holding up the first floor — there are 48.",
+          "evidence_ids": [
+            "wikipedia:gyeonghoeru"
+          ],
+          "verification": "public_source"
+        },
+        "fun_fact": {
+          "text": "From 1983 to 2007, South Korea's 10,000 won banknote showed a picture of Gyeonghoeru.",
+          "evidence_ids": [
+            "wikipedia:gyeonghoeru"
+          ],
+          "verification": "public_source"
+        }
+      }
+    },
+    {
+      "place_id": "local:gyeonghoeru",
+      "lang": "ko",
+      "blocks": {
+        "what_it_is": {
+          "text": "경회루는 큰 인공 연못 속 작은 섬 위에 높이 지은 연회장이에요.",
+          "evidence_ids": [
+            "wikipedia:gyeonghoeru"
+          ],
+          "verification": "public_source"
+        },
+        "why_it_matters": {
+          "text": "궁궐에서 잔치를 열던 곳이고, 지금은 국보예요.",
+          "evidence_ids": [
+            "wikipedia:gyeonghoeru"
+          ],
+          "verification": "public_source"
+        },
+        "what_to_look_for": {
+          "text": "1층을 받치는 돌기둥을 세어 보세요. 모두 48개예요.",
+          "evidence_ids": [
+            "wikipedia:gyeonghoeru"
+          ],
+          "verification": "public_source"
+        },
+        "fun_fact": {
+          "text": "1983년부터 2007년까지 만 원짜리 지폐에 경회루 그림이 있었어요.",
+          "evidence_ids": [
+            "wikipedia:gyeonghoeru"
+          ],
+          "verification": "public_source"
+        }
+      }
+    },
+    {
+      "place_id": "local:bukchon",
+      "lang": "en",
+      "blocks": {
+        "what_it_is": {
+          "text": "Bukchon is a neighborhood full of restored traditional Korean houses, called hanok.",
+          "evidence_ids": [
+            "wikipedia:bukchon"
+          ],
+          "verification": "public_source"
+        },
+        "why_it_matters": {
+          "text": "It is a real neighborhood: about 6,100 people live here, while 6.4 million visitors came in 2024 — so please keep your voice down.",
+          "evidence_ids": [
+            "wikipedia:bukchon"
+          ],
+          "verification": "public_source"
+        },
+        "what_to_look_for": {
+          "text": "Many of the hanok you see date from the late 1800s and early 1900s.",
+          "evidence_ids": [
+            "wikipedia:bukchon"
+          ],
+          "verification": "public_source"
+        },
+        "fun_fact": {
+          "text": "Bukchon means \"north village\" — it lies north of the Cheonggyecheon stream and Jongno street.",
+          "evidence_ids": [
+            "wikipedia:bukchon"
+          ],
+          "verification": "public_source"
+        }
+      },
+      "visit_note": {
+        "text": "In part of Bukchon (Bukchon-ro 11-gil), tourist visits were restricted from 5 p.m. to 10 a.m. as of the 2024 notice. Check current rules before you go.",
+        "evidence_ids": [
+          "seoul:bukchon-visit-restriction"
+        ],
+        "verification": "public_source"
+      }
+    },
+    {
+      "place_id": "local:bukchon",
+      "lang": "ko",
+      "blocks": {
+        "what_it_is": {
+          "text": "북촌은 복원된 전통 한옥이 모여 있는 동네예요.",
+          "evidence_ids": [
+            "wikipedia:bukchon"
+          ],
+          "verification": "public_source"
+        },
+        "why_it_matters": {
+          "text": "주민 약 6,100명이 실제로 사는 곳인데, 2024년에 640만 명이 찾았어요. 조용히 둘러봐 주세요.",
+          "evidence_ids": [
+            "wikipedia:bukchon"
+          ],
+          "verification": "public_source"
+        },
+        "what_to_look_for": {
+          "text": "여기 한옥 중 상당수는 19세기 말~20세기 초에 지어졌어요.",
+          "evidence_ids": [
+            "wikipedia:bukchon"
+          ],
+          "verification": "public_source"
+        },
+        "fun_fact": {
+          "text": "'북촌'은 '북쪽 마을'이라는 뜻이에요. 청계천과 종로의 북쪽에 있거든요.",
+          "evidence_ids": [
+            "wikipedia:bukchon"
+          ],
+          "verification": "public_source"
+        }
+      },
+      "visit_note": {
+        "text": "북촌로11길 일대는 2024년 공지 기준 오후 5시~오전 10시 관광객 방문이 제한돼요. 방문 전 현재 규정을 확인하세요.",
+        "evidence_ids": [
+          "seoul:bukchon-visit-restriction"
+        ],
+        "verification": "public_source"
+      }
+    }
+  ]
+}

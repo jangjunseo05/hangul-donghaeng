@@ -82,7 +82,8 @@
       "total_dwell_min_estimate": 105,
       "distance_basis": "straight_line",
       "ui_note": "Straight-line distances. Actual walking route not verified.",
-      "evidence_ids": []
+      "evidence_ids": [],
+      "visit_note": null
     },
     {
       "route_id": "route:palace-to-hanok",
@@ -144,10 +145,18 @@
       "total_straight_line_m": 1057,
       "total_dwell_min_estimate": 70,
       "distance_basis": "straight_line",
-      "ui_note": "Straight-line distances. Actual walking route not verified.",
+      "ui_note": "Straight-line distances. Actual walking route not verified. Plan Bukchon between 10 a.m. and 5 p.m. (2024 notice for Bukchon-ro 11-gil; re-check).",
       "evidence_ids": [
         "seoul:bukchon-visit-restriction"
-      ]
+      ],
+      "visit_note": {
+        "text": "Plan Bukchon between 10 a.m. and 5 p.m. (2024 notice for Bukchon-ro 11-gil; re-check).",
+        "evidence_ids": [
+          "seoul:bukchon-visit-restriction"
+        ],
+        "verification": "catalog",
+        "analogy": false
+      }
     }
   ],
   "unknowns": [

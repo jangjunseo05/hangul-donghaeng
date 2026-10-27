@@ -6,8 +6,9 @@ from test_agent_culture import culture_decision, culture_draft, visual_observati
 
 
 def observe_job():
+    # Without a location there are no GPS candidates: free visual recognition (closed-set tests below).
     assignment = job()
-    assignment["request"]["interaction_mode"] = "observe"
+    assignment["request"].update(interaction_mode="observe", location=None)
     return assignment
 
 

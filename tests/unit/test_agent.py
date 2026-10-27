@@ -42,8 +42,11 @@ def draft(mode="real_place"):
 
 
 class Harness:
-    def __init__(self, replies, assignment=None, stale=False, model_status=200):
+    def __init__(self, replies, assignment=None, stale=False, model_status=200, candidates=(), wiki=None):
         self.assignment = assignment or job()
+        self.candidates = list(candidates)  # broker landmark candidates for closed-set observation
+        self.wiki = wiki or {"evidence": [], "records": [], "error_code": None}
+        self.stages = []
         self.replies = list(replies)
         self.stale = stale
         self.model_status = model_status
@@ -64,6 +67,8 @@ class Harness:
             if self.stale:
                 return httpx.Response(409, json={"error_code": "superseded"})
             data = json.loads(request.content)
+            if data.get("kind") == "landmark":
+                return httpx.Response(200, json={"candidates": self.candidates, "error_code": None})
             found = search_places(data["food_id"], data["shop_id"], self.assignment["request"]["location"], data["radius_m"], kind=data.get("kind"))
             return httpx.Response(200, json=found)
         if path == "/worker/results":
@@ -71,6 +76,11 @@ class Harness:
                 return httpx.Response(409, json={"error_code": "superseded"})
             self.submitted.append(json.loads(request.content))
             return httpx.Response(200, json={"saved": True, "result_id": "r1"})
+        if path == "/worker/progress":
+            self.stages.append(json.loads(request.content)["stage"])
+            return httpx.Response(200, json={"accepted": True})
+        if path == "/worker/wiki":
+            return httpx.Response(200, json=self.wiki)
         if path == "/worker/fail":
             self.failures.append(json.loads(request.content))
             return httpx.Response(200, json={"accepted": True})

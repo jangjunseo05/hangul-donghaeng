@@ -107,7 +107,7 @@ class WorkerAPI:
 
     async def call(self, method: str, path: str, **kwargs):
         try:
-            timeout = 22.0 if method == "POST" and path == "worker/search" else 5.0
+            timeout = 22.0 if method == "POST" and path in {"worker/search", "worker/wiki"} else 5.0
             response = await self.client.request(method, path, timeout=timeout, **kwargs)
             if response.status_code == 409:
                 raise AgentError("superseded")
@@ -137,6 +137,18 @@ class WorkerAPI:
             raise AgentError("search_call_limit")
         self.search_count += 1
         return (await self.call("POST", "worker/search", json=payload)).json()
+
+    async def progress(self, session_id, request_id, stage):
+        # Best-effort UI hint: a lost progress update never fails the job.
+        try:
+            await self.call("POST", "worker/progress", json={"session_id": session_id,
+                "request_id": request_id, "stage": stage})
+        except AgentError as exc:
+            if exc.code == "superseded":
+                raise
+
+    async def wiki(self, payload):
+        return (await self.call("POST", "worker/wiki", json=payload)).json()
 
     async def submit(self, job, result):
         return (await self.call("POST", "worker/results", json={
