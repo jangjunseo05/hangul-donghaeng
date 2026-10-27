@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "place_id": null,
+  "name": "Example landmark (fixture)",
+  "lang": "en",
+  "blocks": {
+    "what_it_is": {
+      "text": "FIXTURE: a public source describes this as a 19th-century gate.",
+      "evidence_ids": [
+        "wikipedia:fixture-gate"
+      ],
+      "verification": "public_source",
+      "analogy": false
+    },
+    "why_it_matters": {
+      "text": "FIXTURE: model general knowledge only; confirm on site.",
+      "evidence_ids": [],
+      "verification": "model_unverified",
+      "analogy": false
+    },
+    "what_to_look_for": {
+      "text": "FIXTURE: look for the painted eaves.",
+      "evidence_ids": [],
+      "verification": "model_unverified",
+      "analogy": false
+    },
+    "fun_fact": null
+  },
+  "visit_note": null,
+  "evidence_ids": [
+    "wikipedia:fixture-gate"
+  ],
+  "verification": "model_unverified"
+}

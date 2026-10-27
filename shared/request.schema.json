@@ -130,6 +130,30 @@
         }
       ],
       "title": "Confirmed Shop Id"
+    },
+    "confirmed_place_id": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confirmed Place Id"
+    },
+    "interaction_mode": {
+      "default": "ask",
+      "enum": [
+        "ask",
+        "observe"
+      ],
+      "title": "Interaction Mode",
+      "type": "string"
     }
   },
   "required": [

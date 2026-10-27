@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "place_id": "local:gyeongbokgung",
+  "name": "경복궁",
+  "lang": "ko",
+  "blocks": {
+    "what_it_is": {
+      "text": "경복궁은 1395년에 지은 궁궐로, 조선 왕조가 처음 세운 궁궐이에요.",
+      "evidence_ids": [
+        "wikipedia:gyeongbokgung",
+        "visitseoul:gyeongbokgung-culture"
+      ],
+      "verification": "catalog"
+    },
+    "why_it_matters": {
+      "text": "조선의 중심 궁궐이었어요. 나라의 '본부' 같은 곳이라고 생각하면 쉬워요.",
+      "evidence_ids": [
+        "visitseoul:gyeongbokgung-culture"
+      ],
+      "verification": "catalog",
+      "analogy": true
+    },
+    "what_to_look_for": {
+      "text": "궁 안에 국립고궁박물관과 국립민속박물관, 두 박물관이 있어요.",
+      "evidence_ids": [
+        "wikipedia:gyeongbokgung"
+      ],
+      "verification": "public_source"
+    },
+    "fun_fact": {
+      "text": "'경복궁'은 '큰 복을 누리는 궁궐'이라는 뜻이에요.",
+      "evidence_ids": [
+        "wikipedia:gyeongbokgung"
+      ],
+      "verification": "public_source"
+    }
+  },
+  "visit_note": {
+    "text": "화요일 정기 휴궁(공휴일 예외 있음). 관람시간·요금은 방문일에 확인하세요.",
+    "evidence_ids": [
+      "visitseoul:gyeongbokgung-operation"
+    ],
+    "verification": "catalog"
+  },
+  "evidence_ids": [
+    "visitseoul:gyeongbokgung-culture",
+    "visitseoul:gyeongbokgung-operation",
+    "wikipedia:gyeongbokgung"
+  ],
+  "verification": "public_source"
+}

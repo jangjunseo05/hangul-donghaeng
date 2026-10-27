@@ -463,6 +463,9 @@ async def _nearby_restaurants(request, request_id, job, available, data, api):
     nearby = re.search(r"nearby|\bnear\b|around|주변|근처", question)
     if not food_request or not (nearby or (name and re.search(r"맛집\s*추천", question))):
         return None
+    # Mixed culture/heritage questions need the grounded pipeline, not a restaurant-only map.
+    if re.search(r"history|culture|heritage|explain|tell me about|역사|문화|유적|설명", question):
+        return None
     # An explicit new target must not silently inherit the last visual landmark.
     aliases = {_entity_key(name)} if name else set()
     for item in available:

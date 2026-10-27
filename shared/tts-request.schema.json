@@ -1,0 +1,26 @@
+{
+  "additionalProperties": false,
+  "description": "POST /api/tts -> 200 audio/wav; 503 {error_code:\"TTS_UNAVAILABLE\"} means use browser TTS.",
+  "properties": {
+    "text": {
+      "maxLength": 600,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string"
+    },
+    "lang": {
+      "enum": [
+        "en",
+        "ko"
+      ],
+      "title": "Lang",
+      "type": "string"
+    }
+  },
+  "required": [
+    "text",
+    "lang"
+  ],
+  "title": "TtsRequest",
+  "type": "object"
+}

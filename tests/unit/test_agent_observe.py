@@ -2,7 +2,7 @@
 import unittest
 
 from test_agent import Harness, decision, job
-from test_agent_culture import culture_decision, culture_draft, PALACE, GATE, GATE_CULTURE
+from test_agent_culture import culture_decision, culture_draft, visual_observation, PALACE, GATE, GATE_CULTURE
 
 
 def observe_job():
@@ -12,12 +12,12 @@ def observe_job():
 
 
 def observation_decision(place_id=None):
-    return {"scene_kind": "landmark" if place_id else "other", "place_id": place_id,
-            "food_id": None, "visual_basis": "Visible architecture." if place_id else "No distinguishable landmark or food."}
+    names = {PALACE: "경복궁", GATE: "광화문"}
+    return visual_observation(names.get(place_id, place_id))
 
 
 class ObserveDecisionTests(unittest.IsolatedAsyncioTestCase):
-    def assert_observation_only(self, harness):
+    def assert_observation_only(self, harness, status="need_confirmation"):
         self.assertEqual(len(harness.model_requests), 1)
         self.assertTrue(any(r.url.path.startswith("/worker/photos/") for r in harness.service_requests))
         parts = harness.model_requests[0]["messages"][-1]["content"]
@@ -27,16 +27,21 @@ class ObserveDecisionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(harness.submitted), 1)
         self.assertEqual(harness.failures, [])
         result = harness.submitted[0]["result"]
-        self.assertEqual(result["status"], "need_confirmation")
+        self.assertEqual(result["status"], status)
         for field in ("claims", "menus", "places", "itinerary", "conflicts"):
             self.assertEqual(result[field], [])
-        self.assertTrue(result["next_question"])
+        if status == "need_confirmation":
+            self.assertTrue(result["next_question"])
+        else:
+            # A frame without a cultural landmark does not interrupt the visitor.
+            self.assertIsNone(result["next_question"])
+            self.assertEqual(result["speech_text"], "")
         return result
 
     async def test_empty_candidates_use_one_photo_decision_without_historical_claims(self):
         harness = Harness([observation_decision()], observe_job())
         self.assertEqual(await harness.run(), "saved")
-        result = self.assert_observation_only(harness)
+        result = self.assert_observation_only(harness, status="ready")
         self.assertEqual(result["scene"]["place_candidates"], [])
         self.assertEqual(result["scene"]["food_candidates"], [])
         self.assertIsNone(result["scene"]["confirmed_place_id"])
@@ -51,7 +56,7 @@ class ObserveDecisionTests(unittest.IsolatedAsyncioTestCase):
         assignment["request"]["question"] = "QUESTION_TRIGGER_MARKER: continue the previous restaurant and palace search."
         harness = Harness([observation_decision()], assignment)
         self.assertEqual(await harness.run(), "saved")
-        result = self.assert_observation_only(harness)
+        result = self.assert_observation_only(harness, status="ready")
         prompt = harness.model_requests[0]["messages"][-1]["content"][0]["text"]
         self.assertNotIn("EARLIER_HISTORY_MARKER", prompt)
         self.assertNotIn("QUESTION_TRIGGER_MARKER", prompt)
@@ -72,11 +77,11 @@ class ObserveDecisionTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any(r.url.path == "/worker/search" for r in harness.service_requests))
         messages = harness.model_requests[0]["messages"]
         prompt = messages[0]["content"] + messages[-1]["content"][0]["text"]
-        self.assertIn("Never identify faces or people", prompt)
+        self.assertIn("Do not identify people", prompt)
 
     async def test_visual_category_mismatch_blank_basis_or_extra_tool_field_require_repair(self):
         invalids = [
-            {**observation_decision(PALACE), "scene_kind": "food"},
+            {key: value for key, value in observation_decision(PALACE).items() if key != "identification_supported"},
             {**observation_decision(), "visual_basis": ""},
             {**observation_decision(), "search_places": True},
         ]
@@ -153,7 +158,7 @@ class ObserveDecisionTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any(r.url.path == "/worker/search" for r in harness.service_requests))
 
     async def test_invalid_decision_has_no_fallback_observation(self):
-        selected = observation_decision("local:invented")
+        selected = {**observation_decision(PALACE), "scene_kind": "palace"}
         harness = Harness([selected, selected], observe_job())
         self.assertEqual(await harness.run(), "invalid_model_output")
         self.assertEqual(len(harness.model_requests), 2)

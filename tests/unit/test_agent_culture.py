@@ -14,6 +14,15 @@ PALACE_CULTURE = "visitseoul:gyeongbokgung-culture"
 GATE_CULTURE = "visitkorea:gwanghwamun-culture"
 
 
+def visual_observation(name=None, *, cultural=None, supported=None, kind=None):
+    """VisualObservation reply; the schema carries names, never catalog IDs."""
+    cultural = bool(name) if cultural is None else cultural
+    return {"visual_basis": "Visible traditional architecture." if cultural else "No distinguishable landmark or food.",
+            "visible_text": None, "scene_kind": kind or ("landmark" if cultural else "other"),
+            "is_cultural_landmark": cultural, "landmark_name": name,
+            "identification_supported": bool(name) if supported is None else supported}
+
+
 def culture_decision(place_id=PALACE):
     selected = decision()
     selected.update(intent="culture", food_ids=[], place_ids=[place_id],
@@ -85,12 +94,12 @@ class AgentCultureTests(unittest.IsolatedAsyncioTestCase):
             response = culture_draft()
             response["speech_text"] += " " + REAL_WARNINGS[language] + " " + HERITAGE_WARNINGS[language]
             response["unknowns"] += [REAL_WARNINGS[language], HERITAGE_WARNINGS[language]]
-            harness = Harness([{"scene_kind": "landmark", "place_id": PALACE,
-                                "food_id": None, "visual_basis": "Palace architecture."}], assignment)
+            harness = Harness([visual_observation("경복궁")], assignment)
             self.assertEqual(await harness.run(), "saved")
             result = harness.submitted[0]["result"]
-            self.assertEqual(result["speech_text"].count(HERITAGE_WARNINGS[language]), 1)
-            self.assertEqual(result["unknowns"].count(HERITAGE_WARNINGS[language]), 1)
+            # Observation only asks whether to continue; it asserts no facts, so no warning is attached.
+            self.assertNotIn(HERITAGE_WARNINGS[language], result["speech_text"])
+            self.assertNotIn(HERITAGE_WARNINGS[language], result["unknowns"])
             self.assertNotIn(REAL_WARNINGS[language], result["speech_text"])
             self.assertNotIn(REAL_WARNINGS[language], result["unknowns"])
             first_prompt = harness.model_requests[0]["messages"][-1]["content"][0]["text"]
@@ -199,8 +208,7 @@ class AgentCultureTests(unittest.IsolatedAsyncioTestCase):
     async def test_observe_requests_require_specific_question_even_with_confirmation(self):
         assignment = job()
         assignment["request"].update(interaction_mode="observe", confirmed_place_id=PALACE)
-        harness = Harness([{"scene_kind": "landmark", "place_id": PALACE,
-                            "food_id": None, "visual_basis": "Palace architecture."}], assignment)
+        harness = Harness([visual_observation("Gyeongbokgung")], assignment)
         self.assertEqual(await harness.run(), "saved")
         result = harness.submitted[0]["result"]
         self.assertEqual(result["status"], "need_confirmation")

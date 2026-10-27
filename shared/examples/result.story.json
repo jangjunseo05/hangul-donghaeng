@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "session_id": "s-example",
+  "request_id": "r-example",
+  "captured_at": "2026-10-27T03:00:00+00:00",
+  "dataset_mode": "real_place",
+  "status": "ready",
+  "speech_text": "Gyeongbokgung is a royal palace built in 1395.",
+  "response_language": "en",
+  "scene": {
+    "food_candidates": [],
+    "confirmed_food_id": null,
+    "confirmed_shop_id": null,
+    "place_candidates": [
+      {
+        "id": "local:gyeongbokgung",
+        "name_ko": "경복궁",
+        "name_en": "Gyeongbokgung Palace"
+      },
+      {
+        "id": "local:gwanghwamun",
+        "name_ko": "광화문",
+        "name_en": "Gwanghwamun Gate"
+      }
+    ],
+    "confirmed_place_id": "local:gyeongbokgung",
+    "observed_place_name": "Gyeongbokgung Palace",
+    "observed_place_source": "catalog",
+    "observed_place_confidence": "medium"
+  },
+  "places": [],
+  "menus": [],
+  "claims": [],
+  "evidence": [
+    {
+      "id": "visitseoul:gyeongbokgung-culture",
+      "source": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+      "as_of": "2026-10-07",
+      "type": "document",
+      "dataset_id": "real_place"
+    },
+    {
+      "id": "visitseoul:gyeongbokgung-operation",
+      "source": "https://english.visitseoul.net/PalaceArea/Gyeongbokgung-Palace/ENP000072",
+      "as_of": "2026-10-07",
+      "type": "document",
+      "dataset_id": "real_place"
+    }
+  ],
+  "conflicts": [],
+  "itinerary": [],
+  "order_ko": null,
+  "unknowns": [],
+  "next_question": null,
+  "error_code": null,
+  "search_origin": null,
+  "search_origin_label": null,
+  "landmark_card": {
+    "schema_version": 1,
+    "place_id": "local:gyeongbokgung",
+    "name": "Gyeongbokgung Palace",
+    "lang": "en",
+    "blocks": {
+      "what_it_is": {
+        "text": "Gyeongbokgung is a royal palace built in 1395 — the first palace of Joseon, a Korean royal dynasty.",
+        "evidence_ids": [
+          "wikipedia:gyeongbokgung",
+          "visitseoul:gyeongbokgung-culture"
+        ],
+        "verification": "catalog"
+      },
+      "why_it_matters": {
+        "text": "It was Joseon's main palace — think of it as the kingdom's headquarters.",
+        "evidence_ids": [
+          "visitseoul:gyeongbokgung-culture"
+        ],
+        "verification": "catalog",
+        "analogy": true
+      },
+      "what_to_look_for": {
+        "text": "Inside the grounds you can find two museums: the National Palace Museum and the National Folk Museum of Korea.",
+        "evidence_ids": [
+          "wikipedia:gyeongbokgung"
+        ],
+        "verification": "public_source"
+      },
+      "fun_fact": {
+        "text": "Its name means \"palace of great blessings.\"",
+        "evidence_ids": [
+          "wikipedia:gyeongbokgung"
+        ],
+        "verification": "public_source"
+      }
+    },
+    "visit_note": {
+      "text": "Closed on Tuesdays with holiday exceptions; check hours and tickets on the day.",
+      "evidence_ids": [
+        "visitseoul:gyeongbokgung-operation"
+      ],
+      "verification": "catalog"
+    },
+    "evidence_ids": [
+      "visitseoul:gyeongbokgung-culture",
+      "visitseoul:gyeongbokgung-operation",
+      "wikipedia:gyeongbokgung"
+    ],
+    "verification": "public_source"
+  }
+}

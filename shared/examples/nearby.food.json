@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "tab": "food",
+  "origin": {
+    "lat": 37.579,
+    "lng": 126.973,
+    "origin": "selected"
+  },
+  "radius_m": 1000,
+  "places": [
+    {
+      "place_id": "local:tosokchon",
+      "name": "토속촌삼계탕",
+      "name_en": "Tosokchon Samgyetang",
+      "kind": "restaurant",
+      "category": "cuisine=korean",
+      "lat": 37.57760304027,
+      "lng": 126.971632166657,
+      "distance_m": 197.0,
+      "source_id": "visitseoul:tosokchon",
+      "osm_url": null,
+      "has_card": false
+    },
+    {
+      "place_id": "osm:node:1",
+      "name": "예시 식당 (fixture)",
+      "name_en": null,
+      "kind": "restaurant",
+      "category": "amenity=restaurant",
+      "lat": 37.5781,
+      "lng": 126.9722,
+      "distance_m": 121.0,
+      "source_id": "osm:node:1",
+      "osm_url": "https://www.openstreetmap.org/node/1",
+      "has_card": false
+    }
+  ],
+  "evidence": [
+    {
+      "id": "osm:node:1",
+      "source": "https://www.openstreetmap.org/node/1",
+      "as_of": "2026-10-27T03:00:00+00:00",
+      "type": "document",
+      "dataset_id": "real_place"
+    }
+  ],
+  "attribution": "© OpenStreetMap contributors (ODbL)",
+  "unknowns": [
+    "Ratings, popularity, current opening and allergy suitability are not verified."
+  ],
+  "error_code": null
+}

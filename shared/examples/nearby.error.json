@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "tab": "food",
+  "origin": {
+    "lat": 37.579,
+    "lng": 126.973,
+    "origin": "selected"
+  },
+  "radius_m": 1000,
+  "places": [],
+  "evidence": [],
+  "attribution": "© OpenStreetMap contributors (ODbL)",
+  "unknowns": [],
+  "error_code": "nearby_timeout"
+}

@@ -213,3 +213,14 @@ def test_https_session_cookie_is_secure_without_breaking_loopback(app):
     assert "; Secure" in secure.headers["set-cookie"]
     assert "; Secure" not in local.headers["set-cookie"]
     assert "HttpOnly" in secure.headers["set-cookie"]
+
+
+def test_tts_stub_requires_session_and_signals_browser_fallback(app):
+    with TestClient(app) as client:
+        assert client.post("/api/tts", json={"text": "안녕하세요", "lang": "ko"}).status_code == 401
+        session(client)
+        response = client.post("/api/tts", json={"text": "안녕하세요", "lang": "ko"})
+        assert response.status_code == 503
+        assert response.json()["error_code"] == "TTS_UNAVAILABLE"
+        assert client.post("/api/tts", json={"text": "", "lang": "ko"}).status_code == 422
+        assert client.post("/api/tts", json={"text": "hi", "lang": "ja"}).status_code == 422

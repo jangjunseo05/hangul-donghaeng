@@ -1,0 +1,159 @@
+{
+  "$defs": {
+    "StoryBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "maxLength": 600,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "verification": {
+          "enum": [
+            "catalog",
+            "public_source",
+            "model_unverified"
+          ],
+          "title": "Verification",
+          "type": "string"
+        },
+        "analogy": {
+          "default": false,
+          "title": "Analogy",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "text",
+        "evidence_ids",
+        "verification"
+      ],
+      "title": "StoryBlock",
+      "type": "object"
+    },
+    "StoryBlocks": {
+      "additionalProperties": false,
+      "properties": {
+        "what_it_is": {
+          "$ref": "#/$defs/StoryBlock"
+        },
+        "why_it_matters": {
+          "$ref": "#/$defs/StoryBlock"
+        },
+        "what_to_look_for": {
+          "$ref": "#/$defs/StoryBlock"
+        },
+        "fun_fact": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StoryBlock"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "what_it_is",
+        "why_it_matters",
+        "what_to_look_for"
+      ],
+      "title": "StoryBlocks",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "place_id": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Place Id"
+    },
+    "name": {
+      "maxLength": 2000,
+      "title": "Name",
+      "type": "string"
+    },
+    "lang": {
+      "enum": [
+        "en",
+        "ko"
+      ],
+      "title": "Lang",
+      "type": "string"
+    },
+    "blocks": {
+      "$ref": "#/$defs/StoryBlocks"
+    },
+    "visit_note": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StoryBlock"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evidence_ids": {
+      "items": {
+        "maxLength": 120,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_.:-]+$",
+        "type": "string"
+      },
+      "maxItems": 30,
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "verification": {
+      "enum": [
+        "catalog",
+        "public_source",
+        "model_unverified"
+      ],
+      "title": "Verification",
+      "type": "string"
+    }
+  },
+  "required": [
+    "place_id",
+    "name",
+    "lang",
+    "blocks",
+    "evidence_ids",
+    "verification"
+  ],
+  "title": "LandmarkCard",
+  "type": "object"
+}

@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "tab": "landmark",
+  "origin": {
+    "lat": 37.579,
+    "lng": 126.973,
+    "origin": "selected"
+  },
+  "radius_m": 1000,
+  "places": [
+    {
+      "place_id": "local:gyeongbokgung",
+      "name": "경복궁",
+      "name_en": "Gyeongbokgung Palace",
+      "kind": "landmark",
+      "category": "historic=palace",
+      "lat": 37.57590409118165,
+      "lng": 126.97684292625048,
+      "distance_m": 483.0,
+      "source_id": "visitseoul:gyeongbokgung-location",
+      "osm_url": null,
+      "has_card": true
+    },
+    {
+      "place_id": "local:gwanghwamun",
+      "name": "광화문",
+      "name_en": "Gwanghwamun Gate",
+      "kind": "landmark",
+      "category": "historic=city_gate",
+      "lat": 37.5760179589004,
+      "lng": 126.976788008924,
+      "distance_m": 471.0,
+      "source_id": "visitkorea:gwanghwamun-location",
+      "osm_url": null,
+      "has_card": true
+    },
+    {
+      "place_id": "osm:way:2",
+      "name": "예시 유적 (fixture)",
+      "name_en": "Example site (fixture)",
+      "kind": "landmark",
+      "category": "historic=monument",
+      "lat": 37.5801,
+      "lng": 126.9741,
+      "distance_m": 155.0,
+      "source_id": "osm:way:2",
+      "osm_url": "https://www.openstreetmap.org/way/2",
+      "has_card": false
+    }
+  ],
+  "evidence": [
+    {
+      "id": "osm:way:2",
+      "source": "https://www.openstreetmap.org/way/2",
+      "as_of": "2026-10-27T03:00:00+00:00",
+      "type": "document",
+      "dataset_id": "real_place"
+    }
+  ],
+  "attribution": "© OpenStreetMap contributors (ODbL)",
+  "unknowns": [
+    "Opening hours and admission are not verified."
+  ],
+  "error_code": null
+}

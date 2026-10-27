@@ -1,12 +1,17 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 Text = Annotated[str, StringConstraints(max_length=2000)]
 Identifier = Annotated[str, StringConstraints(min_length=1, max_length=120, pattern=r"^[A-Za-z0-9_.:-]+$")]
 Radius = Literal[500, 1000, 2000, 3000]
 Mode = Literal["real_place", "fictional_task"]
+Language = Literal["en", "ko"]
+# catalog: data/evidence.json record; public_source: broker-fetched OSM/Wikipedia record;
+# model_unverified: model general knowledge, shown to the visitor as "확인 필요 / unverified".
+Verification = Literal["catalog", "public_source", "model_unverified"]
+VERIFICATION_ORDER = ("catalog", "public_source", "model_unverified")
 
 
 class StrictModel(BaseModel):
@@ -47,6 +52,11 @@ class Scene(StrictModel):
     place_candidates: list[FoodCandidate] = Field(default_factory=list, max_length=3)
     confirmed_place_id: Identifier | None = None
     observed_place_name: str | None = Field(default=None, max_length=120)
+    # catalog/osm: closed choice among broker-issued GPS candidates (place_candidates[0]);
+    # model: free recognition outside the candidates, never a verified identity.
+    observed_place_source: Literal["catalog", "osm", "model"] | None = None
+    # Model self-report, not a calibrated probability.
+    observed_place_confidence: Literal["high", "medium", "low"] | None = None
 
 
 class Place(StrictModel):
@@ -94,6 +104,48 @@ class ItineraryItem(StrictModel):
     evidence_ids: list[Identifier] = Field(min_length=1, max_length=10)
 
 
+class StoryBlock(StrictModel):
+    text: str = Field(min_length=1, max_length=600)
+    evidence_ids: list[Identifier] = Field(max_length=10)
+    verification: Verification
+    analogy: bool = False  # Explanatory framing, not a factual claim.
+
+    @model_validator(mode="after")
+    def _grounded(self):
+        if self.verification != "model_unverified" and not self.evidence_ids:
+            raise ValueError("verified block requires evidence_ids")
+        return self
+
+
+class StoryBlocks(StrictModel):
+    what_it_is: StoryBlock
+    why_it_matters: StoryBlock
+    what_to_look_for: StoryBlock
+    fun_fact: StoryBlock | None = None
+
+
+class LandmarkCard(StrictModel):
+    schema_version: Literal[1] = 1
+    place_id: Identifier | None  # null only for a model-only (unmatched) landmark
+    name: Text
+    lang: Language
+    blocks: StoryBlocks
+    # Operation facts (hours, fees, closures) stay out of the 4 blocks and need a visit-day check.
+    visit_note: StoryBlock | None = None
+    evidence_ids: list[Identifier] = Field(max_length=30)  # union of block evidence
+    verification: Verification  # weakest block verification
+
+    @model_validator(mode="after")
+    def _summary(self):
+        blocks = [getattr(self.blocks, name) for name in StoryBlocks.model_fields] + [self.visit_note]
+        blocks = [block for block in blocks if block is not None]
+        if set(self.evidence_ids) != {item for block in blocks for item in block.evidence_ids}:
+            raise ValueError("evidence_ids must be the union of block evidence")
+        if self.verification != max((block.verification for block in blocks), key=VERIFICATION_ORDER.index):
+            raise ValueError("verification must be the weakest block verification")
+        return self
+
+
 class GuideResult(StrictModel):
     schema_version: Literal[1]
     session_id: Identifier
@@ -116,6 +168,105 @@ class GuideResult(StrictModel):
     error_code: Identifier | None
     search_origin: Location | None = None
     search_origin_label: str | None = Field(default=None, max_length=160)
+    landmark_card: LandmarkCard | None = None
+
+
+JobStage = Literal["observing", "matching", "writing"]
+
+
+class RequestStatus(StrictModel):
+    """GET /api/requests/{id}. stage is a progress hint while running, null otherwise."""
+    request_id: Identifier
+    status: Literal["queued", "running", "completed", "failed", "superseded"]
+    stage: JobStage | None = None
+    result: GuideResult | None
+    error_code: Identifier | None
+
+
+class NearbyPlace(StrictModel):
+    place_id: Identifier  # local:* catalog or osm:<type>:<id>
+    name: Text
+    name_en: Text | None = None
+    kind: Literal["restaurant", "landmark"]
+    category: str | None = Field(default=None, max_length=80)  # e.g. "cuisine=korean", "historic=palace"
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    distance_m: float = Field(ge=0, le=3000)  # straight line from origin
+    source_id: Identifier
+    osm_url: str | None = Field(default=None, max_length=200)
+    has_card: bool = False  # GET /api/landmarks/{place_id}/card is available
+
+
+class NearbyResponse(StrictModel):
+    """GET /api/nearby?tab=food|landmark&lat&lng&radius_m. No model call."""
+    schema_version: Literal[1] = 1
+    tab: Literal["food", "landmark"]
+    origin: Location
+    radius_m: Radius
+    places: list[NearbyPlace] = Field(max_length=20)
+    evidence: list[Evidence] = Field(max_length=40)
+    attribution: Text
+    unknowns: list[Text] = Field(max_length=10)
+    error_code: Identifier | None = None
+
+
+class RouteStop(StrictModel):
+    order: int = Field(ge=1, le=12)
+    place_id: Identifier
+    name: Text
+    kind: Literal["restaurant", "heritage", "landmark"]
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    dwell_min_estimate: int = Field(ge=0, le=240)
+    note: Text | None = None
+    has_card: bool = False
+
+
+class RouteLeg(StrictModel):
+    from_place_id: Identifier
+    to_place_id: Identifier
+    straight_line_m: int = Field(ge=0, le=20000)  # haversine between stop coordinates
+    est_walk_min: int = Field(ge=0, le=600)  # ceil(straight_line_m * 1.3 / 70); heuristic
+    route_verified: Literal[False] = False
+    note: Text | None = None
+
+
+class Route(StrictModel):
+    route_id: Identifier
+    title: Text
+    summary: Text
+    stops: list[RouteStop] = Field(min_length=2, max_length=12)
+    legs: list[RouteLeg] = Field(min_length=1, max_length=11)
+    total_straight_line_m: int = Field(ge=0, le=50000)
+    total_dwell_min_estimate: int = Field(ge=0, le=1440)
+    distance_basis: Literal["straight_line"] = "straight_line"
+    ui_note: Text
+    evidence_ids: list[Identifier] = Field(max_length=30)
+
+    @model_validator(mode="after")
+    def _connected(self):
+        ids = [stop.place_id for stop in sorted(self.stops, key=lambda stop: stop.order)]
+        if [stop.order for stop in self.stops] != list(range(1, len(self.stops) + 1)):
+            raise ValueError("stops must be ordered 1..n")
+        if [(leg.from_place_id, leg.to_place_id) for leg in self.legs] != list(zip(ids, ids[1:])):
+            raise ValueError("legs must connect consecutive stops")
+        if self.total_straight_line_m != sum(leg.straight_line_m for leg in self.legs):
+            raise ValueError("total_straight_line_m must equal the leg sum")
+        return self
+
+
+class RoutesResponse(StrictModel):
+    """GET /api/routes?near=<lat>,<lng>&lang=en|ko. Deterministic templates; no model call."""
+    schema_version: Literal[1] = 1
+    lang: Language
+    routes: list[Route] = Field(max_length=2)
+    unknowns: list[Text] = Field(max_length=10)
+
+
+class TtsRequest(StrictModel):
+    """POST /api/tts -> 200 audio/wav; 503 {error_code:"TTS_UNAVAILABLE"} means use browser TTS."""
+    text: str = Field(min_length=1, max_length=600)
+    lang: Language
 
 
 class SearchRequest(StrictModel):

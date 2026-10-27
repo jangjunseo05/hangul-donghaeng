@@ -3,7 +3,7 @@ import unittest
 
 from agent.core import read_evidence
 from test_agent import Harness, decision, draft, job
-from test_agent_culture import culture_decision, culture_draft, PALACE, GATE, PALACE_CULTURE, GATE_CULTURE
+from test_agent_culture import culture_decision, culture_draft, visual_observation, PALACE, GATE, PALACE_CULTURE, GATE_CULTURE
 
 
 def canonical_culture_text(source_id):
@@ -94,16 +94,14 @@ class FinalDeliveryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await harness.run(), "saved")
         self.assertTrue(harness.submitted[0]["result"]["speech_text"].startswith(response["speech_text"]))
 
-    async def test_empty_culture_observation_asks_place_name_instead_of_food(self):
+    async def test_unnamed_culture_observation_asks_about_building_instead_of_food(self):
         assignment = job()
         assignment["request"].update(interaction_mode="observe", response_language="ko")
-        selected = {"scene_kind": "other", "food_id": None, "place_id": None,
-                    "visual_basis": "No recognizable landmark or food."}
-        harness = Harness([selected], assignment)
+        harness = Harness([visual_observation(None, cultural=True, supported=False)], assignment)
         self.assertEqual(await harness.run(), "saved")
         result = harness.submitted[0]["result"]
         self.assertEqual(result["status"], "need_confirmation")
-        self.assertIn("장소", result["next_question"])
+        self.assertIn("건물", result["next_question"])
         self.assertNotIn("음식", result["next_question"])
         self.assertEqual(result["scene"]["place_candidates"], [])
         self.assertEqual(result["claims"], [])

@@ -19,7 +19,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from shared.models import Evidence, GuideRequest, GuideResult, Location, Place, SearchRequest, WorkerFailure, WorkerResult
+from shared.models import (Evidence, GuideRequest, GuideResult, Location, Place, SearchRequest, TtsRequest,
+                           WorkerFailure, WorkerResult)
 from service import catalog
 from service.render import html_card, markdown_card
 
@@ -210,6 +211,11 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                                 samesite="strict", max_age=21600)
             return {"session_id": session.id}
 
+    @app.post("/api/tts")
+    def synthesize(body: TtsRequest, session: Session = Depends(browser_session)):
+        # Contract stub until the Magpie TTS server is deployed: the browser falls back to its own TTS.
+        abort(503, "TTS_UNAVAILABLE", "Server speech is not available; use device speech.")
+
     @app.post("/api/photos")
     async def upload_photo(file: UploadFile, session: Session = Depends(browser_session)):
         with store.lock:
@@ -265,9 +271,11 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
             if len(store.jobs) >= 1500:
                 abort(503, "JOB_LIMIT", "Demo capacity reached.")
             if session.history_mode != body.dataset_mode:
-                session.history.clear()
                 session.last_visual_observation = None
-                session.history_mode = body.dataset_mode
+                # Automated observation must not erase the visitor's stated needs.
+                if body.interaction_mode == "ask":
+                    session.history.clear()
+                    session.history_mode = body.dataset_mode
             if previous and previous["status"] not in TERMINAL:
                 previous["status"] = "superseded"
             rid = uuid.uuid4().hex
@@ -276,7 +284,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
             if session.last_visual_observation:
                 visual_context = {**session.last_visual_observation,
                                   "same_photo": body.photo_id == session.last_visual_observation.get("photo_id")}
-            history = list(session.history[-6:])
+            history = list(session.history[-6:]) if session.history_mode == body.dataset_mode else []
             if visual_context and visual_context.get("question"):
                 history.append({"role": "assistant", "content": visual_context["question"]})
             store.jobs[rid] = {"request_id": rid, "request": body.model_dump(mode="json"), "status": "queued",

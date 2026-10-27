@@ -1,0 +1,282 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 2000,
+          "title": "Source",
+          "type": "string"
+        },
+        "as_of": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "As Of"
+        },
+        "type": {
+          "enum": [
+            "document",
+            "live_statement",
+            "example"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "dataset_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Dataset Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "as_of",
+        "type",
+        "dataset_id"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Location": {
+      "additionalProperties": false,
+      "properties": {
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Lat",
+          "type": "number"
+        },
+        "lng": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Lng",
+          "type": "number"
+        },
+        "origin": {
+          "enum": [
+            "gps",
+            "selected"
+          ],
+          "title": "Origin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lat",
+        "lng",
+        "origin"
+      ],
+      "title": "Location",
+      "type": "object"
+    },
+    "NearbyPlace": {
+      "additionalProperties": false,
+      "properties": {
+        "place_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Place Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 2000,
+          "title": "Name",
+          "type": "string"
+        },
+        "name_en": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name En"
+        },
+        "kind": {
+          "enum": [
+            "restaurant",
+            "landmark"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Lat",
+          "type": "number"
+        },
+        "lng": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Lng",
+          "type": "number"
+        },
+        "distance_m": {
+          "maximum": 3000,
+          "minimum": 0,
+          "title": "Distance M",
+          "type": "number"
+        },
+        "source_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "osm_url": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Osm Url"
+        },
+        "has_card": {
+          "default": false,
+          "title": "Has Card",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "place_id",
+        "name",
+        "kind",
+        "lat",
+        "lng",
+        "distance_m",
+        "source_id"
+      ],
+      "title": "NearbyPlace",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "GET /api/nearby?tab=food|landmark&lat&lng&radius_m. No model call.",
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "tab": {
+      "enum": [
+        "food",
+        "landmark"
+      ],
+      "title": "Tab",
+      "type": "string"
+    },
+    "origin": {
+      "$ref": "#/$defs/Location"
+    },
+    "radius_m": {
+      "enum": [
+        500,
+        1000,
+        2000,
+        3000
+      ],
+      "title": "Radius M",
+      "type": "integer"
+    },
+    "places": {
+      "items": {
+        "$ref": "#/$defs/NearbyPlace"
+      },
+      "maxItems": 20,
+      "title": "Places",
+      "type": "array"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "maxItems": 40,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "attribution": {
+      "maxLength": 2000,
+      "title": "Attribution",
+      "type": "string"
+    },
+    "unknowns": {
+      "items": {
+        "maxLength": 2000,
+        "type": "string"
+      },
+      "maxItems": 10,
+      "title": "Unknowns",
+      "type": "array"
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Code"
+    }
+  },
+  "required": [
+    "tab",
+    "origin",
+    "radius_m",
+    "places",
+    "evidence",
+    "attribution",
+    "unknowns"
+  ],
+  "title": "NearbyResponse",
+  "type": "object"
+}

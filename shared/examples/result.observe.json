@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "session_id": "s-example",
+  "request_id": "r-example",
+  "captured_at": "2026-10-27T03:00:00+00:00",
+  "dataset_mode": "real_place",
+  "status": "need_confirmation",
+  "speech_text": "This may be Gyeongbokgung Palace. Is this the place?",
+  "response_language": "en",
+  "scene": {
+    "food_candidates": [],
+    "confirmed_food_id": null,
+    "confirmed_shop_id": null,
+    "place_candidates": [
+      {
+        "id": "local:gyeongbokgung",
+        "name_ko": "경복궁",
+        "name_en": "Gyeongbokgung Palace"
+      },
+      {
+        "id": "local:gwanghwamun",
+        "name_ko": "광화문",
+        "name_en": "Gwanghwamun Gate"
+      }
+    ],
+    "confirmed_place_id": null,
+    "observed_place_name": "Gyeongbokgung Palace",
+    "observed_place_source": "catalog",
+    "observed_place_confidence": "medium"
+  },
+  "places": [],
+  "menus": [],
+  "claims": [],
+  "evidence": [],
+  "conflicts": [],
+  "itinerary": [],
+  "order_ko": null,
+  "unknowns": [],
+  "next_question": "This may be Gyeongbokgung Palace. Is this the place?",
+  "error_code": null,
+  "search_origin": null,
+  "search_origin_label": null,
+  "landmark_card": null
+}

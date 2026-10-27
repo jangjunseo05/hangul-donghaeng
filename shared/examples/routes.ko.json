@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "lang": "ko",
+  "routes": [
+    {
+      "route_id": "route:palace-in-a-nutshell",
+      "title": "경복궁 한눈에",
+      "summary": "정문, 중심 건물, 연회장을 보고 근처에서 삼계탕 점심.",
+      "stops": [
+        {
+          "order": 1,
+          "place_id": "local:gwanghwamun",
+          "name": "광화문",
+          "kind": "heritage",
+          "lat": 37.5760179589004,
+          "lng": 126.976788008924,
+          "dwell_min_estimate": 10,
+          "note": null,
+          "has_card": true
+        },
+        {
+          "order": 2,
+          "place_id": "local:geunjeongjeon",
+          "name": "근정전",
+          "kind": "heritage",
+          "lat": 37.57861,
+          "lng": 126.97694,
+          "dwell_min_estimate": 20,
+          "note": null,
+          "has_card": true
+        },
+        {
+          "order": 3,
+          "place_id": "local:gyeonghoeru",
+          "name": "경회루",
+          "kind": "heritage",
+          "lat": 37.57975,
+          "lng": 126.975889,
+          "dwell_min_estimate": 15,
+          "note": null,
+          "has_card": true
+        },
+        {
+          "order": 4,
+          "place_id": "local:tosokchon",
+          "name": "토속촌삼계탕",
+          "kind": "restaurant",
+          "lat": 37.57760304027,
+          "lng": 126.971632166657,
+          "dwell_min_estimate": 60,
+          "note": "점심. 영업·재고·식이 적합성은 미확인이에요.",
+          "has_card": false
+        }
+      ],
+      "legs": [
+        {
+          "from_place_id": "local:gwanghwamun",
+          "to_place_id": "local:geunjeongjeon",
+          "straight_line_m": 289,
+          "est_walk_min": 6,
+          "route_verified": false,
+          "note": null
+        },
+        {
+          "from_place_id": "local:geunjeongjeon",
+          "to_place_id": "local:gyeonghoeru",
+          "straight_line_m": 157,
+          "est_walk_min": 3,
+          "route_verified": false,
+          "note": null
+        },
+        {
+          "from_place_id": "local:gyeonghoeru",
+          "to_place_id": "local:tosokchon",
+          "straight_line_m": 445,
+          "est_walk_min": 9,
+          "route_verified": false,
+          "note": null
+        }
+      ],
+      "total_straight_line_m": 891,
+      "total_dwell_min_estimate": 105,
+      "distance_basis": "straight_line",
+      "ui_note": "직선거리 기준이에요. 실제 도보 경로는 확인되지 않았어요.",
+      "evidence_ids": []
+    },
+    {
+      "route_id": "route:palace-to-hanok",
+      "title": "궁궐에서 한옥마을까지",
+      "summary": "궁궐 정문과 중심 건물을 보고 북촌 한옥 골목으로.",
+      "stops": [
+        {
+          "order": 1,
+          "place_id": "local:gwanghwamun",
+          "name": "광화문",
+          "kind": "heritage",
+          "lat": 37.5760179589004,
+          "lng": 126.976788008924,
+          "dwell_min_estimate": 10,
+          "note": null,
+          "has_card": true
+        },
+        {
+          "order": 2,
+          "place_id": "local:geunjeongjeon",
+          "name": "근정전",
+          "kind": "heritage",
+          "lat": 37.57861,
+          "lng": 126.97694,
+          "dwell_min_estimate": 20,
+          "note": null,
+          "has_card": true
+        },
+        {
+          "order": 3,
+          "place_id": "local:bukchon",
+          "name": "북촌한옥마을",
+          "kind": "heritage",
+          "lat": 37.58306,
+          "lng": 126.98361,
+          "dwell_min_estimate": 40,
+          "note": null,
+          "has_card": true
+        }
+      ],
+      "legs": [
+        {
+          "from_place_id": "local:gwanghwamun",
+          "to_place_id": "local:geunjeongjeon",
+          "straight_line_m": 289,
+          "est_walk_min": 6,
+          "route_verified": false,
+          "note": null
+        },
+        {
+          "from_place_id": "local:geunjeongjeon",
+          "to_place_id": "local:bukchon",
+          "straight_line_m": 768,
+          "est_walk_min": 15,
+          "route_verified": false,
+          "note": null
+        }
+      ],
+      "total_straight_line_m": 1057,
+      "total_dwell_min_estimate": 70,
+      "distance_basis": "straight_line",
+      "ui_note": "직선거리 기준이에요. 실제 도보 경로는 확인되지 않았어요.",
+      "evidence_ids": [
+        "seoul:bukchon-visit-restriction"
+      ]
+    }
+  ],
+  "unknowns": [
+    "직선거리 기준이며 출입문·관람시간·접근성은 확인되지 않았어요."
+  ]
+}

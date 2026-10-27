@@ -1,0 +1,270 @@
+{
+  "$defs": {
+    "Route": {
+      "additionalProperties": false,
+      "properties": {
+        "route_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Route Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 2000,
+          "title": "Title",
+          "type": "string"
+        },
+        "summary": {
+          "maxLength": 2000,
+          "title": "Summary",
+          "type": "string"
+        },
+        "stops": {
+          "items": {
+            "$ref": "#/$defs/RouteStop"
+          },
+          "maxItems": 12,
+          "minItems": 2,
+          "title": "Stops",
+          "type": "array"
+        },
+        "legs": {
+          "items": {
+            "$ref": "#/$defs/RouteLeg"
+          },
+          "maxItems": 11,
+          "minItems": 1,
+          "title": "Legs",
+          "type": "array"
+        },
+        "total_straight_line_m": {
+          "maximum": 50000,
+          "minimum": 0,
+          "title": "Total Straight Line M",
+          "type": "integer"
+        },
+        "total_dwell_min_estimate": {
+          "maximum": 1440,
+          "minimum": 0,
+          "title": "Total Dwell Min Estimate",
+          "type": "integer"
+        },
+        "distance_basis": {
+          "const": "straight_line",
+          "default": "straight_line",
+          "title": "Distance Basis",
+          "type": "string"
+        },
+        "ui_note": {
+          "maxLength": 2000,
+          "title": "Ui Note",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "maxItems": 30,
+          "title": "Evidence Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "route_id",
+        "title",
+        "summary",
+        "stops",
+        "legs",
+        "total_straight_line_m",
+        "total_dwell_min_estimate",
+        "ui_note",
+        "evidence_ids"
+      ],
+      "title": "Route",
+      "type": "object"
+    },
+    "RouteLeg": {
+      "additionalProperties": false,
+      "properties": {
+        "from_place_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "From Place Id",
+          "type": "string"
+        },
+        "to_place_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "To Place Id",
+          "type": "string"
+        },
+        "straight_line_m": {
+          "maximum": 20000,
+          "minimum": 0,
+          "title": "Straight Line M",
+          "type": "integer"
+        },
+        "est_walk_min": {
+          "maximum": 600,
+          "minimum": 0,
+          "title": "Est Walk Min",
+          "type": "integer"
+        },
+        "route_verified": {
+          "const": false,
+          "default": false,
+          "title": "Route Verified",
+          "type": "boolean"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "from_place_id",
+        "to_place_id",
+        "straight_line_m",
+        "est_walk_min"
+      ],
+      "title": "RouteLeg",
+      "type": "object"
+    },
+    "RouteStop": {
+      "additionalProperties": false,
+      "properties": {
+        "order": {
+          "maximum": 12,
+          "minimum": 1,
+          "title": "Order",
+          "type": "integer"
+        },
+        "place_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Place Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 2000,
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "restaurant",
+            "heritage",
+            "landmark"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Lat",
+          "type": "number"
+        },
+        "lng": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Lng",
+          "type": "number"
+        },
+        "dwell_min_estimate": {
+          "maximum": 240,
+          "minimum": 0,
+          "title": "Dwell Min Estimate",
+          "type": "integer"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "has_card": {
+          "default": false,
+          "title": "Has Card",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "order",
+        "place_id",
+        "name",
+        "kind",
+        "lat",
+        "lng",
+        "dwell_min_estimate"
+      ],
+      "title": "RouteStop",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "GET /api/routes?near=<lat>,<lng>&lang=en|ko. Deterministic templates; no model call.",
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "lang": {
+      "enum": [
+        "en",
+        "ko"
+      ],
+      "title": "Lang",
+      "type": "string"
+    },
+    "routes": {
+      "items": {
+        "$ref": "#/$defs/Route"
+      },
+      "maxItems": 2,
+      "title": "Routes",
+      "type": "array"
+    },
+    "unknowns": {
+      "items": {
+        "maxLength": 2000,
+        "type": "string"
+      },
+      "maxItems": 10,
+      "title": "Unknowns",
+      "type": "array"
+    }
+  },
+  "required": [
+    "lang",
+    "routes",
+    "unknowns"
+  ],
+  "title": "RoutesResponse",
+  "type": "object"
+}
