@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { FrameScheduler } from './autoCompanion'
+import type { ObserveOutcome } from './autoCompanion'
 
-export function useAutoCompanion(enabled: boolean, paused: boolean, observe: (current: () => boolean) => Promise<void>, onError: () => void) {
+export function useAutoCompanion(enabled: boolean, paused: boolean, observe: (current: () => boolean) => Promise<ObserveOutcome | void>, onError: () => void) {
   const callback = useRef(observe)
   const errorCallback = useRef(onError)
   callback.current = observe
@@ -13,5 +14,5 @@ export function useAutoCompanion(enabled: boolean, paused: boolean, observe: (cu
     return () => { instance.dispose(); scheduler.current = null }
   }, [])
   useEffect(() => { scheduler.current?.setState(enabled, paused) }, [enabled, paused])
-  return { interrupt: () => scheduler.current?.interrupt() }
+  return { interrupt: () => scheduler.current?.interrupt(), notifySceneChange: () => scheduler.current?.notifySceneChange() }
 }

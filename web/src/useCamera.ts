@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import type { Language } from './types'
 
 export type CameraPhase = 'idle' | 'starting' | 'live'
+/** Rear camera preferred; ideal (not exact) resolution so any camera still starts. */
+export const cameraConstraints = (deviceId?: string): MediaStreamConstraints => ({
+  video: deviceId ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } } : { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+  audio: false,
+})
 
 export function useCamera(language: Language) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -9,6 +14,8 @@ export function useCamera(language: Language) {
   const generation = useRef(0)
   const [phase, setPhase] = useState<CameraPhase>('idle')
   const [notice, setNotice] = useState('')
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const deviceId = useRef<string | undefined>(undefined)
   const languageRef = useRef(language)
   languageRef.current = language
   const message = (en: string, ko: string) => languageRef.current === 'ko' ? ko : en
@@ -21,7 +28,7 @@ export function useCamera(language: Language) {
     if (videoRef.current) { videoRef.current.pause(); videoRef.current.srcObject = null }
   }
   function stop() { release(); setPhase('idle') }
-  async function start() {
+  async function start(nextDevice: string | undefined = deviceId.current) {
     release()
     setNotice('')
     if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext) {
@@ -31,9 +38,12 @@ export function useCamera(language: Language) {
     const version = generation.current
     setPhase('starting')
     try {
-      const next = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+      const next = await navigator.mediaDevices.getUserMedia(cameraConstraints(nextDevice))
       if (generation.current !== version || isHidden()) { next.getTracks().forEach(track => track.stop()); return }
       stream.current = next
+      deviceId.current = nextDevice
+      // Labels and the full list are only available after permission.
+      void navigator.mediaDevices.enumerateDevices?.().then(list => { if (generation.current === version) setDevices(list.filter(device => device.kind === 'videoinput')) }).catch(() => {})
       next.getVideoTracks().forEach(track => { track.onended = () => { stop(); setNotice(message('Camera access ended. You can start it again or choose a photo.', '카메라 연결이 끝났어요. 다시 시작하거나 사진을 선택해 주세요.')) } })
       setPhase('live')
     } catch (error) {
@@ -85,5 +95,12 @@ export function useCamera(language: Language) {
     document.addEventListener('visibilitychange', onVisibility)
     return () => { document.removeEventListener('visibilitychange', onVisibility); release() }
   }, [])
-  return { videoRef, phase, notice, start, stop, capture, isLive: () => Boolean(stream.current?.getVideoTracks().some(track => track.readyState === 'live')) }
+  /** Cycles to the next camera; only offered when more than one camera exists. */
+  async function switchCamera() {
+    if (devices.length < 2) return
+    const current = stream.current?.getVideoTracks()[0]?.getSettings().deviceId ?? deviceId.current
+    const index = devices.findIndex(device => device.deviceId === current)
+    await start(devices[(index + 1) % devices.length].deviceId)
+  }
+  return { videoRef, phase, notice, start: () => start(), stop, capture, switchCamera, canSwitch: devices.length > 1, isLive: () => Boolean(stream.current?.getVideoTracks().some(track => track.readyState === 'live')) }
 }

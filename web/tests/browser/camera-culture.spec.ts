@@ -30,7 +30,7 @@ async function cameraProbe(page: Page, options: { deny?: string; delayed?: boole
     } })
   }, options)
 }
-async function fixtureApi(page: Page, options: { pending?: boolean; confirmation?: boolean; photoLimit?: boolean; busy?: boolean; hostedConfigured?: boolean; seedFood?: boolean } = {}) {
+async function fixtureApi(page: Page, options: { pending?: boolean; confirmation?: boolean; photoLimit?: boolean; busy?: boolean; hostedConfigured?: boolean; seedFood?: boolean; quiet?: boolean } = {}) {
   const requests: Record<string, unknown>[] = []
   const photos: Buffer[] = []
   let uploads = 0
@@ -65,6 +65,7 @@ async function fixtureApi(page: Page, options: { pending?: boolean; confirmation
           speech_text: request.interaction_mode === 'observe' ? 'Development camera fixture: a cultural suggestion.' : 'Development camera fixture: manual answer.',
           scene: { ...fixture.scene, confirmed_food_id: request.confirmed_food_id ?? (options.seedFood && index === 0 ? 'fixture-food' : null), confirmed_shop_id: request.confirmed_shop_id ?? null, confirmed_place_id: request.confirmed_place_id ?? null, food_candidates: [], place_candidates: needsConfirmation ? [{ id: palace.place_id, name_ko: palace.name, name_en: palace.name_en }] : [] },
           places: [palace, gate, restaurant].map(place => { const { name_en: _name, ...fields } = place; return { ...fields, distance_m: 14 } }),
+          ...(options.quiet && request.interaction_mode === 'observe' ? { next_question: null } : {}),
         }
         body = { request_id: id, status: 'completed', result, error_code: null }
       }
@@ -219,7 +220,7 @@ test('camera requires a click, captures without sending, and stops every track',
     console.log(await page.evaluate(() => { const probe = (window as unknown as { cameraProbe: Probe }).cameraProbe; const video = document.querySelector('video')!; return { stops: probe.stops, streams: probe.streams.map(stream => stream.getTracks().map(track => track.readyState)), ready: video.readyState, src: Boolean(video.srcObject), text: document.querySelector('.camera-panel')?.textContent } }))
     throw error
   })
-  expect(await page.evaluate(() => (window as unknown as { cameraProbe: Probe }).cameraProbe.calls)).toEqual([{ video: { facingMode: { ideal: 'environment' } }, audio: false }])
+  expect(await page.evaluate(() => (window as unknown as { cameraProbe: Probe }).cameraProbe.calls)).toEqual([{ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }])
   await page.getByRole('button', { name: 'Capture a photo', exact: true }).click()
   await expect(page.locator('.photo-preview img')).toBeVisible()
   const captured = await page.locator('.photo-preview img').evaluate(async (img: HTMLImageElement) => {
@@ -334,13 +335,42 @@ test('repeated automatic proposal remains visible and is only spoken once', asyn
   await startCamera(page)
   await page.getByRole('checkbox', { name: 'Read answers aloud' }).check()
   await page.clock.install()
-  await page.getByRole('checkbox', { name: 'Automatic companion' }).check()
+  const automatic = page.getByRole('checkbox', { name: 'Automatic companion' })
+  await automatic.check()
   await page.clock.runFor(20000)
   await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()
+  // A proposal stops automatic mode so the user can answer it.
+  await expect(automatic).not.toBeChecked()
+  await page.evaluate(() => { (window as unknown as { cameraProbe: Probe }).cameraProbe.color = '#bd4250' })
+  await page.waitForTimeout(400)
+  await automatic.check()
   await page.clock.runFor(20000)
   await expect.poll(() => api.requests.length).toBe(2)
   await expect(page.locator('.result-panel:not(.is-stale)')).toBeVisible()
   expect(await page.evaluate(() => (window as unknown as { spoken: string[] }).spoken.length)).toBe(1)
+})
+
+test('scene gate: an unchanged view is not resent; a changed, steady view is', async ({ page }) => {
+  await cameraProbe(page)
+  const api = await fixtureApi(page, { quiet: true })
+  await startCamera(page)
+  await page.clock.install()
+  await page.getByRole('checkbox', { name: 'Automatic companion' }).check()
+  await page.clock.runFor(3000)
+  await expect.poll(() => api.requests.length).toBe(1)
+  await expect(page.locator('.automatic-notice')).toContainText('Looking around quietly')
+  await page.clock.runFor(90000)
+  expect(api.requests).toHaveLength(1)
+  await page.evaluate(() => { (window as unknown as { cameraProbe: Probe }).cameraProbe.color = '#20251f' })
+  await page.waitForTimeout(400)
+  // Small steps so the fake clock never fires the 20 s fetch timeout of an in-flight upload.
+  for (let step = 0; step < 40 && api.requests.length < 2; step++) { await page.clock.runFor(1000); await page.waitForTimeout(60) }
+  await expect.poll(() => api.requests.length).toBe(2)
+  await page.waitForTimeout(500)
+  expect(api.requests[1].interaction_mode).toBe('observe')
+  await page.clock.runFor(90000)
+  expect(api.requests).toHaveLength(2)
+  await expect(page.getByRole('checkbox', { name: 'Automatic companion' })).toBeChecked()
 })
 
 test('uncertain cultural identity requires explicit confirmation with catalog coordinates', async ({ page }) => {

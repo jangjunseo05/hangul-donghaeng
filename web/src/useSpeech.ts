@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Language } from './types'
+import { BrowserTtsPlayer, FallbackPlayer, ServerTtsPlayer, TtsUnavailable, unlockAudio } from './audio'
 
 type Recognition = {
   lang: string; continuous: boolean; interimResults: boolean;
@@ -9,6 +10,7 @@ type Recognition = {
   onend: (() => void) | null;
 }
 type SpeechWindow = Window & { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition }
+export type VoiceSource = 'server' | 'browser' | null
 export function useSpeech(language: Language, onTranscript: (text: string) => void) {
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
@@ -16,9 +18,13 @@ export function useSpeech(language: Language, onTranscript: (text: string) => vo
   const recognition = useRef<Recognition | null>(null)
   const onTranscriptRef = useRef(onTranscript)
   onTranscriptRef.current = onTranscript
+  const server = useRef(new ServerTtsPlayer())
+  const browser = useRef(new BrowserTtsPlayer())
+  const player = useRef(new FallbackPlayer([server.current, browser.current]))
+  const playback = useRef<AbortController | null>(null)
   const supported = Boolean((window as SpeechWindow).SpeechRecognition || (window as SpeechWindow).webkitSpeechRecognition)
-  const canSpeak = 'speechSynthesis' in window
-  function stopReading() { if (canSpeak) window.speechSynthesis.cancel(); setSpeaking(false) }
+  const canSpeak = 'speechSynthesis' in window || typeof Audio !== 'undefined'
+  function stopReading() { playback.current?.abort(); playback.current = null; player.current.stop(); setSpeaking(false) }
   function stopListening() { recognition.current?.stop() }
   function startListening() {
     if (listening) { stopListening(); return }
@@ -36,20 +42,31 @@ export function useSpeech(language: Language, onTranscript: (text: string) => vo
     recognition.current = next
     try { next.start(); setListening(true) } catch { setListening(false); setNotice(language === 'ko' ? '음성을 시작할 수 없어요. 텍스트를 이용해 주세요.' : 'Could not start voice input. Please use text.') }
   }
+  /** Server voice first (POST /api/tts); browser speech when the server voice is unavailable. */
   function read(text: string, lang: Language = language) {
     setNotice('')
-    if (!canSpeak) { setNotice(language === 'ko' ? '읽어주기가 지원되지 않아요. 화면의 답변을 확인해 주세요.' : 'Read-aloud is unavailable. Your answer is shown on screen.'); return }
     stopReading()
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = lang === 'ko' ? 'ko-KR' : 'en-US'
-    const voice = window.speechSynthesis.getVoices().find(v => v.lang.toLowerCase().startsWith(lang))
-    if (voice) utterance.voice = voice
-    utterance.rate = 0.95
-    utterance.onend = () => setSpeaking(false)
-    utterance.onerror = event => { setSpeaking(false); if (event.error !== 'interrupted' && event.error !== 'canceled') setNotice(language === 'ko' ? '음성 재생을 확인해 주세요. 텍스트 답변은 유지돼요.' : 'Audio could not play. Your written answer is still available.') }
+    if (!text.trim()) return
+    const controller = new AbortController()
+    playback.current = controller
     setSpeaking(true)
-    window.speechSynthesis.speak(utterance)
+    void player.current.play(text, lang, controller.signal).then(() => {
+      if (playback.current === controller) { playback.current = null; setSpeaking(false) }
+    }, error => {
+      if (playback.current !== controller) return
+      playback.current = null; setSpeaking(false)
+      if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
+      const unsupported = error instanceof TtsUnavailable && error.reason === 'BROWSER_TTS_UNSUPPORTED'
+      setNotice(unsupported
+        ? (language === 'ko' ? '읽어주기가 지원되지 않아요. 화면의 답변을 확인해 주세요.' : 'Read-aloud is unavailable. Your answer is shown on screen.')
+        : (language === 'ko' ? '음성 재생을 확인해 주세요. 텍스트 답변은 유지돼요.' : 'Audio could not play. Your written answer is still available.'))
+    })
   }
-  useEffect(() => () => { recognition.current?.abort(); if ('speechSynthesis' in window) window.speechSynthesis.cancel() }, [])
+  useEffect(() => {
+    // iOS: unlock audio during the first gesture so later answers can play.
+    const unlock = () => { unlockAudio(); window.removeEventListener('pointerdown', unlock) }
+    window.addEventListener('pointerdown', unlock)
+    return () => { window.removeEventListener('pointerdown', unlock); recognition.current?.abort(); playback.current?.abort(); player.current.stop() }
+  }, [])
   return { listening, speaking, supported, canSpeak, notice, startListening, stopListening, read, stopReading }
 }
