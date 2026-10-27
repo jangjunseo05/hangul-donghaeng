@@ -20,7 +20,7 @@ async function api(page: Page, options: Options = {}) {
     if (path === '/api/sessions') return route.fulfill({ json: { session_id: 's-example' } })
     if (path === '/api/health') return route.fulfill({ json: { status: 'ok', worker_connected: true, model_configured: true, sandbox_verified: false, catalog_count: 3, version: 'tabs-fixture' } })
     if (path === '/api/catalog') return route.fulfill({ json: { catalog_count: 1, scope_label: 'fixture', catalog_version: 'fixture', places: [{ place_id: 'local:gwanghwamun', name: '광화문', name_en: 'Gwanghwamun Gate', kind: 'heritage', lat: 37.576, lng: 126.9768, source_id: 'visitkorea:gwanghwamun-location', catalog_version: 'fixture' }] } })
-    if (path === '/api/tts') return options.tts === 'ok' ? route.fulfill({ status: 200, contentType: 'audio/wav', body: Buffer.from('RIFF$\u0000\u0000\u0000WAVEfmt ') }) : route.fulfill({ status: 503, json: { error_code: 'TTS_UNAVAILABLE' } })
+    if (path === '/api/tts') { calls.push('TTS-BODY ' + route.request().postData()); if (options.tts === 'ok') { await new Promise(resolve => setTimeout(resolve, 150)); return route.fulfill({ status: 200, contentType: 'audio/wav', headers: { 'X-TTS-Voice': 'fixture' }, body: wav(0.25) }) } return route.fulfill({ status: 503, json: { error_code: 'TTS_UNAVAILABLE' } }) }
     if (options.live && path === '/api/nearby') return route.fulfill({ json: options.nearbyFail ? nearbyError : url.searchParams.get('tab') === 'food' ? nearbyFood : nearbyLandmark })
     if (options.live && path.startsWith('/api/landmarks/')) return route.fulfill({ json: options.card ?? cardEn })
     if (options.live && path === '/api/routes') return route.fulfill({ json: routesEn })
@@ -30,6 +30,16 @@ async function api(page: Page, options: Options = {}) {
     return route.fulfill({ status: 404, json: { detail: 'Not Found' } })
   })
   return calls
+}
+/** A valid 8 kHz mono 16-bit PCM WAV of the given length (a quiet tone), so Chrome can really play it. */
+function wav(seconds: number) {
+  const rate = 8000, samples = Math.round(rate * seconds), data = Buffer.alloc(samples * 2)
+  for (let i = 0; i < samples; i++) data.writeInt16LE(Math.round(Math.sin(i / 8) * 800), i * 2)
+  const header = Buffer.alloc(44)
+  header.write('RIFF', 0); header.writeUInt32LE(36 + data.length, 4); header.write('WAVE', 8); header.write('fmt ', 12)
+  header.writeUInt32LE(16, 16); header.writeUInt16LE(1, 20); header.writeUInt16LE(1, 22); header.writeUInt32LE(rate, 24)
+  header.writeUInt32LE(rate * 2, 28); header.writeUInt16LE(2, 32); header.writeUInt16LE(16, 34); header.write('data', 36); header.writeUInt32LE(data.length, 40)
+  return Buffer.concat([header, data])
 }
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0QAAAABJRU5ErkJggg==', 'base64')
 async function ask(page: Page) {
@@ -155,4 +165,28 @@ test('server voice is tried first; on 503 the browser voice reads each sentence'
   const spoken = await page.evaluate(() => (window as unknown as { spoken: string[] }).spoken)
   expect(spoken.every(entry => entry.startsWith('Samantha|'))).toBe(true)
   expect(calls.filter(call => call === 'POST /api/tts').length).toBe(1)
+})
+
+test('server voice 200: each sentence plays from /api/tts in order, the next one prefetched, no browser voice', async ({ page }) => {
+  await page.addInitScript(() => {
+    const log: string[] = []
+    ;(window as unknown as { audioLog: string[] }).audioLog = log
+    const play = HTMLMediaElement.prototype.play
+    HTMLMediaElement.prototype.play = function () { if (this.src.startsWith('blob:')) log.push('play ' + Math.round(performance.now())); return play.call(this) }
+    Object.defineProperty(window, 'speechSynthesis', { value: { getVoices: () => [], cancel: () => {}, speak: () => { log.push('browser-voice') } } })
+  })
+  const calls = await api(page, { live: true, tts: 'ok' })
+  await page.goto('/')
+  await page.getByRole('tab', { name: 'Landmarks' }).click()
+  await page.locator('.sheet-list button').filter({ hasText: 'Gwanghwamun' }).click()
+  await page.getByRole('button', { name: 'Listen to the story', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { audioLog: string[] }).audioLog.filter(entry => entry.startsWith('play')).length), { timeout: 15000 }).toBeGreaterThan(2)
+  const log = await page.evaluate(() => (window as unknown as { audioLog: string[] }).audioLog)
+  expect(log).not.toContain('browser-voice')
+  const bodies = calls.filter(call => call.startsWith('TTS-BODY ')).map(call => JSON.parse(call.slice(9)) as { text: string; lang: string })
+  expect(bodies[0].lang).toBe('en')
+  // First request is a single sentence; requests follow sentence order.
+  const story = Object.values(cardEn.blocks as Record<string, { text: string } | null>).filter(Boolean).map(block => block!.text).join(' ')
+  expect(story.startsWith(bodies[0].text)).toBe(true)
+  expect(bodies.every(body => body.text.length <= 220)).toBe(true)
 })

@@ -59,7 +59,8 @@ export function splitForSpeech(text: string, max = 220): string[] {
       chunks.push(sentence.slice(0, at).trim()); sentence = sentence.slice(at).trim()
     }
     const last = chunks[chunks.length - 1]
-    if (last && last.length + sentence.length + 1 <= max / 2) chunks[chunks.length - 1] = last + ' ' + sentence
+    // The first chunk stays one sentence so the first audio starts as early as possible.
+    if (last && chunks.length > 1 && last.length + sentence.length + 1 <= max / 2) chunks[chunks.length - 1] = last + ' ' + sentence
     else if (sentence) chunks.push(sentence)
   }
   return chunks
@@ -71,7 +72,8 @@ export class ServerTtsPlayer implements AudioPlayer {
   private url: string | null = null
   private unavailableUntil = 0
   constructor(private endpoint = '/api/tts', private retryAfterMs = 60000) {}
-  async play(text: string, lang: Language, signal: AbortSignal) {
+  private cache = new Map<string, Promise<Blob>>()
+  private async fetchAudio(text: string, lang: Language, signal: AbortSignal): Promise<Blob> {
     if (Date.now() < this.unavailableUntil) throw new TtsUnavailable('SERVER_TTS_COOLDOWN')
     let response: Response
     try {
@@ -83,11 +85,33 @@ export class ServerTtsPlayer implements AudioPlayer {
     }
     const type = response.headers.get('Content-Type') ?? ''
     if (!response.ok || !type.startsWith('audio/')) {
-      this.unavailableUntil = Date.now() + this.retryAfterMs
+      // 429 TTS_BUSY is momentary (single-flight per session): fall back for this sentence only.
+      if (response.status !== 429) this.unavailableUntil = Date.now() + this.retryAfterMs
       throw new TtsUnavailable('SERVER_TTS_' + response.status)
     }
-    const blob = await response.blob()
+    return response.blob()
+  }
+  /** Starts fetching the next sentence while the current one plays, so sentences follow without a gap. */
+  prefetch(text: string, lang: Language) {
+    const key = lang + '|' + text
+    if (this.cache.has(key) || Date.now() < this.unavailableUntil) return
+    const pending = this.fetchAudio(text, lang, new AbortController().signal)
+    pending.catch(() => this.cache.delete(key))
+    this.cache.set(key, pending)
+    if (this.cache.size > 8) this.cache.delete(this.cache.keys().next().value!)
+  }
+  private queued: { text: string; lang: Language } | null = null
+  /** The sentence to prefetch once the current sentence's audio has arrived. */
+  queueNext(text: string | null, lang: Language) { this.queued = text ? { text, lang } : null }
+  async play(text: string, lang: Language, signal: AbortSignal) {
+    const key = lang + '|' + text
+    const cached = this.cache.get(key)
+    this.cache.delete(key)
+    const blob = await (cached ?? this.fetchAudio(text, lang, signal))
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+    const next = this.queued
+    this.queued = null
+    if (next) this.prefetch(next.text, next.lang)
     this.stop()
     this.url = URL.createObjectURL(blob)
     const audio = sharedAudio()

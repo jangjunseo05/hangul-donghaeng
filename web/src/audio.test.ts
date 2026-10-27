@@ -61,7 +61,8 @@ describe('server voice first, browser voice as fallback', () => {
 
 describe('sentence-sized speech chunks', () => {
   it('keeps short sentences together and splits at sentence ends', () => {
-    expect(splitForSpeech('Hi. This is Gyeongbokgung.')).toEqual(['Hi. This is Gyeongbokgung.'])
+    // The first chunk is a single sentence so the first audio starts early; later short sentences merge.
+    expect(splitForSpeech('Hi. This is Gyeongbokgung. It is big. Look up.')).toEqual(['Hi.', 'This is Gyeongbokgung. It is big. Look up.'])
     const long = 'Gyeongbokgung is a royal palace built in 1395 for Joseon, the kingdom that ruled Korea before modern times. It was the main palace — think of it as the headquarters where the king lived and ran the country. Walk in through the big front gate and notice how the halls line up.'
     const chunks = splitForSpeech(long)
     expect(chunks.length).toBeGreaterThan(1)

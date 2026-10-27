@@ -248,3 +248,9 @@ body{background:#ece6dc;overscroll-behavior:none}
 .photo-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .photo-row .photo-label,.photo-row .remove-photo,.photo-row .replace-photo{position:static}
 .photo-row .remove-photo{order:3}
+
+/* M4: expected wait */
+.wait-hint{margin-top:8px}
+.wait-hint small{font-size:11.5px;color:var(--muted)}
+.wait-bar{height:4px;border-radius:4px;background:#f0ebe2;overflow:hidden;margin-bottom:4px}
+.wait-bar i{display:block;height:100%;background:var(--accent);transition:width 1s linear}

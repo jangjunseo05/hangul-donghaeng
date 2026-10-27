@@ -20,9 +20,11 @@ export type NearbyPlace = {
   place_id: string; name: string; name_en: string | null; kind: 'restaurant' | 'landmark'; category: string | null;
   lat: number; lng: number; distance_m: number; source_id: string; osm_url: string | null; has_card: boolean;
 }
+/** Decision 6 (M4): upstream Overpass codes are part of the contract alongside the nearby_* codes. */
+export type NearbyErrorCode = 'nearby_timeout' | 'nearby_unavailable' | 'nearby_busy' | 'nearby_invalid_response' | `overpass_${string}`
 export type NearbyResponse = {
   schema_version: 1; tab: NearbyTab; origin: Location; radius_m: Radius; places: NearbyPlace[];
-  evidence: Evidence[]; attribution: string; unknowns: string[]; error_code: string | null;
+  evidence: Evidence[]; attribution: string; unknowns: string[]; error_code: NearbyErrorCode | string | null;
 }
 
 export type RouteStop = { order: number; place_id: string; name: string; kind: 'restaurant' | 'heritage' | 'landmark'; lat: number; lng: number; dwell_min_estimate: number; note: string | null; has_card: boolean }

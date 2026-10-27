@@ -51,7 +51,14 @@ export function useSpeech(language: Language, onTranscript: (text: string) => vo
     playback.current = controller
     setSpeaking(true)
     // Sentence by sentence: the first one starts sooner, and a stop takes effect between sentences too.
-    const playAll = async () => { for (const chunk of splitForSpeech(text)) { if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError'); await player.current.play(chunk, lang, controller.signal) } }
+    const playAll = async () => {
+      const chunks = splitForSpeech(text)
+      for (const [index, chunk] of chunks.entries()) {
+        if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError')
+        server.current.queueNext(chunks[index + 1] ?? null, lang)
+        await player.current.play(chunk, lang, controller.signal)
+      }
+    }
     void playAll().then(() => {
       if (playback.current === controller) { playback.current = null; setSpeaking(false) }
     }, error => {

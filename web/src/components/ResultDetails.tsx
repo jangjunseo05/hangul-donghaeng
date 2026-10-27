@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { ArrowRight, ArrowUpRight, BookOpen, Check, ChevronDown, Copy, Download, Globe2, Info, LoaderCircle, MapPin, RotateCcw, Sparkles, Utensils, Volume2, VolumeX } from 'lucide-react'
 import MapView from '../MapView'
 import { safeSourceUrl } from '../api'
@@ -9,6 +10,21 @@ import { storyFromResult } from './story'
 const EMPTY_PLACES: Place[] = []
 const STAGES: [JobStage, string, string][] = [['observing', 'Looking', '살펴보기'], ['matching', 'Matching', '맞춰 보기'], ['writing', 'Writing', '쓰기']]
 
+/** "Usually about 15 seconds" with elapsed time and a soft progress bar (M4: a real ask takes ~15 s on the L40S). */
+function WaitHint({ t }: { t: (en: string, ko: string) => string }) {
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    const started = Date.now()
+    const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  const late = elapsed > 25
+  return <div className="wait-hint" role="status" aria-live="off">
+    <div className="wait-bar"><i style={{ width: `${Math.min(92, (elapsed / EXPECTED_WAIT_S) * 100)}%` }}/></div>
+    <small>{late ? t(`Taking longer than usual · ${elapsed}s`, `평소보다 오래 걸리고 있어요 · ${elapsed}초`) : t(`Usually about ${EXPECTED_WAIT_S} seconds · ${elapsed}s`, `보통 ${EXPECTED_WAIT_S}초 정도 걸려요 · ${elapsed}초`)}</small>
+  </div>
+}
+const EXPECTED_WAIT_S = 15
 /** Wording only: the confidence is the model's self-report, not a calibrated probability (contract). */
 function confirmText(source: string | null, confidence: string | null, t: (en: string, ko: string) => string) {
   if (source === 'model') return t('A guess from the photo — is this the place?', '사진으로 짐작한 장소예요. 맞나요?')
@@ -27,6 +43,7 @@ export default function ResultDetails({ g }: { g: Guide }) {
   }
   return <div className="answer-region" ref={answer} aria-live="polite" aria-busy={busy}>
         {busy && <div className="working-panel"><span className="working-icon"><LoaderCircle className="spin" size={23}/></span><div><h3>{phaseText}</h3><p>{t('We’ll keep the sources, the uncertainties, and your question together.', '질문과 근거, 아직 모르는 점을 함께 살펴볼게요.')}</p>
+          <WaitHint t={t}/>
           {stage && <ol className="stage-steps" aria-label={t('Progress', '진행 단계')}>{STAGES.map(([key, en, ko], index) => <li key={key} className={STAGES.findIndex(([value]) => value === stage) > index ? 'done' : key === stage ? 'now' : ''}>{t(en, ko)}</li>)}</ol>}</div></div>}
         {busy && !result && <div className="answer-skeleton" aria-hidden="true"><i/><i/><i/><i/></div>}
         {error && <div className="error-panel" role="alert"><Info size={20}/><div><strong>{t('Let’s try that again.', '다시 한번 해볼까요?')}</strong><p>{error}</p><button onClick={() => session ? void submit({ question: lastQuestion.current || question }) : void reconnect()}><RotateCcw size={14}/>{session ? t('Try again', '다시 시도') : t('Reconnect', '다시 연결')}</button></div></div>}
