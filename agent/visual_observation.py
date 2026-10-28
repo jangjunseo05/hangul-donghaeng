@@ -91,7 +91,7 @@ def accepted_choice(choice: CandidateObservation, candidate_ids: set[str]) -> st
 
 BOARD_CHARS = re.compile(r"[\uac00-\ud7a3\u4e00-\u9fff]")
 HANGUL = re.compile(r"[\uac00-\ud7a3]")
-NAME_FIELDS = ("name_ko", "name_hanja")  # Hanja only when the data carries it; never derived here.
+BOARD_BASES = {"board_match", "board_other_place", "board_mismatch"}
 
 
 def _board_key(text: str | None) -> str:
@@ -103,7 +103,16 @@ def _scripts(text: str) -> set[str]:
 
 
 def _board_names(place: dict) -> list[str]:
-    return [key for key in (_board_key(place.get(field)) for field in NAME_FIELDS) if len(key) >= 2]
+    # A place with an official Hanja name (data/catalog.json, M7) has a Hanja board: only Hanja counts.
+    # A Hangul string for it is the model restating the name, not reading the board (M6 evaluation).
+    hanja = _board_key(place.get("name_hanja"))
+    key = hanja or _board_key(place.get("name_ko"))
+    return [key] if len(key) >= 2 else []
+
+
+def _restated_names(places: list[dict]) -> list[str]:
+    keys = (_board_key(place.get("name_ko")) for place in places if place.get("name_hanja"))
+    return [key for key in keys if len(key) >= 2]
 
 
 def _board_matches(board: str, names: list[str]) -> bool:
@@ -113,7 +122,9 @@ def _board_matches(board: str, names: list[str]) -> bool:
 
 def board_choice(choice: CandidateObservation, candidates: list[dict], others: list[dict]) -> tuple[str | None, str]:
     """M6 decision 1: a legible name board decides deterministically; without one the (a) rule applies.
-    Returns (place id or None, basis): board_match | board_other_place | board_mismatch | cues."""
+    Returns (place id or None, basis): board_match | board_other_place | board_mismatch | restated_name | cues.
+    board_mismatch: the board, in a script the chosen place has a name in, names neither it nor any candidate.
+    Candidates/others carry name_ko and, when the data has one, name_hanja."""
     board = _board_key(choice.name_board_text)
     if len(board) >= 2:
         names = {item["id"]: _board_names(item) for item in candidates}
@@ -123,11 +134,14 @@ def board_choice(choice: CandidateObservation, candidates: list[dict], others: l
         if len(hits) == 1:
             return hits[0], "board_match"
         if not hits:
+            if _board_matches(board, _restated_names([*candidates, *others])):
+                return accepted_choice(choice, {item["id"] for item in candidates}), "restated_name"
             if any(_board_matches(board, _board_names(place)) for place in others):
                 return None, "board_other_place"
-            if _scripts(board) & _scripts("".join(key for keys in names.values() for key in keys)):
+            if _scripts(board) & _scripts("".join(names.get(choice.place_id, []))):
                 return None, "board_mismatch"
-            # A board in a script the data has no names for (Hanja today) cannot be compared: fall back.
+            # The chosen place has no name in the board's script (a shop sign in a village, or a Hangul
+            # restatement of a Hanja-board place): the board says nothing about it, so fall back.
     return accepted_choice(choice, {item["id"] for item in candidates}), "cues"
 
 

@@ -58,7 +58,9 @@
         "visitseoul:gyeongbokgung-operation"
       ],
       "currently_open": null,
-      "admission_fee": null
+      "admission_fee": null,
+      "name_hanja": "景福宮",
+      "name_hanja_source_id": "heritage:gyeongbokgung-name"
     },
     {
       "place_id": "local:gwanghwamun",
@@ -92,7 +94,9 @@
         "visitkorea:gwanghwamun-operation"
       ],
       "currently_open": null,
-      "admission_fee": null
+      "admission_fee": null,
+      "name_hanja": "光化門",
+      "name_hanja_source_id": "archives:gwanghwamun-name"
     },
     {
       "place_id": "local:geunjeongjeon",
@@ -117,7 +121,9 @@
       "currently_open": null,
       "admission_fee": null,
       "nearby_search": false,
-      "nearby_search_note": "Interior stop of the paid palace area: shown in cards, routes and the landmark tab, not as a separate nearby destination in conversational heritage search."
+      "nearby_search_note": "Interior stop of the paid palace area: shown in cards, routes and the landmark tab, not as a separate nearby destination in conversational heritage search.",
+      "name_hanja": "勤政殿",
+      "name_hanja_source_id": "heritage:geunjeongjeon-name"
     },
     {
       "place_id": "local:gyeonghoeru",
@@ -142,7 +148,9 @@
       "currently_open": null,
       "admission_fee": null,
       "nearby_search": false,
-      "nearby_search_note": "Interior stop of the paid palace area: shown in cards, routes and the landmark tab, not as a separate nearby destination in conversational heritage search."
+      "nearby_search_note": "Interior stop of the paid palace area: shown in cards, routes and the landmark tab, not as a separate nearby destination in conversational heritage search.",
+      "name_hanja": "慶會樓",
+      "name_hanja_source_id": "heritage:gyeonghoeru-name"
     },
     {
       "place_id": "local:bukchon",

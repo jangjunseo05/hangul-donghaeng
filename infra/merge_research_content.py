@@ -15,7 +15,8 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-LOCAL_PLACE_FIELDS = ("nearby_search", "nearby_search_note")  # backend review decisions (M2, approved M3)
+LOCAL_PLACE_FIELDS = ("nearby_search", "nearby_search_note",  # backend review decisions (M2, approved M3)
+                      "name_hanja", "name_hanja_source_id")  # official Hanja names (M7)
 LOCAL_STOP_FIELDS = {"local:tosokchon": {"note_ko": "점심. 영업·재고·식이 적합성은 미확인이에요."}}
 
 

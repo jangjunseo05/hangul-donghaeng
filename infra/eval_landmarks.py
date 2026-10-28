@@ -38,7 +38,7 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # run as a script from any directory
 from agent.core import AgentError, ModelSession  # noqa: E402
 from agent.visual_observation import (CANDIDATE_PROMPT, CandidateObservation, VISUAL_PROMPT, VISUAL_SYSTEM,
-                                      VerifyObservation, VisualObservation, board_choice, verify_prompt)
+                                      VerifyObservation, VisualObservation, BOARD_BASES, board_choice, verify_prompt)
 from service.catalog import catalog_places
 from service.content import distance_m
 
@@ -47,6 +47,10 @@ CANDIDATE_RADIUS_M = 1000
 SECOND_LOOK = False  # --second-look: M5 decision 3b verification (off in the product by default)
 COMPLEX_IDS = {"local:gwanghwamun", "local:geunjeongjeon", "local:gyeonghoeru"}
 DEMO_IDS = COMPLEX_IDS  # M6 decision 2: demo shots are Gwanghwamun, Geunjeongjeon, Gyeonghoeru on Gyeongbokgung GPS
+# M7 decision 3: images matching the fixed demo shots (Gwanghwamun front with board, Geunjeongjeon front with
+# board, Gyeonghoeru across the pond by day). Tagged by eye from thumbnails, 2026-10-28; see demo-shots.md.
+DEMO_FIXED_IMAGES = {"gwanghwamun-04", "gwanghwamun-09", "gwanghwamun-r02", "geunjeongjeon-r03", "geunjeongjeon-r04",
+                     "gyeonghoeru-03", "gyeonghoeru-09", "gyeonghoeru-r03", "gyeonghoeru-r04"}
 THUMB_HOSTS = ("https://upload.wikimedia.org/", "https://thumb.wikimedia.org/")
 USER_AGENT = "HangulDonghaeng/0.2 (+https://github.com/jangjunseo05/hangul-donghaeng) eval"
 
@@ -106,6 +110,17 @@ def candidates_for(sample: dict, use_osm: bool = False) -> list[dict]:
     return sorted(local, key=lambda item: (item["distance_m"], item["id"]))[:5]
 
 
+def with_hanja(candidates: list[dict]) -> list[dict]:
+    """Official Hanja names come from the catalog by id, as in the product (agent/core.py)."""
+    hanja = {place["place_id"]: place.get("name_hanja") for place in catalog_places()}
+    return [{**item, "name_hanja": hanja.get(item["id"])} for item in candidates]
+
+
+def board_others(ids: set[str]) -> list[dict]:
+    return [{"name_ko": place.get("name_ko") or place["name"], "name_hanja": place.get("name_hanja")}
+            for place in catalog_places() if place["place_id"] not in ids]
+
+
 def _messages(prompt: str, image: bytes) -> list[dict]:
     return [{"role": "system", "content": VISUAL_SYSTEM},
             {"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {
@@ -132,14 +147,12 @@ async def evaluate(session_factory, sample: dict, image: bytes, candidates: list
                 CANDIDATE_PROMPT + json.dumps(shown, ensure_ascii=False) + "\nReturn the observation in this schema: "
                 + json.dumps(CandidateObservation.model_json_schema()), image), CandidateObservation, check)
             # Same acceptance rule as the product (agent/core.py): name board first, else a distinctive cue.
-            others = [{"name_ko": place.get("name_ko") or place["name"], "name_hanja": place.get("name_hanja")}
-                      for place in catalog_places() if place["place_id"] not in ids]
-            chosen, basis = board_choice(parsed, candidates, others)
+            chosen, basis = board_choice(parsed, with_hanja(candidates), board_others(ids))
             record["predicted_place_id"] = chosen or "unknown"
             record["raw_choice"] = parsed.place_id
             record["board_basis"] = basis
             record["name_board_text"] = parsed.name_board_text
-            if basis != "cues":
+            if basis in BOARD_BASES:
                 parsed = parsed.model_copy(update={"landmark_name": None,
                                                    "confidence": "high" if chosen else parsed.confidence})
             if record["predicted_place_id"] != "unknown" and SECOND_LOOK:
@@ -235,17 +248,24 @@ def metrics(results: list[dict]) -> dict:
         "confusion": {expected: dict(row) for expected, row in confusion.items()},
         "board_basis": dict(Counter(item.get("board_basis", "n/a") for item in ok)),
         "demo_subset": demo_metrics(results),
+        "demo_fixed": demo_metrics(results, DEMO_FIXED_IMAGES),
         "targets": {"top1_accuracy": ">=0.80", "complex_accuracy": ">=0.70", "false_accept_rate": "<=0.05",
                     "abstain_rate": "<=0.15", "high_precision": ">=0.95"},
     }
 
 
-def demo_metrics(results: list[dict]) -> dict:
+def _image_id(item: dict) -> str:
+    return item.get("image_id") or item.get("sample_id", "").split("__")[0]
+
+
+def demo_metrics(results: list[dict], images: set[str] | None = None) -> dict:
     """M6 decision 2: demo-scope subset. Positives = demo places photographed with Gyeongbokgung GPS
-    (gps_correct or the palace centroid gps_complex); negatives = lookalikes on that same GPS (gps_complex)."""
+    (gps_correct or the palace centroid gps_complex); negatives = lookalikes on that same GPS (gps_complex).
+    With images (M7 demo_fixed), positives are further limited to the fixed demo shots."""
     ok = [item for item in results if not item.get("error_code")]
     positive = [item for item in ok if item["split"] == "positive" and item.get("expected_place_id") in DEMO_IDS
-                and item["gps_condition"] in ("gps_correct", "gps_complex")]
+                and item["gps_condition"] in ("gps_correct", "gps_complex")
+                and (images is None or _image_id(item) in images)]
     negative = [item for item in ok if item["split"] != "positive" and item["gps_condition"] == "gps_complex"]
     keys = _catalog_keys()
     return {
@@ -267,6 +287,37 @@ def rescore_legacy(rows: list[dict]) -> list[dict]:
         if item.get("gps_condition") == "gps_none" or not item.get("candidates"):
             if item.get("free_name"):
                 item["predicted_place_id"] = "unknown"
+        rescored.append(item)
+    return rescored
+
+
+def rescore_board(rows: list[dict]) -> list[dict]:
+    """Re-decide recorded closed-set choices with the current name-board rule and catalog (no model call).
+    Needs M6+ rows (name_board_text, raw_choice, visual_cues). scene_kind was not recorded: a row whose
+    cue-backed choice was not accepted had a non-landmark scene; every other row is treated as a landmark."""
+    rescored = []
+    for item in rows:
+        item = dict(item)
+        if "board_basis" in item and item.get("candidates") and not item.get("error_code"):
+            ids = set(item["candidates"])
+            cues = [cue for cue in item.get("visual_cues") or [] if isinstance(cue, str) and cue.strip()]
+            not_landmark = (item["board_basis"] == "cues" and item["predicted_place_id"] == "unknown"
+                            and item.get("raw_choice") in ids and bool(cues))
+            choice = CandidateObservation(visual_basis="recorded", visual_cues=cues[:5],
+                                          scene_kind="other" if not_landmark else "landmark",
+                                          place_id=item.get("raw_choice") or "unknown",
+                                          confidence=item.get("confidence") or "low",
+                                          name_board_text=item.get("name_board_text"))
+            by_id = {place["place_id"]: place for place in catalog_places()}
+            candidates = with_hanja([{"id": place_id, "name_ko": by_id[place_id].get("name_ko", by_id[place_id]["name"])}
+                                     for place_id in item["candidates"] if place_id in by_id])
+            chosen, basis = board_choice(choice, candidates, board_others(ids))
+            item["m6_board_basis"], item["m6_predicted_place_id"] = item["board_basis"], item["predicted_place_id"]
+            item["predicted_place_id"], item["board_basis"] = chosen or "unknown", basis
+            if basis in BOARD_BASES:
+                item.pop("free_name", None)
+                if chosen:
+                    item["confidence"] = "high"
         rescored.append(item)
     return rescored
 
@@ -341,7 +392,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.recompute:
         rows = [json.loads(line) for line in args.recompute.read_text(encoding="utf-8").splitlines() if line.strip()]
-        print(json.dumps(metrics(rescore_legacy(rows)), ensure_ascii=False, indent=2))
+        print(json.dumps(metrics(rescore_board(rescore_legacy(rows))), ensure_ascii=False, indent=2))
         return 0
     global SECOND_LOOK
     SECOND_LOOK = args.second_look

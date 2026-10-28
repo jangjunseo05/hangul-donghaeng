@@ -766,5 +766,63 @@
       "scope": "official public fictional exercise input; anonymized summary, not real tourism facts",
       "text": "Ask vendors about allergens before tasting. Foods with the same name can differ between ceremonial and everyday use. Ask permission before photography. This is general guidance, not a recipe or allergy-safety certificate."
     }
+  ],
+  "name_sources": [
+    {
+      "id": "heritage:gyeongbokgung-name",
+      "place_ids": [
+        "local:gyeongbokgung"
+      ],
+      "name_hanja": "景福宮",
+      "source": "https://www.heritage.go.kr/heri/cul/culSelectDetail.do?ccbaCpno=1331101170000",
+      "publisher": "국가유산청 국가유산포털 (heritage.go.kr) 국가유산 상세",
+      "source_locator": "상세 제목 (사적, 지정일 1963.01.21)",
+      "quote": "경복궁 (景福宮)",
+      "observed_at": "2026-10-28",
+      "quote_capture": "webfetch_extract",
+      "scope": "name only: official Hanja name for name-board matching (M7); not a culture/operation claim"
+    },
+    {
+      "id": "heritage:geunjeongjeon-name",
+      "place_ids": [
+        "local:geunjeongjeon"
+      ],
+      "name_hanja": "勤政殿",
+      "source": "https://www.heritage.go.kr/heri/cul/culSelectDetail.do?ccbaCpno=1111102230000",
+      "publisher": "국가유산청 국가유산포털 (heritage.go.kr) 국가유산 상세",
+      "source_locator": "상세 제목 (국보, 지정일 1985.01.08)",
+      "quote": "경복궁 근정전 (景福宮 勤政殿)",
+      "observed_at": "2026-10-28",
+      "quote_capture": "webfetch_extract",
+      "scope": "name only: official Hanja name for name-board matching (M7); not a culture/operation claim"
+    },
+    {
+      "id": "heritage:gyeonghoeru-name",
+      "place_ids": [
+        "local:gyeonghoeru"
+      ],
+      "name_hanja": "慶會樓",
+      "source": "https://www.heritage.go.kr/heri/cul/culSelectDetail.do?ccbaCpno=1111102240000",
+      "publisher": "국가유산청 국가유산포털 (heritage.go.kr) 국가유산 상세",
+      "source_locator": "상세 제목 (국보, 지정일 1985.01.08)",
+      "quote": "경복궁 경회루 (景福宮 慶會樓)",
+      "observed_at": "2026-10-28",
+      "quote_capture": "webfetch_extract",
+      "scope": "name only: official Hanja name for name-board matching (M7); not a culture/operation claim"
+    },
+    {
+      "id": "archives:gwanghwamun-name",
+      "place_ids": [
+        "local:gwanghwamun"
+      ],
+      "name_hanja": "光化門",
+      "source": "https://theme.archives.go.kr/next/koreaOfRecord/Gwanghwamun.do",
+      "publisher": "행정안전부 국가기록원 (기록으로 만나는 대한민국: 광화문)",
+      "source_locator": "본문 첫 문장",
+      "quote": "광화문(光化門)은 조선왕조를 대표하는 법궁인 경복궁의 정문이다.",
+      "observed_at": "2026-10-28",
+      "quote_capture": "webfetch_extract",
+      "scope": "name only: official Hanja name for name-board matching (M7); not a culture/operation claim"
+    }
   ]
 }

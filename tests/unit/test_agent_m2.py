@@ -86,7 +86,8 @@ class ClosedSetObservationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("look alike", prompt)
 
     async def test_name_board_decides_in_either_reading_order(self):
-        for board in ("광화문", "문 화 광"):
+        # Gwanghwamun's official Hanja name comes from data/catalog.json (M7), not from the broker candidate.
+        for board in ("光化門", "門 化 光"):
             with self.subTest(board=board):
                 reply = choice(PALACE, confidence="low", board=board)
                 reply["visual_cues"] = []  # the board itself is the deciding cue
@@ -98,7 +99,8 @@ class ClosedSetObservationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("name_board_text", prompt)
 
     async def test_name_board_that_disagrees_with_the_choice_suggests_nothing(self):
-        for board in ("덕수궁", "북촌한옥마을"):  # a non-candidate name, and another catalog place's name
+        # Another catalog place's name, and other palaces' Hanja boards against a Hanja-board choice.
+        for board in ("북촌한옥마을", "德壽宮", "門漢大"):
             with self.subTest(board=board):
                 harness = Harness([choice(GATE, confidence="high", landmark_name="Gwanghwamun", board=board)],
                                   observe_job(), candidates=CANDIDATES)
@@ -107,8 +109,9 @@ class ClosedSetObservationTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual((result["status"], result["next_question"]), ("ready", None))
                 self.assertEqual(result["scene"]["place_candidates"], [])
 
-    async def test_no_board_or_uncomparable_board_keeps_the_cue_rule(self):
-        for board in (None, "門化光"):  # the data carries no Hanja names, so a Hanja board is not compared
+    async def test_no_board_or_restated_hangul_name_keeps_the_cue_rule(self):
+        # A Hangul "board" for a place with a Hanja board is the model restating a name (M7 decision 2).
+        for board in (None, "광화문", "근정전"):
             with self.subTest(board=board):
                 harness = Harness([choice(GATE, board=board)], observe_job(), candidates=CANDIDATES)
                 self.assertEqual(await harness.run(), "saved")

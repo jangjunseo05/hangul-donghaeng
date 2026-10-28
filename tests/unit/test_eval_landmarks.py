@@ -135,3 +135,35 @@ def test_demo_subset_counts_demo_places_on_palace_gps_and_lookalikes_there():
     assert (demo["positives"], demo["top1_accuracy"]) == (2, 0.5)
     assert (demo["negatives"], demo["false_accept_rate"]) == (1, 1.0)
     assert demo["board_basis"] == {"board_match": 1, "cues": 2}
+
+
+def test_recorded_choices_are_rescored_with_the_current_board_rule():
+    base = {"split": "positive", "gps_condition": "gps_correct", "latency_ms": 1,
+            "candidates": ["local:gwanghwamun", "local:gyeongbokgung", "local:geunjeongjeon"]}
+    rows = [
+        # M6 accepted a restated Hangul name; M7 ignores it and the cue rule decides.
+        {**base, "sample_id": "gwanghwamun-10__gps_correct", "expected_place_id": "local:gwanghwamun",
+         "board_basis": "board_match", "name_board_text": "근정전", "raw_choice": "local:gwanghwamun",
+         "visual_cues": ["three arches"], "predicted_place_id": "local:geunjeongjeon", "confidence": "high"},
+        # A Hanja board the M6 data could not compare now decides.
+        {**base, "sample_id": "gwanghwamun-04__gps_correct", "expected_place_id": "local:gwanghwamun",
+         "board_basis": "cues", "name_board_text": "門化光", "raw_choice": "unknown", "visual_cues": [],
+         "predicted_place_id": "unknown", "confidence": "low"},
+        # Another palace's gate board rejects the cue-backed choice.
+        {**base, "sample_id": "deoksugung-01__gps_complex", "split": "hard_negative", "gps_condition": "gps_complex",
+         "expected_place_id": "unknown", "board_basis": "cues", "name_board_text": "大漢門",
+         "raw_choice": "local:gwanghwamun", "visual_cues": ["gate"], "predicted_place_id": "local:gwanghwamun",
+         "confidence": "medium"},
+        # A non-landmark scene stays unaccepted.
+        {**base, "sample_id": "food-01__gps_complex", "split": "easy_negative", "gps_condition": "gps_complex",
+         "expected_place_id": "unknown", "board_basis": "cues", "name_board_text": None,
+         "raw_choice": "local:gwanghwamun", "visual_cues": ["bowl"], "predicted_place_id": "unknown",
+         "confidence": "low"},
+    ]
+    rescored = runner.rescore_board(rows)
+    assert [(item["predicted_place_id"], item["board_basis"]) for item in rescored] == [
+        ("local:gwanghwamun", "restated_name"), ("local:gwanghwamun", "board_match"),
+        ("unknown", "board_mismatch"), ("unknown", "cues")]
+    assert rescored[0]["m6_predicted_place_id"] == "local:geunjeongjeon" and rescored[1]["confidence"] == "high"
+    demo = runner.metrics(rescored)["demo_fixed"]
+    assert (demo["positives"], demo["top1_accuracy"]) == (1, 1.0)  # only gwanghwamun-04 is a fixed demo shot

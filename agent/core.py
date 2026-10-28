@@ -19,7 +19,7 @@ from shared.cards import catalog_card
 from shared.models import Claim, Conflict, GuideRequest, GuideResult, ItineraryItem
 from agent.landmark_card import explain_public_place
 from agent.visual_observation import (CANDIDATE_PROMPT, CandidateObservation, VerifyObservation, VisualObservation,
-                                      VISUAL_PROMPT, VISUAL_SYSTEM, board_choice, verify_prompt)
+                                      VISUAL_PROMPT, VISUAL_SYSTEM, BOARD_BASES, board_choice, verify_prompt)
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 MODEL_CALL_TIMEOUT_SECONDS = 35.0
@@ -1081,10 +1081,11 @@ async def _observe_candidates(request, request_id, photo, place_labels, api, mod
         photo, visual_only=True), CandidateObservation, check)
     ko = request.response_language == "ko"
     # A legible name board decides (M6); otherwise a choice needs a stated distinctive cue (M5 (a)).
-    others = [item for key, item in place_labels.items() if key not in by_id]
-    chosen, basis = board_choice(choice, candidates, others)
+    hanja = {item["place_id"]: item["name_hanja"] for item in catalog_data()["places"] if item.get("name_hanja")}
+    others = [{**item, "name_hanja": hanja.get(key)} for key, item in place_labels.items() if key not in by_id]
+    chosen, basis = board_choice(choice, [{**item, "name_hanja": hanja.get(item["id"])} for item in candidates], others)
     selected = by_id.get(chosen or "")
-    if basis != "cues":
+    if basis in BOARD_BASES:
         choice = choice.model_copy(update={"landmark_name": None,
                                            "confidence": "high" if selected else choice.confidence})
     if selected is not None and os.getenv("OBSERVE_SECOND_LOOK", "").lower() == "true":
