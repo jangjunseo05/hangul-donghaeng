@@ -19,7 +19,7 @@ from shared.cards import catalog_card
 from shared.models import Claim, Conflict, GuideRequest, GuideResult, ItineraryItem
 from agent.landmark_card import explain_public_place
 from agent.visual_observation import (CANDIDATE_PROMPT, CandidateObservation, VerifyObservation, VisualObservation,
-                                      VISUAL_PROMPT, VISUAL_SYSTEM, accepted_choice, verify_prompt)
+                                      VISUAL_PROMPT, VISUAL_SYSTEM, board_choice, verify_prompt)
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 MODEL_CALL_TIMEOUT_SECONDS = 35.0
@@ -1080,8 +1080,13 @@ async def _observe_candidates(request, request_id, photo, place_labels, api, mod
         + "\nReturn the observation in this schema: " + json.dumps(CandidateObservation.model_json_schema()),
         photo, visual_only=True), CandidateObservation, check)
     ko = request.response_language == "ko"
-    # A choice without a stated distinctive cue is not suggested (lookalike palaces, M4 evaluation).
-    selected = by_id.get(accepted_choice(choice, set(by_id)) or "")
+    # A legible name board decides (M6); otherwise a choice needs a stated distinctive cue (M5 (a)).
+    others = [item for key, item in place_labels.items() if key not in by_id]
+    chosen, basis = board_choice(choice, candidates, others)
+    selected = by_id.get(chosen or "")
+    if basis != "cues":
+        choice = choice.model_copy(update={"landmark_name": None,
+                                           "confidence": "high" if selected else choice.confidence})
     if selected is not None and os.getenv("OBSERVE_SECOND_LOOK", "").lower() == "true":
         # M5 decision 3b, OFF by default: evaluated 2026-10-27, the second look answered "unsure" for almost
         # every frame (top-1 0.84 -> 0.02) while cutting closed-set false accepts 0.45 -> 0.05.

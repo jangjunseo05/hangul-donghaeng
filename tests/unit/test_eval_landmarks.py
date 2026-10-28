@@ -115,3 +115,23 @@ def test_legacy_results_are_rescored_without_name_mapping():
     legacy = [{"split": "positive", "gps_condition": "gps_none", "candidates": [], "free_name": "Gwanghwamun Gate",
                "expected_place_id": "local:gwanghwamun", "predicted_place_id": "local:gwanghwamun"}]
     assert runner.rescore_legacy(legacy)[0]["predicted_place_id"] == "unknown"
+
+
+def test_demo_subset_counts_demo_places_on_palace_gps_and_lookalikes_there():
+    rows = [
+        {"split": "positive", "gps_condition": "gps_correct", "expected_place_id": "local:gyeonghoeru",
+         "predicted_place_id": "local:gyeonghoeru", "confidence": "high", "board_basis": "board_match"},
+        {"split": "positive", "gps_condition": "gps_complex", "expected_place_id": "local:gwanghwamun",
+         "predicted_place_id": "unknown", "confidence": "low", "board_basis": "cues"},
+        {"split": "positive", "gps_condition": "gps_correct", "expected_place_id": "local:bukchon",
+         "predicted_place_id": "unknown", "confidence": "low"},  # not a demo place
+        {"split": "positive", "gps_condition": "gps_wrong", "expected_place_id": "local:gwanghwamun",
+         "predicted_place_id": "unknown", "confidence": "low"},  # not palace GPS
+        {"split": "hard_negative", "gps_condition": "gps_complex", "predicted_place_id": "local:geunjeongjeon",
+         "confidence": "medium", "board_basis": "cues"},
+        {"split": "hard_negative", "gps_condition": "gps_none", "predicted_place_id": "unknown", "confidence": None},
+    ]
+    demo = runner.metrics(rows)["demo_subset"]
+    assert (demo["positives"], demo["top1_accuracy"]) == (2, 0.5)
+    assert (demo["negatives"], demo["false_accept_rate"]) == (1, 1.0)
+    assert demo["board_basis"] == {"board_match": 1, "cues": 2}

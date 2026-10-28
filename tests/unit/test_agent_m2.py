@@ -22,9 +22,10 @@ CANDIDATES = [
 ]
 
 
-def choice(place_id="unknown", scene_kind="landmark", confidence="medium", landmark_name=None):
+def choice(place_id="unknown", scene_kind="landmark", confidence="medium", landmark_name=None, board=None):
     return {"visual_basis": "Stone gate with three arches.", "visual_cues": ["three arches", "tiled roof"],
-            "scene_kind": scene_kind, "place_id": place_id, "confidence": confidence, "landmark_name": landmark_name}
+            "scene_kind": scene_kind, "place_id": place_id, "confidence": confidence, "landmark_name": landmark_name,
+            "name_board_text": board}
 
 
 def verify(verdict="yes"):
@@ -83,6 +84,36 @@ class ClosedSetObservationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["scene"]["place_candidates"], [])
         prompt = harness.model_requests[0]["messages"][-1]["content"][0]["text"]
         self.assertIn("look alike", prompt)
+
+    async def test_name_board_decides_in_either_reading_order(self):
+        for board in ("광화문", "문 화 광"):
+            with self.subTest(board=board):
+                reply = choice(PALACE, confidence="low", board=board)
+                reply["visual_cues"] = []  # the board itself is the deciding cue
+                harness = Harness([reply], observe_job(), candidates=CANDIDATES)
+                self.assertEqual(await harness.run(), "saved")
+                scene = harness.submitted[0]["result"]["scene"]
+                self.assertEqual((scene["place_candidates"][0]["id"], scene["observed_place_confidence"]), (GATE, "high"))
+        prompt = harness.model_requests[0]["messages"][-1]["content"][0]["text"]
+        self.assertIn("name_board_text", prompt)
+
+    async def test_name_board_that_disagrees_with_the_choice_suggests_nothing(self):
+        for board in ("덕수궁", "북촌한옥마을"):  # a non-candidate name, and another catalog place's name
+            with self.subTest(board=board):
+                harness = Harness([choice(GATE, confidence="high", landmark_name="Gwanghwamun", board=board)],
+                                  observe_job(), candidates=CANDIDATES)
+                self.assertEqual(await harness.run(), "saved")
+                result = harness.submitted[0]["result"]
+                self.assertEqual((result["status"], result["next_question"]), ("ready", None))
+                self.assertEqual(result["scene"]["place_candidates"], [])
+
+    async def test_no_board_or_uncomparable_board_keeps_the_cue_rule(self):
+        for board in (None, "門化光"):  # the data carries no Hanja names, so a Hanja board is not compared
+            with self.subTest(board=board):
+                harness = Harness([choice(GATE, board=board)], observe_job(), candidates=CANDIDATES)
+                self.assertEqual(await harness.run(), "saved")
+                scene = harness.submitted[0]["result"]["scene"]
+                self.assertEqual((scene["place_candidates"][0]["id"], scene["observed_place_confidence"]), (GATE, "medium"))
 
     async def test_osm_candidate_choice_is_labelled_osm(self):
         harness = Harness([choice("osm:way:77", confidence="low"), verify()], observe_job(), candidates=CANDIDATES)

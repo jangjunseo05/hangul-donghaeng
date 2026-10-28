@@ -38,7 +38,7 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # run as a script from any directory
 from agent.core import AgentError, ModelSession  # noqa: E402
 from agent.visual_observation import (CANDIDATE_PROMPT, CandidateObservation, VISUAL_PROMPT, VISUAL_SYSTEM,
-                                      VerifyObservation, VisualObservation, accepted_choice, verify_prompt)
+                                      VerifyObservation, VisualObservation, board_choice, verify_prompt)
 from service.catalog import catalog_places
 from service.content import distance_m
 
@@ -46,6 +46,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CANDIDATE_RADIUS_M = 1000
 SECOND_LOOK = False  # --second-look: M5 decision 3b verification (off in the product by default)
 COMPLEX_IDS = {"local:gwanghwamun", "local:geunjeongjeon", "local:gyeonghoeru"}
+DEMO_IDS = COMPLEX_IDS  # M6 decision 2: demo shots are Gwanghwamun, Geunjeongjeon, Gyeonghoeru on Gyeongbokgung GPS
 THUMB_HOSTS = ("https://upload.wikimedia.org/", "https://thumb.wikimedia.org/")
 USER_AGENT = "HangulDonghaeng/0.2 (+https://github.com/jangjunseo05/hangul-donghaeng) eval"
 
@@ -130,9 +131,17 @@ async def evaluate(session_factory, sample: dict, image: bytes, candidates: list
             parsed = await model.structured(_messages(
                 CANDIDATE_PROMPT + json.dumps(shown, ensure_ascii=False) + "\nReturn the observation in this schema: "
                 + json.dumps(CandidateObservation.model_json_schema()), image), CandidateObservation, check)
-            # Same acceptance rule as the product (agent/core.py): a listed id plus a distinctive cue.
-            record["predicted_place_id"] = accepted_choice(parsed, ids) or "unknown"
+            # Same acceptance rule as the product (agent/core.py): name board first, else a distinctive cue.
+            others = [{"name_ko": place.get("name_ko") or place["name"], "name_hanja": place.get("name_hanja")}
+                      for place in catalog_places() if place["place_id"] not in ids]
+            chosen, basis = board_choice(parsed, candidates, others)
+            record["predicted_place_id"] = chosen or "unknown"
             record["raw_choice"] = parsed.place_id
+            record["board_basis"] = basis
+            record["name_board_text"] = parsed.name_board_text
+            if basis != "cues":
+                parsed = parsed.model_copy(update={"landmark_name": None,
+                                                   "confidence": "high" if chosen else parsed.confidence})
             if record["predicted_place_id"] != "unknown" and SECOND_LOOK:
                 chosen = next(item for item in shown if item["id"] == record["predicted_place_id"])
                 verdict = await model.structured(_messages(verify_prompt(chosen) + json.dumps(
@@ -224,8 +233,29 @@ def metrics(results: list[dict]) -> dict:
         "latency_ms": {"p50": statistics.median(latencies) if latencies else None,
                        "p95": latencies[max(0, math.ceil(0.95 * len(latencies)) - 1)] if latencies else None},
         "confusion": {expected: dict(row) for expected, row in confusion.items()},
+        "board_basis": dict(Counter(item.get("board_basis", "n/a") for item in ok)),
+        "demo_subset": demo_metrics(results),
         "targets": {"top1_accuracy": ">=0.80", "complex_accuracy": ">=0.70", "false_accept_rate": "<=0.05",
                     "abstain_rate": "<=0.15", "high_precision": ">=0.95"},
+    }
+
+
+def demo_metrics(results: list[dict]) -> dict:
+    """M6 decision 2: demo-scope subset. Positives = demo places photographed with Gyeongbokgung GPS
+    (gps_correct or the palace centroid gps_complex); negatives = lookalikes on that same GPS (gps_complex)."""
+    ok = [item for item in results if not item.get("error_code")]
+    positive = [item for item in ok if item["split"] == "positive" and item.get("expected_place_id") in DEMO_IDS
+                and item["gps_condition"] in ("gps_correct", "gps_complex")]
+    negative = [item for item in ok if item["split"] != "positive" and item["gps_condition"] == "gps_complex"]
+    keys = _catalog_keys()
+    return {
+        "top1_accuracy": _rate(sum(item["predicted_place_id"] == item["expected_place_id"] for item in positive),
+                               len(positive)),
+        "positives": len(positive),
+        "false_accept_rate": _rate(sum(claims_catalog_place(item, keys) for item in negative), len(negative)),
+        "negatives": len(negative),
+        "board_basis": dict(Counter(item.get("board_basis", "n/a") for item in positive + negative)),
+        "targets": {"top1_accuracy": ">=0.90", "false_accept_rate": "<=0.10"},
     }
 
 
