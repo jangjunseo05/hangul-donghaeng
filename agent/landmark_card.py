@@ -56,11 +56,15 @@ OPERATION_TERMS = re.compile(
 NUMBER = re.compile(r"\d+")
 # A sentence break: terminal punctuation followed by a capital letter, a digit or Hangul ("a.m. and" is not).
 SENTENCE_BREAK = re.compile(r"[.!?。]\s+(?=[A-Z0-9가-힣\"'“‘])")
-FORMAL_KO = re.compile(r"(?:니다|니까)[.!?]?\s*$")
-HANJA = re.compile(r"[\u4e00-\u9fff]")
 
 
 ASIDE = re.compile(r"\s*[(（][^()（）]*[)）]")
+
+
+def first_sentence(text: str) -> str:
+    text = " ".join(text.split())
+    match = SENTENCE_BREAK.search(text)
+    return text[:match.start() + 1] if match else text
 
 
 def _normalized(text: str) -> str:
@@ -102,12 +106,6 @@ class CardDraft(BaseModel):
     visit_note: None = None
 
 
-def _length_ok(texts: list[str], lang: str) -> bool:
-    if lang == "ko":
-        return 60 <= sum(len(text) for text in texts) <= 320
-    return 30 <= sum(len(text.split()) for text in texts) <= 130
-
-
 async def explain_public_place(request, request_id: str, place: dict, api, model) -> dict:
     lang = request.response_language
     ko = lang == "ko"
@@ -127,22 +125,12 @@ async def explain_public_place(request, request_id: str, place: dict, api, model
                   "evidence": [{"id": item["id"], "text": item["text"][:1500], "source": item["source"]}
                                for item in records if item["id"] in known]}, ensure_ascii=False))
 
-    attempts = []
-
     def check(draft: CardDraft):
-        attempts.append(1)
+        # Only content safety triggers a repair call. Style (one sentence, ~예요체, length) is handled
+        # after the call: a repair round-trip doubled card latency and still missed style (M4 smoke).
         required = [draft.blocks.what_it_is, draft.blocks.why_it_matters, draft.blocks.what_to_look_for]
         if any(OPERATION_TERMS.search(block.text) for block in required):
             raise ValueError("operation_in_story")
-        present = [block for block in (*required, draft.blocks.fun_fact) if block is not None]
-        if len(attempts) > 1:
-            return  # Style is repaired once; a second miss keeps the card rather than failing the job.
-        if not _length_ok([block.text for block in present], lang):
-            raise ValueError("card_length")
-        if any(SENTENCE_BREAK.search(block.text.strip()) for block in present):
-            raise ValueError("multi_sentence")
-        if ko and any(FORMAL_KO.search(block.text.strip()) or HANJA.search(block.text) for block in present):
-            raise ValueError("ko_style")
 
     messages = [{"role": "system", "content": LANDMARK_SYSTEM},
                 {"role": "user", "content": [{"type": "text", "text": prompt}]}]
@@ -150,6 +138,10 @@ async def explain_public_place(request, request_id: str, place: dict, api, model
     blocks = {key: (None if value is None else value.model_dump(exclude={"verification"}))
               for key, value in draft.blocks}
     quotes = {key: (block or {}).pop("support_quote", None) for key, block in blocks.items()}
+    for block in blocks.values():
+        if block:
+            # M5 decision 4: keep only the first sentence; Korean endings are left as written.
+            block["text"] = first_sentence(block["text"])
     if blocks["fun_fact"] and OPERATION_TERMS.search(blocks["fun_fact"]["text"]):
         blocks["fun_fact"] = None
     # A citation stands only with a verbatim support_quote from the cited text and the block's numbers

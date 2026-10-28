@@ -38,12 +38,13 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # run as a script from any directory
 from agent.core import AgentError, ModelSession  # noqa: E402
 from agent.visual_observation import (CANDIDATE_PROMPT, CandidateObservation, VISUAL_PROMPT, VISUAL_SYSTEM,
-                                      VisualObservation)
+                                      VerifyObservation, VisualObservation, accepted_choice, verify_prompt)
 from service.catalog import catalog_places
 from service.content import distance_m
 
 ROOT = Path(__file__).resolve().parents[1]
 CANDIDATE_RADIUS_M = 1000
+SECOND_LOOK = False  # --second-look: M5 decision 3b verification (off in the product by default)
 COMPLEX_IDS = {"local:gwanghwamun", "local:geunjeongjeon", "local:gyeonghoeru"}
 THUMB_HOSTS = ("https://upload.wikimedia.org/", "https://thumb.wikimedia.org/")
 USER_AGENT = "HangulDonghaeng/0.2 (+https://github.com/jangjunseo05/hangul-donghaeng) eval"
@@ -129,18 +130,29 @@ async def evaluate(session_factory, sample: dict, image: bytes, candidates: list
             parsed = await model.structured(_messages(
                 CANDIDATE_PROMPT + json.dumps(shown, ensure_ascii=False) + "\nReturn the observation in this schema: "
                 + json.dumps(CandidateObservation.model_json_schema()), image), CandidateObservation, check)
-            if parsed.scene_kind == "landmark" and parsed.place_id != "unknown":
-                record["predicted_place_id"] = parsed.place_id
+            # Same acceptance rule as the product (agent/core.py): a listed id plus a distinctive cue.
+            record["predicted_place_id"] = accepted_choice(parsed, ids) or "unknown"
+            record["raw_choice"] = parsed.place_id
+            if record["predicted_place_id"] != "unknown" and SECOND_LOOK:
+                chosen = next(item for item in shown if item["id"] == record["predicted_place_id"])
+                verdict = await model.structured(_messages(verify_prompt(chosen) + json.dumps(
+                    VerifyObservation.model_json_schema()), image), VerifyObservation)
+                record["verify_verdict"] = verdict.verdict
+                record["name_board_text"] = verdict.name_board_text
+                if verdict.verdict != "yes":
+                    record["predicted_place_id"] = "unknown"
+            record["visual_cues"] = parsed.visual_cues
             record["confidence"] = parsed.confidence
+            if (parsed.place_id == "unknown" and parsed.scene_kind == "landmark" and parsed.landmark_name
+                    and record.get("verify_verdict") in (None, "yes")):
+                record["free_name"] = parsed.landmark_name
         else:
             parsed = await model.structured(_messages(
                 VISUAL_PROMPT + json.dumps(VisualObservation.model_json_schema()), image), VisualObservation)
-            name = parsed.landmark_name if parsed.identification_supported and parsed.is_cultural_landmark else None
-            if name:
-                by_name = {_name_key(value): place["place_id"] for place in catalog_places()
-                           for value in (place["name"], place.get("name_en", ""), place.get("name_ko", "")) if value}
-                record["predicted_place_id"] = parsed.place_id or by_name.get(_name_key(name), "unknown")
-                record["free_name"] = name
+            # M5 decision 1(c): a free name is a tentative "model" suggestion, never a catalog id.
+            if parsed.scene_kind == "landmark" and parsed.is_cultural_landmark and parsed.identification_supported \
+                    and parsed.landmark_name:
+                record["free_name"] = parsed.landmark_name
         record["parsed_output_sha256"] = hashlib.sha256(parsed.model_dump_json().encode()).hexdigest()
     except AgentError as exc:
         record["error_code"] = exc.code
@@ -152,28 +164,61 @@ def _rate(hits: int, total: int) -> float | None:
     return round(hits / total, 4) if total else None
 
 
+def suggested(item: dict) -> bool:
+    """The product would tell the visitor "This may be X": a catalog choice or a free model name."""
+    return item["predicted_place_id"] != "unknown" or bool(item.get("free_name"))
+
+
+def _catalog_keys() -> set[str]:
+    return {_name_key(value) for place in catalog_places()
+            for value in (place["name"], place.get("name_en", ""), place.get("name_ko", "")) if value}
+
+
+def claims_catalog_place(item: dict, keys: set[str] | None = None) -> bool:
+    """False accept = presenting one of OUR places: a catalog choice, or a free name that is a catalog
+    name (contained either way). Correctly naming a different landmark is not a false accept."""
+    if item["predicted_place_id"] != "unknown":
+        return True
+    name = _name_key(item.get("free_name") or "")
+    keys = _catalog_keys() if keys is None else keys
+    return len(name) >= 4 and any(key in name or name in key for key in keys if len(key) >= 4)
+
+
 def metrics(results: list[dict]) -> dict:
+    """M5 definitions (research §M4-1): false accept over negatives only; gps_wrong separately."""
     ok = [item for item in results if not item.get("error_code")]
     positive = [item for item in ok if item["split"] == "positive"]
+    negative = [item for item in ok if item["split"] != "positive"]
     correct = [item for item in positive if item["gps_condition"] == "gps_correct"]
     complex_rows = [item for item in positive if item["gps_condition"] == "gps_complex"
                     and item.get("expected_place_id") in COMPLEX_IDS]
-    rejects = [item for item in ok if item["split"] != "positive" or item["gps_condition"] == "gps_wrong"]
+    wrong = [item for item in positive if item["gps_condition"] == "gps_wrong"]
+    free = [item for item in positive if item["gps_condition"] == "gps_none"]
     calibration = {}
     for level in ("high", "medium", "low"):
         rows = [item for item in positive if item["confidence"] == level and item["predicted_place_id"] != "unknown"]
         calibration[level] = {"n": len(rows), "precision": _rate(
             sum(item["predicted_place_id"] == item["expected_place_id"] for item in rows), len(rows))}
-    latencies = sorted(item["latency_ms"] for item in results)
+    latencies = sorted(item["latency_ms"] for item in results if item.get("latency_ms"))
     confusion = defaultdict(Counter)
     for item in ok:
         confusion[item.get("expected_place_id") or item["split"]][item["predicted_place_id"]] += 1
+    keys = _catalog_keys()
+    by_condition = {}
+    for condition in sorted({item["gps_condition"] for item in negative}):
+        rows = [item for item in negative if item["gps_condition"] == condition]
+        by_condition[condition] = {"n": len(rows), "rate": _rate(sum(claims_catalog_place(item, keys) for item in rows), len(rows)),
+                                    "any_suggestion_rate": _rate(sum(map(suggested, rows)), len(rows))}
     return {
         "samples": len(results), "errors": Counter(item["error_code"] for item in results if item.get("error_code")),
         "top1_accuracy": _rate(sum(item["predicted_place_id"] == item["expected_place_id"] for item in correct), len(correct)),
         "complex_accuracy": _rate(sum(item["predicted_place_id"] == item["expected_place_id"] for item in complex_rows),
                                   len(complex_rows)),
-        "false_accept_rate": _rate(sum(item["predicted_place_id"] != "unknown" for item in rejects), len(rejects)),
+        "false_accept_rate": _rate(sum(claims_catalog_place(item, keys) for item in negative), len(negative)),
+        "negative_any_suggestion_rate": _rate(sum(map(suggested, negative)), len(negative)),
+        "false_accept_by_condition": by_condition,
+        "location_override_rate": _rate(sum(map(suggested, wrong)), len(wrong)),
+        "free_recognition_named_rate": _rate(sum(map(suggested, free)), len(free)),
         "abstain_rate": _rate(sum(item["predicted_place_id"] == "unknown" for item in correct), len(correct)),
         "confidence_calibration": calibration,
         "latency_ms": {"p50": statistics.median(latencies) if latencies else None,
@@ -182,6 +227,18 @@ def metrics(results: list[dict]) -> dict:
         "targets": {"top1_accuracy": ">=0.80", "complex_accuracy": ">=0.70", "false_accept_rate": "<=0.05",
                     "abstain_rate": "<=0.15", "high_precision": ">=0.95"},
     }
+
+
+def rescore_legacy(rows: list[dict]) -> list[dict]:
+    """Apply M5 rules to an M4 results file: free names are no longer catalog ids."""
+    rescored = []
+    for item in rows:
+        item = dict(item)
+        if item.get("gps_condition") == "gps_none" or not item.get("candidates"):
+            if item.get("free_name"):
+                item["predicted_place_id"] = "unknown"
+        rescored.append(item)
+    return rescored
 
 
 def image_path(images: Path, sample: dict) -> Path:
@@ -241,7 +298,7 @@ async def run(samples, images: Path, base_url: str, model_id: str, use_osm: bool
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--samples", type=Path, required=True)
+    parser.add_argument("--samples", type=Path)
     parser.add_argument("--images", type=Path, default=ROOT / ".runtime" / "eval-images")
     parser.add_argument("--out", type=Path, default=ROOT / ".runtime" / "eval")
     parser.add_argument("--base-url", default="http://127.0.0.1:8001/v1")
@@ -249,7 +306,17 @@ def main(argv=None) -> int:
     parser.add_argument("--osm", action="store_true", help="Add live OSM landmark candidates (broker-style lookup).")
     parser.add_argument("--download", action="store_true", help="Fetch Commons thumbnails (approval required).")
     parser.add_argument("--run", action="store_true", help="Call the model (approval required).")
+    parser.add_argument("--second-look", action="store_true", help="Add the yes/no verification call (3b).")
+    parser.add_argument("--recompute", type=Path, help="Score an existing results-*.jsonl with the current metrics.")
     args = parser.parse_args(argv)
+    if args.recompute:
+        rows = [json.loads(line) for line in args.recompute.read_text(encoding="utf-8").splitlines() if line.strip()]
+        print(json.dumps(metrics(rescore_legacy(rows)), ensure_ascii=False, indent=2))
+        return 0
+    global SECOND_LOOK
+    SECOND_LOOK = args.second_look
+    if not args.samples:
+        parser.error("--samples is required unless --recompute is given")
     samples = load_samples(args.samples)
     if args.download:
         failed = download(samples, args.images)

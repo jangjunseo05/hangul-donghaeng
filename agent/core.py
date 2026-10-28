@@ -5,6 +5,7 @@ import asyncio
 import base64
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -17,8 +18,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from shared.cards import catalog_card
 from shared.models import Claim, Conflict, GuideRequest, GuideResult, ItineraryItem
 from agent.landmark_card import explain_public_place
-from agent.visual_observation import (CANDIDATE_PROMPT, CandidateObservation, VisualObservation, VISUAL_PROMPT,
-                                      VISUAL_SYSTEM)
+from agent.visual_observation import (CANDIDATE_PROMPT, CandidateObservation, VerifyObservation, VisualObservation,
+                                      VISUAL_PROMPT, VISUAL_SYSTEM, accepted_choice, verify_prompt)
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 MODEL_CALL_TIMEOUT_SECONDS = 35.0
@@ -125,7 +126,7 @@ CHECK_CODES = {"invalid_content", "unknown_food", "unknown_place", "unknown_sour
                "historical_scope_mismatch", "historical_source_mismatch", "unrelated_conflict_sources",
                "itinerary_not_requested", "fictional_start_time_unknown", "itinerary_duration_mismatch",
                "dated_source_misrepresented", "historical_uncertainty_lost",
-               "operation_in_story", "card_length", "unknown_candidate", "multi_sentence", "ko_style"}
+               "operation_in_story", "unknown_candidate"}
 VALIDATION_TYPES = {"missing", "extra_forbidden", "too_long", "too_short", "string_type",
                     "string_too_long", "string_too_short", "list_type", "model_type", "literal_error",
                     "int_parsing", "int_type", "bool_parsing", "bool_type", "string_pattern_mismatch"}
@@ -141,9 +142,6 @@ REPAIR_HINTS = {
     "dated_source_misrepresented": "The blog is dated 2025-05-03. The north-gate route note has unknown date; it is not proven current and cannot replace a different-gate route.",
     "historical_uncertainty_lost": "1961 plaque dating is estimated. The 1987 entry is re-quoted from a ledger whose original is unverified. Preserve both limits or omit the detail.",
     "operation_in_story": "Remove opening hours, fees, closures and access from the four blocks; visit_note=null.",
-    "card_length": "Keep one sentence per block: English 50-90 words total, Korean 100-200 characters total.",
-    "multi_sentence": "Write exactly one sentence per block; merge or drop extra sentences.",
-    "ko_style": "Korean blocks end with ~예요/~이에요/~해요/~어요, never ~입니다/~습니다, and use no Chinese characters.",
     "unknown_candidate": "place_id must be exactly one listed candidate id or \"unknown\".",
 }
 
@@ -310,7 +308,7 @@ class ModelSession:
                                   "previous_output_truncated": isinstance(content, str) and len(content) > 6000},
                                  ensure_ascii=False)}]
             finally:
-                print(json.dumps({"event": "model_call", "stage": "decision" if issubclass(schema, (Decision, VisualObservation, CandidateObservation)) else "draft",
+                print(json.dumps({"event": "model_call", "stage": "decision" if issubclass(schema, (Decision, VisualObservation, CandidateObservation, VerifyObservation)) else "draft",
                     "schema": schema.__name__, "call": self.calls, "error_code": error_code,
                     "validation": feedback, "finish_reason": finish_reason, "usage": usage,
                     **({"configured_model": self.model, "response_model_match": True} if response_model_match else {}),
@@ -1082,7 +1080,17 @@ async def _observe_candidates(request, request_id, photo, place_labels, api, mod
         + "\nReturn the observation in this schema: " + json.dumps(CandidateObservation.model_json_schema()),
         photo, visual_only=True), CandidateObservation, check)
     ko = request.response_language == "ko"
-    selected = by_id.get(choice.place_id) if choice.scene_kind == "landmark" else None
+    # A choice without a stated distinctive cue is not suggested (lookalike palaces, M4 evaluation).
+    selected = by_id.get(accepted_choice(choice, set(by_id)) or "")
+    if selected is not None and os.getenv("OBSERVE_SECOND_LOOK", "").lower() == "true":
+        # M5 decision 3b, OFF by default: evaluated 2026-10-27, the second look answered "unsure" for almost
+        # every frame (top-1 0.84 -> 0.02) while cutting closed-set false accepts 0.45 -> 0.05.
+        shown_selected = next(item for item in shown if item["id"] == selected["id"])
+        verification = await model.structured(_messages(request, [], verify_prompt(shown_selected)
+            + json.dumps(VerifyObservation.model_json_schema()), photo, visual_only=True), VerifyObservation)
+        if verification.verdict != "yes":
+            selected = None
+            choice = choice.model_copy(update={"landmark_name": None})
     free_name = None
     if selected is None and choice.scene_kind == "landmark" and choice.place_id == "unknown" and choice.landmark_name:
         free_name = " ".join(choice.landmark_name.split())[:120] or None

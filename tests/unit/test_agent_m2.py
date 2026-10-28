@@ -27,6 +27,10 @@ def choice(place_id="unknown", scene_kind="landmark", confidence="medium", landm
             "scene_kind": scene_kind, "place_id": place_id, "confidence": confidence, "landmark_name": landmark_name}
 
 
+def verify(verdict="yes"):
+    return {"name_board_text": None, "unique_cue": "the name board" if verdict == "yes" else None, "verdict": verdict}
+
+
 def observe_job():
     assignment = job()
     assignment["request"]["interaction_mode"] = "observe"
@@ -35,7 +39,7 @@ def observe_job():
 
 class ClosedSetObservationTests(unittest.IsolatedAsyncioTestCase):
     async def test_candidate_choice_reports_source_confidence_and_alternative_chips(self):
-        harness = Harness([choice(GATE, confidence="high")], observe_job(), candidates=CANDIDATES)
+        harness = Harness([choice(GATE, confidence="high"), verify()], observe_job(), candidates=CANDIDATES)
         self.assertEqual(await harness.run(), "saved")
         scene = harness.submitted[0]["result"]["scene"]
         self.assertEqual([item["id"] for item in scene["place_candidates"]], [GATE, "osm:way:77", PALACE])
@@ -47,14 +51,47 @@ class ClosedSetObservationTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("37.579", prompt)
         self.assertEqual(harness.stages, ["observing", "matching"])
 
+    async def test_second_look_must_confirm_or_nothing_is_suggested(self):
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ, {"OBSERVE_SECOND_LOOK": "true"}):
+            await self._second_look_cases()
+        harness = Harness([choice(GATE, confidence="high")], observe_job(), candidates=CANDIDATES)
+        self.assertEqual(await harness.run(), "saved")  # default: no second call
+        self.assertEqual(len(harness.model_requests), 1)
+
+    async def _second_look_cases(self):
+        for verdict in ("no", "unsure"):
+            with self.subTest(verdict=verdict):
+                harness = Harness([choice(GATE, confidence="high", landmark_name="Gwanghwamun"), verify(verdict)],
+                                  observe_job(), candidates=CANDIDATES)
+                self.assertEqual(await harness.run(), "saved")
+                result = harness.submitted[0]["result"]
+                self.assertEqual((result["status"], result["next_question"]), ("ready", None))
+                self.assertEqual(result["scene"]["place_candidates"], [])
+                second = harness.model_requests[1]["messages"][-1]["content"][0]["text"]
+                self.assertIn("Gwanghwamun Gate (광화문)", second)
+                self.assertNotIn("37.579", second)
+
+    async def test_choice_without_distinctive_cues_is_not_suggested(self):
+        reply = choice(GATE, confidence="high")
+        reply["visual_cues"] = []
+        harness = Harness([reply], observe_job(), candidates=CANDIDATES)
+        self.assertEqual(await harness.run(), "saved")
+        result = harness.submitted[0]["result"]
+        self.assertEqual((result["status"], result["next_question"]), ("ready", None))
+        self.assertEqual(result["scene"]["place_candidates"], [])
+        prompt = harness.model_requests[0]["messages"][-1]["content"][0]["text"]
+        self.assertIn("look alike", prompt)
+
     async def test_osm_candidate_choice_is_labelled_osm(self):
-        harness = Harness([choice("osm:way:77", confidence="low")], observe_job(), candidates=CANDIDATES)
+        harness = Harness([choice("osm:way:77", confidence="low"), verify()], observe_job(), candidates=CANDIDATES)
         self.assertEqual(await harness.run(), "saved")
         scene = harness.submitted[0]["result"]["scene"]
         self.assertEqual((scene["observed_place_source"], scene["place_candidates"][0]["id"]), ("osm", "osm:way:77"))
 
     async def test_invented_candidate_is_repaired_once(self):
-        harness = Harness([choice("local:invented"), choice(PALACE)], observe_job(), candidates=CANDIDATES)
+        harness = Harness([choice("local:invented"), choice(PALACE), verify()], observe_job(), candidates=CANDIDATES)
         self.assertEqual(await harness.run(), "saved")
         self.assertIn("unknown_candidate", harness.model_requests[1]["messages"][-1]["content"])
 
@@ -187,15 +224,13 @@ class ExternalPlaceRoundTripTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual((block["evidence_ids"], block["verification"]), ([], "model_unverified"))
                 self.assertNotIn("support_quote", json.dumps(polled["result"]))
 
-    async def test_multi_sentence_and_formal_korean_are_repaired_once_then_accepted(self):
-        bad = card_reply()
-        bad["blocks"]["why_it_matters"]["text"] = "It hosted ceremonies. Think of it as the court's stage."
-        outcome, polled, stub = await self.run_once([bad, card_reply()])
+    async def test_extra_sentences_are_trimmed_without_a_repair_call(self):
+        long = card_reply()
+        long["blocks"]["why_it_matters"]["text"] = "It hosted ceremonies. Think of it as the court's stage."
+        outcome, polled, stub = await self.run_once([long])
         self.assertEqual(outcome, "saved")
-        self.assertIn("multi_sentence", stub.model_requests[1]["messages"][-1]["content"])
-        outcome, polled, stub = await self.run_once([bad, bad])  # second miss: keep the card
-        self.assertEqual(outcome, "saved")
-        self.assertEqual(len(stub.model_requests), 2)
+        self.assertEqual(len(stub.model_requests), 1)
+        self.assertEqual(polled["result"]["landmark_card"]["blocks"]["why_it_matters"]["text"], "It hosted ceremonies.")
 
     async def test_operation_facts_in_story_are_repaired(self):
         bad = card_reply()
@@ -210,13 +245,12 @@ if __name__ == "__main__":
 
 
 class CardStyleHelperTests(unittest.TestCase):
-    def test_sentence_style_and_quote_helpers(self):
-        from agent.landmark_card import FORMAL_KO, HANJA, SENTENCE_BREAK, quote_supported
+    def test_sentence_and_quote_helpers(self):
+        from agent.landmark_card import SENTENCE_BREAK, first_sentence, quote_supported
         self.assertIsNone(SENTENCE_BREAK.search("Plan between 10 a.m. and 5 p.m. on weekdays."))
-        self.assertTrue(SENTENCE_BREAK.search("덕수궁이에요. 박물관이 있어요."))
-        self.assertTrue(FORMAL_KO.search("덕수궁은 왕궁입니다."))
-        self.assertIsNone(FORMAL_KO.search("덕수궁은 왕궁이에요."))
-        self.assertTrue(HANJA.search("궁殿 내부"))
+        self.assertEqual(first_sentence("덕수궁이에요. 박물관이 있어요."), "덕수궁이에요.")
+        self.assertEqual(first_sentence("덕수궁은 궁궐입니다. 또 있습니다."), "덕수궁은 궁궐입니다.")  # ending kept
+        self.assertEqual(first_sentence("Open from 10 a.m. daily"), "Open from 10 a.m. daily")
         source = "Deoksugung is a former royal palace in Seoul. It was the main palace during the Korean Empire."
         self.assertTrue(quote_supported("“a former royal palace in Seoul.”", source))
         self.assertFalse(quote_supported("a peaceful traditional garden", source))

@@ -212,7 +212,7 @@ class AgentCultureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await harness.run(), "saved")
         result = harness.submitted[0]["result"]
         self.assertEqual(result["status"], "need_confirmation")
-        self.assertIn("Gyeongbokgung Palace", result["next_question"])
+        self.assertIn("Gyeongbokgung", result["next_question"])  # the model's own tentative name
         self.assertEqual(len(harness.model_requests), 1)
         self.assertEqual(result["claims"], [])
         self.assertEqual(result["scene"]["confirmed_place_id"], PALACE)

@@ -129,12 +129,14 @@ class ObserveDecisionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["scene"]["confirmed_place_id"], GATE)
         self.assertIn(GATE_CULTURE, {record["id"] for record in result["evidence"]})
 
-    async def test_palace_candidate_asks_canonical_name_without_search_or_confirmation(self):
+    async def test_free_recognition_name_stays_model_observation_without_catalog_candidate(self):
+        # M5 decision 1(c): a free name ("경복궁") is not mapped to local:gyeongbokgung.
         harness = Harness([observation_decision(PALACE)], observe_job())
         self.assertEqual(await harness.run(), "saved")
         result = self.assert_observation_only(harness)
-        self.assertEqual([item["id"] for item in result["scene"]["place_candidates"]], [PALACE])
-        self.assertTrue("Gyeongbokgung Palace" in result["next_question"] or "경복궁" in result["next_question"])
+        self.assertEqual(result["scene"]["place_candidates"], [])
+        self.assertEqual((result["scene"]["observed_place_name"], result["scene"]["observed_place_source"]), ("경복궁", "model"))
+        self.assertIn("경복궁", result["next_question"])
         self.assertIsNone(result["scene"]["confirmed_place_id"])
         self.assertIsNone(result["scene"]["confirmed_shop_id"])
 
