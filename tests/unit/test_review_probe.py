@@ -65,13 +65,13 @@ def client(tmp_path):
         yield test_client
 
 
-def start_review(client, condition=None):
+def start_review(client, condition=None, question=QUESTION):
     sid = session(client)
-    response = client.post("/api/reviews", json={"session_id": sid, "question": QUESTION, "condition": condition,
+    response = client.post("/api/reviews", json={"session_id": sid, "question": question, "condition": condition,
                                                  "response_language": "ko"})
     assert response.status_code == 202, response.text
     job = client.get("/worker/jobs/next", headers=AUTH).json()
-    assert job["kind"] == "review" and job["question"] == QUESTION and job["condition"] == condition
+    assert job["kind"] == "review" and job["question"] == question and job["condition"] == condition
     return response.json()["request_id"], job
 
 
@@ -377,15 +377,24 @@ def test_relevance_of_the_demo_set_for_the_ui_default_questions(question):
                         "05-visitor-forum-post.txt": True}
 
 
-def test_relevance_ignores_stopwords_and_substrings_but_keeps_short_korean_when_nothing_else():
+def test_relevance_ignores_stopwords_and_substrings_and_keeps_content_words():
     from agent.challenge import Source
     from agent.review import relevant, specific_terms
     listing = Source("input:001", "food-list.md", "0" * 64, "파도식당 밀면")
     assert not relevant("What is it?", listing)                  # "is" used to match "list"
     assert not relevant("Is there an opening?", Source("input:002", "x.md", "0" * 64, "reopen soon"))
     assert relevant("Opening hours?", Source("input:003", "x.md", "0" * 64, "Opening hours: 9-18"))
-    assert specific_terms("한복 무료?") == ["한복", "무료"]           # nothing longer: short words still count
-    assert specific_terms("해온궁 한복 무료?") == ["해온궁"]
+    assert specific_terms("한복 무료?") == ["한복", "무료"]
+    assert specific_terms("해온궁은 언제 열고, 방문 전에 무엇을 알아야 하나요?") == ["해온궁은"]  # generic words dropped
+    # A short content word next to a name still counts: the food list is relevant to a 밀면 question.
+    food = next(s for s in __import__("agent.challenge", fromlist=["load_sources"]).load_sources(DEMO_INPUT)
+                if s.path.startswith("04"))
+    assert relevant("해온궁 근처 밀면 맛집 있어?", food)
+    # English: 3-letter content words and plurals.
+    fee = Source("input:004", "x.md", "0" * 64, "Admission fee: 3,000 won. Ticket office opens at 9.")
+    assert relevant("How much is the fee?", fee)
+    assert relevant("Are tickets needed?", fee)
+    assert specific_terms("How much is the fee?") == ["fee"]
 
 
 def test_review_prompt_item_shapes_match_the_schema():
@@ -412,3 +421,19 @@ def test_review_validation_codes_reach_the_repair_turn_with_a_hint(code):
     from agent.review import ReviewAnswer
     feedback = _repair_feedback(ValueError(code), ReviewAnswer)
     assert feedback["code"] == code and "source_judgments" in feedback["hint"]
+
+
+@pytest.mark.parametrize("question", ["When is Haeon Palace open, and what should a visitor know before going?",
+                                      "해온궁은 언제 열고, 방문 전에 무엇을 알아야 하나요?"])
+def test_broker_relevance_recheck_for_the_ui_default_questions(client, question):
+    """The broker re-runs relevance with the job's own question: the food list must be irrelevant, and a worker
+    that marks it used (or marks a relevant file irrelevant) is rejected."""
+    rid, job = start_review(client, question=question)
+    accepted = submit_review_result(client, rid, job, result={"question": question})
+    assert accepted.status_code == 200, accepted.text
+    for index, change in ((3, {"verdict": "used", "reason": None}), (1, {"verdict": "excluded", "reason": "irrelevant"})):
+        rid, job = start_review(client, question=question)
+        sources = valid_exclusions(client)
+        sources[index].update(change)
+        rejected = submit_review_result(client, rid, job, result={"question": question, "sources": sources})
+        assert rejected.json()["error_code"] == "INVALID_EVIDENCE", rejected.text

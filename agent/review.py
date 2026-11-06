@@ -70,26 +70,39 @@ def as_of(text: str) -> str | None:
     return found.group(1) if found else None
 
 
-# Question words that say nothing about the subject. Without this, "is" matched "list" in a file name.
-EN_STOP = frozenset("""about after also and any are before but can could does for from going have how into its just
-know like many more much need over should some than that the then there these they this tell their what when where
-which while who why will with would your visit visiting""".split())
+# Question words that say nothing about the subject. Without this, "is" matched "list" in a file name and
+# the Korean default question's "열고" ("opens") matched an unrelated food list.
+EN_STOP = frozenset("""about after also and any are before but can could did does for from going had has have how
+into its just know like many more much need not over should some than that the then there these they this tell
+their was were what when where which while who why will with would you your visit visiting""".split())
+KO_STOP = frozenset("""언제 어디 어디서 어디에 무엇 무엇을 무엇이 뭐 뭘 뭐가 어떻게 어떤 얼마 얼마나 왜 누가 있나요 있어 있어요
+있나 있습니까 하나요 해요 돼요 되나요 알려 알려줘 알려주세요 주세요 알아야 알고 싶어요 궁금해요 전에 후에 그리고 또는
+근처 주변 정도 지금 오늘 내일 열고 닫고 가요 가나요 방문 방문할 방문하기 방문해 예정 예정이에요 하고 해서 그럼 혹시""".split())
+
+
+def _stem(word: str) -> str:
+    """English plural to its stem so 'tickets'/'hours' also match 'ticket'/'hour' at a word start."""
+    if len(word) > 4 and word.endswith("es") and word[-3] in "sxz":
+        return word[:-2]
+    return word[:-1] if len(word) > 3 and word.endswith("s") and not word.endswith("ss") else word
 
 
 def specific_terms(question: str) -> list[str]:
-    """The question's most specific words: Korean words of 3+ characters (names such as 해온궁 carry particles)
-    and English words of 4+ letters that are not stopwords. Shorter Korean words count only when the question
-    has nothing more specific, so generic verbs like 열고 ("opens") cannot make an unrelated source relevant."""
-    words = re.findall(r"[\w]+", question.casefold())
-    english = [word for word in words if word.isascii() and len(word) > 3 and word not in EN_STOP and not word.isdigit()]
-    korean = [word for word in words if not word.isascii()]
-    long_korean = [word for word in korean if len(word) > 2]
-    return english + (long_korean or [word for word in korean if len(word) > 1])
+    """The question's content words: English words of 3+ letters that are not stopwords (plural-stemmed) and
+    Korean words of 2+ characters that are not generic question/verb words (KO_STOP)."""
+    terms = []
+    for word in re.findall(r"[\w]+", question.casefold()):
+        if word.isascii():
+            if len(word) > 2 and word not in EN_STOP and not word.isdigit():
+                terms.append(_stem(word))
+        elif len(word) > 1 and word not in KO_STOP:
+            terms.append(word)
+    return list(dict.fromkeys(terms))
 
 
 def relevant(question: str, source: Source) -> bool:
-    """Deterministic, lexical: a specific question term appears in the path or text. English terms match at a word
-    start; Korean terms also match by a 3-character stem, because particles attach to names (해온궁은 -> 해온궁)."""
+    """Deterministic, lexical: a content word of the question appears in the path or text. English terms match at
+    a word start; Korean terms also match by a 3-character stem, because particles attach to names (해온궁은 -> 해온궁)."""
     searchable = (source.path + " " + source.text).casefold()
     for term in specific_terms(question):
         if term.isascii():

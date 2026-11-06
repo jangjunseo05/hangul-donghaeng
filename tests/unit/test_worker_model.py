@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 import os
+import time
 import unittest
 from unittest import mock
 
@@ -10,7 +11,7 @@ import httpx
 from fastapi.testclient import TestClient
 
 from agent.core import ModelSession
-from agent.worker import Config
+from agent.worker import Config, broker_headers
 from service.main import create_app
 from test_agent import Harness, decision, draft
 
@@ -76,6 +77,23 @@ class ThinkingTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIs(Config.from_env().disable_thinking, expected)
 
 
+class BrokerHeaderTests(unittest.TestCase):
+    def test_worker_sends_its_labels_and_omits_an_unusable_model_id(self):
+        config = Config("http://127.0.0.1:8000", "tok", "key", model="nvidia/some-model", run_context="local-dev")
+        config.disable_thinking = True
+        self.assertEqual(broker_headers(config), {"Authorization": "Bearer tok", "X-Worker-Model": "nvidia/some-model",
+                                                  "X-Worker-Thinking": "disabled", "X-Worker-Context": "local-dev"})
+        config.model = "bad model<id>"
+        self.assertNotIn("X-Worker-Model", broker_headers(config))
+        self.assertNotIn("key", json.dumps(broker_headers(config)))  # the model key never goes to the broker
+
+    def test_challenge_runner_reads_the_same_flag(self):
+        from agent.challenge import _config
+        for value, expected in (("", False), ("true", True)):
+            with mock.patch.dict(os.environ, {"NVIDIA_DISABLE_THINKING": value}, clear=True):
+                self.assertIs(_config().disable_thinking, expected)
+
+
 class HealthWorkerModelTests(unittest.TestCase):
     def setUp(self):
         import tempfile
@@ -97,6 +115,15 @@ class HealthWorkerModelTests(unittest.TestCase):
             # Older worker without the header: back to unknown, never a stale or invented name.
             client.get("/worker/jobs/next", headers=AUTH)
             self.assertIsNone(client.get("/api/health").json()["worker_model"])
+
+    def test_label_is_hidden_once_the_worker_is_no_longer_connected(self):
+        with TestClient(self.app) as client:
+            client.get("/worker/jobs/next", headers={**AUTH, "X-Worker-Model": "m-1", "X-Worker-Context": "local-dev"})
+            self.assertEqual(client.get("/api/health").json()["worker_model"]["id"], "m-1")
+            with mock.patch("service.main.time.monotonic", return_value=time.monotonic() + 10_000):
+                health = client.get("/api/health").json()
+            self.assertIs(health["worker_connected"], False)
+            self.assertIsNone(health["worker_model"])
 
     def test_unauthenticated_or_malformed_reports_are_ignored(self):
         with TestClient(self.app) as client:

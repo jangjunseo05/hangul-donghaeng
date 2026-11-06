@@ -197,14 +197,21 @@ async def handle_job(job, api, model, run_context="unknown"):
     return code
 
 
+def broker_headers(config: Config) -> dict[str, str]:
+    """Worker -> broker headers. The X-Worker-* labels are self-reported (health.worker_model); an unusable
+    model ID is left out so the broker reports null rather than a made-up name."""
+    headers = {"Authorization": "Bearer " + config.worker_token,
+               "X-Worker-Thinking": "disabled" if config.disable_thinking else "default",
+               "X-Worker-Context": config.run_context}
+    if ID_MODEL.fullmatch(config.model):
+        headers["X-Worker-Model"] = config.model
+    return headers
+
+
 async def run(config: Config, once=False):
     config.validate()
     async with httpx.AsyncClient(base_url=config.server_url.rstrip("/") + "/",
-            headers={"Authorization": "Bearer " + config.worker_token,
-                     # Self-reported, shown in health so the UI can name the model actually configured.
-                     "X-Worker-Model": config.model if ID_MODEL.fullmatch(config.model) else "unrecognized",
-                     "X-Worker-Thinking": "disabled" if config.disable_thinking else "default",
-                     "X-Worker-Context": config.run_context},
+            headers=broker_headers(config),
             follow_redirects=False) as service_client, httpx.AsyncClient(
             base_url=config.base_url.rstrip("/") + "/",
             headers=config.model_headers(),

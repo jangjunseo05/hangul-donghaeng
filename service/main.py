@@ -338,9 +338,11 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
     @app.get("/api/health")
     def health():
         # Keep a busy single worker connected through the bounded request deadline.
-        return {"status": "ok", "worker_connected": time.monotonic() - store.worker_seen < REQUEST_TIMEOUT_SECONDS + 5,
+        connected = time.monotonic() - store.worker_seen < REQUEST_TIMEOUT_SECONDS + 5
+        return {"status": "ok", "worker_connected": connected,
                 "model_configured": bool(os.getenv("NVIDIA_API_KEY")), "sandbox_verified": False,
-                "worker_model": store.worker_model,
+                # Only for a connected worker, so a stopped worker's label never lingers.
+                "worker_model": store.worker_model if connected else None,
                 "sandbox_evidence": sandbox_evidence,
                 "catalog_count": catalog.catalog_summary()["catalog_count"], "version": "0.1.0"}
 
