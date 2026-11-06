@@ -459,5 +459,12 @@ def test_catalog_lists_checked_dates_for_real_evidence_only():
 
 
 def test_evidence_observed_endpoint(client):
-    body = client.get("/api/evidence/observed").json()
+    import re as _re
+    from service import catalog
+    response = client.get("/api/evidence/observed")
+    body = response.json()
+    assert set(body) == {"evidence_observed"}
     assert body["evidence_observed"]["wikipedia:gwanghwamun"] == "2026-10-27"
+    assert all(_re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) for value in body["evidence_observed"].values())
+    for record in catalog._load("evidence.json")["real_place"]:  # only id -> date leaves; no source text
+        assert record["text"][:40] not in response.text
