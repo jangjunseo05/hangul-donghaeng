@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from agent.core import AgentError, ModelSession, execute_job
 
 ID = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
+ID_MODEL = re.compile(r"^[A-Za-z0-9_.:/-]{1,120}$")
 NVIDIA_HOST = "integrate.api.nvidia.com"
 OPENSHELL_GATEWAY = "host.openshell.internal"
 LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
@@ -51,6 +52,7 @@ class Config:
     allow_unauthenticated_local: bool = False
     allow_unauthenticated_self_hosted: bool = False
     allow_http_self_hosted: bool = False
+    disable_thinking: bool = False
 
     @classmethod
     def from_env(cls):
@@ -64,6 +66,7 @@ class Config:
         config.allow_unauthenticated_local = os.getenv("NVIDIA_ALLOW_UNAUTHENTICATED_LOCAL", "").lower() == "true"
         config.allow_unauthenticated_self_hosted = os.getenv("NVIDIA_ALLOW_UNAUTHENTICATED_SELF_HOSTED", "").lower() == "true"
         config.allow_http_self_hosted = os.getenv("NVIDIA_ALLOW_HTTP_SELF_HOSTED", "").lower() == "true"
+        config.disable_thinking = os.getenv("NVIDIA_DISABLE_THINKING", "").lower() == "true"
         config.validate()
         return config
 
@@ -197,7 +200,11 @@ async def handle_job(job, api, model, run_context="unknown"):
 async def run(config: Config, once=False):
     config.validate()
     async with httpx.AsyncClient(base_url=config.server_url.rstrip("/") + "/",
-            headers={"Authorization": "Bearer " + config.worker_token},
+            headers={"Authorization": "Bearer " + config.worker_token,
+                     # Self-reported, shown in health so the UI can name the model actually configured.
+                     "X-Worker-Model": config.model if ID_MODEL.fullmatch(config.model) else "unrecognized",
+                     "X-Worker-Thinking": "disabled" if config.disable_thinking else "default",
+                     "X-Worker-Context": config.run_context},
             follow_redirects=False) as service_client, httpx.AsyncClient(
             base_url=config.base_url.rstrip("/") + "/",
             headers=config.model_headers(),
@@ -213,7 +220,7 @@ async def run(config: Config, once=False):
                 await asyncio.sleep(2)
                 continue
             if job is not None:
-                model = ModelSession(model_client, config.model)
+                model = ModelSession(model_client, config.model, config.disable_thinking)
                 outcome = await handle_job(job, api, model, config.run_context)
                 print(json.dumps({"event": "job_finished", "outcome": outcome,
                                   "model_calls": model.calls, "run_context": config.run_context,

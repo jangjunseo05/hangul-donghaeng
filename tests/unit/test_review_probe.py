@@ -361,3 +361,54 @@ def test_markdown_line_start_syntax_is_neutralized():
     from service.main import flatten_text
     assert flatten_text(["- item", "1. step", "===", "plain - text"]) == [
         "​- item", "​1. step", "​===", "plain - text"]
+
+
+@pytest.mark.parametrize("question", [
+    "When is Haeon Palace open, and what should a visitor know before going?",  # web default (en)
+    "해온궁은 언제 열고, 방문 전에 무엇을 알아야 하나요?",                      # web default (ko): 열고 is in the food list
+    QUESTION,
+])
+def test_relevance_of_the_demo_set_for_the_ui_default_questions(question):
+    from agent.challenge import load_sources
+    from agent.review import relevant
+    verdicts = {source.path: relevant(question, source) for source in load_sources(DEMO_INPUT)}
+    assert verdicts == {"01-haeon-palace-notice-2026.md": True, "02-travel-blog-2019.md": True,
+                        "03-heritage-guide-2024.md": True, "04-seaside-food-list.md": False,
+                        "05-visitor-forum-post.txt": True}
+
+
+def test_relevance_ignores_stopwords_and_substrings_but_keeps_short_korean_when_nothing_else():
+    from agent.challenge import Source
+    from agent.review import relevant, specific_terms
+    listing = Source("input:001", "food-list.md", "0" * 64, "파도식당 밀면")
+    assert not relevant("What is it?", listing)                  # "is" used to match "list"
+    assert not relevant("Is there an opening?", Source("input:002", "x.md", "0" * 64, "reopen soon"))
+    assert relevant("Opening hours?", Source("input:003", "x.md", "0" * 64, "Opening hours: 9-18"))
+    assert specific_terms("한복 무료?") == ["한복", "무료"]           # nothing longer: short words still count
+    assert specific_terms("해온궁 한복 무료?") == ["해온궁"]
+
+
+def test_review_prompt_item_shapes_match_the_schema():
+    """The prompt spells out item shapes (a real model sent quotes as bare strings); keep them valid."""
+    import re as _re
+    from agent.review import REVIEW_SYSTEM, ReviewAnswer
+    shapes = dict(_re.findall(r"^(claims|conflicts|source_judgments): (\{.*?\})$",
+                              REVIEW_SYSTEM.replace('\n "', ' "'), _re.M))  # join continuation lines only
+    assert set(shapes) == {"claims", "conflicts", "source_judgments"}
+    shapes = {key: value.replace('"..."', '"exact text"') for key, value in shapes.items()}  # placeholders
+    quote = {"source_id": "input:002", "text": "exact text"}
+    conflict = json.loads(shapes["conflicts"].replace("[one quote object per source]", json.dumps(
+        [{"source_id": "input:001", "text": "exact text"}, quote])))
+    ReviewAnswer.model_validate({"status": "answered", "unknowns": [], "claims": [json.loads(shapes["claims"])],
+                                 "conflicts": [conflict], "source_judgments": [json.loads(shapes["source_judgments"])]})
+    assert "never a bare string" in REVIEW_SYSTEM
+
+
+@pytest.mark.parametrize("code", ["ungrounded_judgment", "judged_source_supports_claim"])
+def test_review_validation_codes_reach_the_repair_turn_with_a_hint(code):
+    """A real model failed twice with the same answer because these codes were reported as a bare
+    invalid_model_output; the repair turn must name the check and say how to fix it."""
+    from agent.core import _repair_feedback
+    from agent.review import ReviewAnswer
+    feedback = _repair_feedback(ValueError(code), ReviewAnswer)
+    assert feedback["code"] == code and "source_judgments" in feedback["hint"]

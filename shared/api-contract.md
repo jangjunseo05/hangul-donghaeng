@@ -22,6 +22,8 @@ Owner root. All routes are same-origin JSON unless stated. Browser fetch uses cr
 - `POST /api/sessions` body `{}` -> `{session_id}` and HttpOnly session cookie. Reuses a valid existing cookie. No secret token in response.
 - `GET /api/health` -> `{status, worker_connected, model_configured, sandbox_verified, catalog_count, version}`. Only actual observations may set flags true. A connected local worker does not imply OpenShell verified.
   - `sandbox_evidence`: `null` or `{scope:'stored_deployment_evidence', runtime, worker, captured_at, policy_hash, policy_loaded, boundary_verdict, boundary_sandbox, boundary_checks_passed, boundary_checks_total}`. It summarizes `docs/runtime/evidence/latest-readiness.json` (`worker`, `policy_hash`, `policy_loaded`) and `boundary-combined-verdict.json` + `boundary-matrix-01.log` (`boundary_*`) on the broker host. The boundary test was run in a controlled probe sandbox (`boundary_sandbox`), not in the product worker. It describes a past deployment, not the running worker, so `sandbox_verified` stays `false`. The UI must label it as stored evidence with its worker and date.
+  - `model_configured`: whether the **broker's** environment has `NVIDIA_API_KEY`. The model key normally lives only with the worker, so `false` does not mean the worker cannot call a model.
+  - `worker_model`: `null` or `{id, thinking:'default'|'disabled', run_context:'local-dev'|'openshell'|'unknown'}`, taken from the `X-Worker-Model` / `X-Worker-Thinking` / `X-Worker-Context` headers of the last authenticated worker call (`id` matches `^[A-Za-z0-9_.:/-]{1,120}$`, else `null`). It is the model the worker is **configured** to call, self-reported and not verified by the broker; it does not prove which model answered. `thinking:'disabled'` means the worker sends `chat_template_kwargs.enable_thinking=false` (`NVIDIA_DISABLE_THINKING=true`, off by default). `run_context` is the worker's own `RUN_CONTEXT` label: like `id` it is not proof, and `'openshell'` does not set `sandbox_verified`. The UI must not show a sandboxed state for `'local-dev'` or `'unknown'`. Workers older than this field report `null`. The UI should show this ID, not a hard-coded model name.
   - Policy summary from `latest-effective-policy.json` (worker policy, not the probe): `policy_read_only: string[]`, `policy_read_write: string[]`, `policy_network_allow: string[]` (each `METHOD :port/path`, e.g. `POST :8001/v1/chat/completions`). Everything not listed is denied by default. Show these as the stored policy of `worker`, in the past tense.
 - `POST /api/photos` multipart `file` (JPEG/PNG <=8MiB) -> `{photo_id,width,height}`; requires cookie. Server normalizes orientation/resolution and strips EXIF. Worker receives normalized bytes only.
 - `POST /api/requests` body: `{schema_version:1, session_id, question, photo_id:null|string, dataset_mode:'real_place'|'fictional_task', response_language:'en'|'ko', location:null|{lat,lng,origin:'gps'|'selected'}, radius_m:500|1000|2000|3000, confirmed_food_id:null|string, confirmed_shop_id:null|string}` -> HTTP202 `{request_id,status:'queued',poll_url}`. Unknown fields rejected. New request supersedes older queued/running work for this session. JSON errors `{error_code,detail}`.
@@ -370,7 +372,7 @@ ReviewConflict = {source_ids (≥2 distinct), quotes, reason, resolution}
 ```
 
 How each `reason` is decided:
-- `irrelevant`: no question/condition term appears in the source (deterministic).
+- `irrelevant`: no *specific* question/condition term appears in the source path or text (deterministic, lexical; `agent.review.specific_terms`). Specific terms are Korean words of 3+ characters (matched also by a 3-character stem, since particles attach to names) and English words of 4+ letters that are not stopwords, matched at a word start. Shorter Korean words count only when the question has nothing more specific. The check does not translate: an English question matches a Korean source only if the source also carries the English name, which is why the demo files name 해온궁 as "Haeon Palace".
 - `not_selected`: the source is relevant but fell outside the bounded excerpt budget.
 - `used` means the source was given to the model as evidence. It is not necessarily cited; only the claims' `source_ids` show which sources support the answer.
 - `untrusted_instruction`: the source contains instruction-like text (deterministic pattern). It is still never followed.
@@ -380,7 +382,7 @@ Broker validation (`POST /worker/review-results {session_id, request_id, result,
 - For `review-demo`, every input file must be listed, and each id/path/sha256 must match the broker's own read. Every excerpt must be exact file text.
 - The broker re-runs the deterministic rules on the demo set:
   - an instruction-like source must be `untrusted_instruction`, and only such a source may be;
-  - a source is `irrelevant` exactly when it has no question/condition term;
+  - a source is `irrelevant` exactly when it has no specific question/condition term;
   - `as_of` must equal the value read from the file.
   - `unreadable` is never valid, because the broker read every file.
   - `not_selected` is valid only for a source outside the deterministic `select_evidence` selection.

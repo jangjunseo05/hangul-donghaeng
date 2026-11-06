@@ -34,7 +34,8 @@ export type GuideRequest = {
 }
 /** Stored OpenShell deployment evidence summarized by the broker; describes a past deployment, not the running worker. */
 export type SandboxEvidence = { scope: 'stored_deployment_evidence'; runtime: string; worker: string | null; captured_at: string | null; policy_hash: string | null; policy_loaded: boolean; boundary_verdict: string | null; boundary_sandbox?: string | null; boundary_checks_passed: number; boundary_checks_total: number; policy_read_only?: string[]; policy_read_write?: string[]; policy_network_allow?: string[] }
-export type Health = { status: string; worker_connected: boolean; model_configured: boolean; sandbox_verified: boolean; sandbox_evidence?: SandboxEvidence | null; catalog_count: number; version: string }
+export type WorkerModel = { id: string; thinking: 'default' | 'disabled'; run_context: 'local-dev' | 'openshell' | 'unknown' }
+export type Health = { status: string; worker_connected: boolean; model_configured: boolean; sandbox_verified: boolean; sandbox_evidence?: SandboxEvidence | null; worker_model?: WorkerModel | null; catalog_count: number; version: string }
 /** One broker-observed step (shared/api-contract.md "Agent trace"). */
 export type TraceEvent = { t_ms: number; kind: 'broker' | 'sandbox' | 'stage' | 'tool' | 'check'; name: string; ok: boolean; detail: string | null }
 export type Job = { request_id: string; status: 'queued' | 'running' | 'completed' | 'failed' | 'superseded'; stage?: JobStage | null; trace?: TraceEvent[]; result: GuideResult | null; error_code: string | null }

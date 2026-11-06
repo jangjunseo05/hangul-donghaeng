@@ -126,7 +126,9 @@ CHECK_CODES = {"invalid_content", "unknown_food", "unknown_place", "unknown_sour
                "historical_scope_mismatch", "historical_source_mismatch", "unrelated_conflict_sources",
                "itinerary_not_requested", "fictional_start_time_unknown", "itinerary_duration_mismatch",
                "dated_source_misrepresented", "historical_uncertainty_lost",
-               "operation_in_story", "unknown_candidate"}
+               "operation_in_story", "unknown_candidate",
+               # F2 source review (agent.review.validate_review); without these the repair turn got no hint.
+               "ungrounded_judgment", "judged_source_supports_claim"}
 VALIDATION_TYPES = {"missing", "extra_forbidden", "too_long", "too_short", "string_type",
                     "string_too_long", "string_too_short", "list_type", "model_type", "literal_error",
                     "int_parsing", "int_type", "bool_parsing", "bool_type", "string_pattern_mismatch"}
@@ -143,6 +145,8 @@ REPAIR_HINTS = {
     "historical_uncertainty_lost": "1961 plaque dating is estimated. The 1987 entry is re-quoted from a ledger whose original is unverified. Preserve both limits or omit the detail.",
     "operation_in_story": "Remove opening hours, fees, closures and access from the four blocks; visit_note=null.",
     "unknown_candidate": "place_id must be exactly one listed candidate id or \"unknown\".",
+    "ungrounded_judgment": "In each source_judgments item, quote must be an object whose source_id equals that item's source_id and whose text is copied exactly from that source's excerpt.",
+    "judged_source_supports_claim": "A source listed in source_judgments must not appear in any claim's source_ids. Either drop that judgment or stop citing the source in claims; a conflict may still cite it.",
 }
 
 
@@ -234,9 +238,12 @@ Return just the requested JSON object, all specified fields, no markdown or reas
 
 
 class ModelSession:
-    def __init__(self, client: httpx.AsyncClient, model: str):
+    def __init__(self, client: httpx.AsyncClient, model: str, disable_thinking: bool = False):
         self.client = client
         self.model = model
+        # Opt-in for hosted reasoning models (e.g. local E2E with a substitute model): their chat template
+        # otherwise spends the token budget on reasoning and returns empty content. Off by default.
+        self.disable_thinking = disable_thinking
         self.calls = 0
         self.repair_used = False
 
@@ -248,7 +255,7 @@ class ModelSession:
             started = time.perf_counter()
             content = None
             finish_reason = None
-            response_model_match = False
+            response_model_match = None
             usage = {}
             error_code = "ok"
             feedback = None
@@ -257,7 +264,8 @@ class ModelSession:
                 async with asyncio.timeout(MODEL_CALL_TIMEOUT_SECONDS):
                     response = await self.client.post(
                         "chat/completions", json={"model": self.model, "messages": messages,
-                            "temperature": 0.1, "max_tokens": MODEL_MAX_TOKENS, "stream": False},
+                            "temperature": 0.1, "max_tokens": MODEL_MAX_TOKENS, "stream": False,
+                            **({"chat_template_kwargs": {"enable_thinking": False}} if self.disable_thinking else {})},
                         timeout=MODEL_CALL_TIMEOUT_SECONDS)
                 if response.status_code != 200:
                     raise AgentError("model_http_error")
@@ -311,7 +319,10 @@ class ModelSession:
                 print(json.dumps({"event": "model_call", "stage": "decision" if issubclass(schema, (Decision, VisualObservation, CandidateObservation, VerifyObservation)) else "draft",
                     "schema": schema.__name__, "call": self.calls, "error_code": error_code,
                     "validation": feedback, "finish_reason": finish_reason, "usage": usage,
-                    **({"configured_model": self.model, "response_model_match": True} if response_model_match else {}),
+                    # A mismatch is recorded as false; the untrusted response model string is never logged.
+                    **({"configured_model": self.model, "response_model_match": response_model_match}
+                       if response_model_match is not None else {}),
+                    **({"thinking_disabled": True} if self.disable_thinking else {}),
                     "elapsed_s": round(time.perf_counter() - started, 3)}, ensure_ascii=False),
                     file=sys.stderr, flush=True)
 

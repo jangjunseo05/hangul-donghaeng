@@ -110,7 +110,7 @@ class RepairTests(unittest.IsolatedAsyncioTestCase):
             self.assertGreaterEqual(event["elapsed_s"], 0)
         self.assertNotIn("SECRET_METADATA", captured.getvalue())
 
-    async def test_response_model_identity_logged_only_on_exact_match(self):
+    async def test_response_model_match_is_logged_but_untrusted_names_are_not(self):
         import httpx
         for response_model in ("stub-test-model", "UNTRUSTED_PRIVATE_MODEL", "stub-test-model-extra", None):
             harness = Harness([decision(), draft()])
@@ -128,12 +128,9 @@ class RepairTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(await harness.run(), "saved")
             for line in captured.getvalue().splitlines():
                 event = json.loads(line)
-                if response_model == "stub-test-model":
-                    self.assertEqual(event["configured_model"], "stub-test-model")
-                    self.assertIs(event["response_model_match"], True)
-                else:
-                    self.assertNotIn("configured_model", event)
-                    self.assertNotIn("response_model_match", event)
+                # Only the configured name is logged; a mismatch (or missing field) is recorded as false.
+                self.assertEqual(event["configured_model"], "stub-test-model")
+                self.assertIs(event["response_model_match"], response_model == "stub-test-model")
             self.assertNotIn("UNTRUSTED_PRIVATE_MODEL", captured.getvalue())
             self.assertNotIn("stub-test-model-extra", captured.getvalue())
 

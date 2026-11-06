@@ -44,6 +44,7 @@ CANDIDATE_OSM_BUDGET_S = 4.0
 OSM_ATTRIBUTION = "© OpenStreetMap contributors (ODbL)"
 EVIDENCE_DIR = ROOT / "docs" / "runtime" / "evidence"
 TRACE_LIMIT = 40
+WORKER_MODEL_ID = re.compile(r"^[A-Za-z0-9_.:/-]{1,120}$")
 TRACE_TERMINAL = {"grounding_check", "result_saved", "worker_failed"}
 
 
@@ -161,6 +162,7 @@ class Store:
         self.jobs: dict[str, dict] = {}
         self.photos: dict[str, dict] = {}
         self.worker_seen = 0.0
+        self.worker_model = None
         self.session_attempts: dict[str, list[float]] = {}
         self.canary_hits = 0  # requests that reached the worker-unlisted /worker/canary route
         self.runtime = runtime.resolve()
@@ -315,12 +317,21 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
             session.last_seen = now
             return session
 
-    def worker_auth(authorization: str | None = Header(default=None)):
+    def worker_auth(authorization: str | None = Header(default=None),
+                    x_worker_model: str | None = Header(default=None),
+                    x_worker_thinking: str | None = Header(default=None),
+                    x_worker_context: str | None = Header(default=None)):
         expected = f"Bearer {token}"
         if not token or not authorization or not hmac.compare_digest(authorization, expected):
             abort(401, "WORKER_AUTH_REQUIRED", "Worker authentication failed.")
         with store.lock:
             store.worker_seen = time.monotonic()
+            # Self-reported by the authenticated worker; not proof of which model answered.
+            store.worker_model = ({"id": x_worker_model, "thinking": x_worker_thinking
+                                   if x_worker_thinking in {"disabled", "default"} else "default",
+                                   "run_context": x_worker_context
+                                   if x_worker_context in {"local-dev", "openshell"} else "unknown"}
+                                  if x_worker_model and WORKER_MODEL_ID.fullmatch(x_worker_model) else None)
 
     sandbox_evidence = load_sandbox_evidence()
 
@@ -329,6 +340,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
         # Keep a busy single worker connected through the bounded request deadline.
         return {"status": "ok", "worker_connected": time.monotonic() - store.worker_seen < REQUEST_TIMEOUT_SECONDS + 5,
                 "model_configured": bool(os.getenv("NVIDIA_API_KEY")), "sandbox_verified": False,
+                "worker_model": store.worker_model,
                 "sandbox_evidence": sandbox_evidence,
                 "catalog_count": catalog.catalog_summary()["catalog_count"], "version": "0.1.0"}
 

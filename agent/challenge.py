@@ -308,6 +308,7 @@ def _config() -> Config:
                        ("allow_unauthenticated_self_hosted", "NVIDIA_ALLOW_UNAUTHENTICATED_SELF_HOSTED"),
                        ("allow_http_self_hosted", "NVIDIA_ALLOW_HTTP_SELF_HOSTED")):
         setattr(config, field, os.getenv(env, "").lower() == "true")
+    config.disable_thinking = os.getenv("NVIDIA_DISABLE_THINKING", "").lower() == "true"
     return config
 
 
@@ -320,7 +321,7 @@ async def run(question: str, input_dir: Path, output_dir: Path) -> Path:
     headers = config.model_headers()
     async with httpx.AsyncClient(base_url=config.base_url.rstrip("/") + "/", headers=headers,
                                  follow_redirects=False) as client:
-        document = await answer_question(question, sources, ModelSession(client, config.model))
+        document = await answer_question(question, sources, ModelSession(client, config.model, config.disable_thinking))
     return write_outputs(output_root, document)
 
 
