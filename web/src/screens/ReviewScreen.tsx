@@ -35,7 +35,7 @@ function SourceVerdict({ source, cited, t }: { source: ReviewSource; cited: bool
   return <li className={'review-source ' + (used ? 'used' : 'excluded') + (source.reason === 'untrusted_instruction' ? ' danger' : '')}>
     <span className="review-source-icon" aria-hidden="true">{used ? <FileCheck2 size={17}/> : source.reason === 'untrusted_instruction' ? <ShieldAlert size={17}/> : <FileX2 size={17}/>}</span>
     <div>
-      <div className="review-source-head"><strong>{fileName(source.path)}</strong><span className={'review-verdict ' + (used ? 'used' : 'excluded')}>{used ? t('Given to the model', '모델에 제공') : t('Excluded', '제외')}{reason ? ' · ' + t(reason[0], reason[1]) : ''}</span>{cited && <span className="review-cited">{t('cited', '인용됨')}</span>}</div>
+      <div className="review-source-head"><strong>{fileName(source.path)}</strong><span className={'review-verdict ' + (used ? 'used' : 'excluded')}>{used ? (cited ? t('Given to the model', '모델에 제공') : t('Given to the model · not cited', '모델에 제공 · 인용되지 않음')) : t('Excluded', '제외')}{reason ? ' · ' + t(reason[0], reason[1]) : ''}</span>{cited && <span className="review-cited">{t('cited', '인용됨')}</span>}</div>
       {reason && <p>{t(reason[2], reason[3])}</p>}
       {source.note && <p className="review-note"><b>{t("Model's reason · not an official verdict: ", '모델 판단 이유 · 공식 판정 아님: ')}</b>{source.note}</p>}
       <small>{source.as_of ? t('Dated ', '작성일 ') + source.as_of : t('No date', '날짜 없음')} · sha256 {source.sha256.slice(0, 10)}</small>

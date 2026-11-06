@@ -47,6 +47,7 @@ export function useGuide() {
   const autoReadRef = useRef(autoRead)
   autoReadRef.current = autoRead
   const [catalog, setCatalog] = useState<Catalog | null>(null)
+  const [observed, setObserved] = useState<Record<string, string>>({})
   const [catalogFailed, setCatalogFailed] = useState(false)
   const [anchor, setAnchor] = useState<CatalogPlace | null>(null)
   // Search origin survives scene changes; explicit photo identity does not.
@@ -102,6 +103,12 @@ export function useGuide() {
       if (!Array.isArray(value.places)) throw new ApiError('INVALID_RESPONSE')
       if (active) { setCatalog(value); setCatalogFailed(false) }
     }).catch(() => { if (active) setCatalogFailed(true) })
+    // Optional: a missing or malformed map just leaves sources without a checked date.
+    api.evidenceObserved().then(value => {
+      const map = value?.evidence_observed
+      if (!active || !map || typeof map !== 'object') return
+      setObserved(Object.fromEntries(Object.entries(map).filter(([, date]) => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date))))
+    }).catch(() => {})
     // A failed first session request is retried while the service is reachable (tabs wait for the cookie).
     const ensureSession = () => { if (!sessionRef.current) api.session().then(value => { if (active && typeof value.session_id === 'string') setSession(value.session_id) }).catch(() => {}) }
     const refresh = (retrySession = true) => { api.health().then(value => { if (active) { setHealth(value); setHealthFailed(false); setCheckedAt(new Date().toLocaleTimeString()); if (retrySession) ensureSession() } }).catch(() => { if (active) setHealthFailed(true) }) }
@@ -431,7 +438,7 @@ export function useGuide() {
   return {
     t, language, setLanguage, session, health, healthFailed, checkedAt, statusOpen, setStatusOpen, mode, question, photo, photoLocked, photoNotice,
     location, mapPickerOpen, setMapPickerOpen, radius, locating, locationNotice, result, stale, phase, error, copyNotice, autoRead, setAutoRead,
-    catalog, catalogFailed, anchor, automatic, automaticNotice, busy, currentResult, automaticAvailable, automaticPaused, speech, camera,
+    catalog, catalogFailed, observed, anchor, automatic, automaticNotice, busy, currentResult, automaticAvailable, automaticPaused, speech, camera,
     fileInput, cameraInput, dialog, answer, lastQuestion, phaseText, stage, awaitingAnswer, trace, resultTrace, sessionBlocked, requestKind, resultOrigin,
     editQuestion, changeAutomatic, capturePhoto, reconnect, choosePhoto, removePhoto, selectLocation, useMyLocation, changeRadius, submit,
     selectAnchor, confirmPlace, choosePlace, copyKorean, changeMode, dismissResult, stopAutomatic, prioritizeUser,

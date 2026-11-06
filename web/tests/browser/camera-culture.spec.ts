@@ -209,7 +209,7 @@ test('self-hosted worker enables automatic guidance without hosted or sandbox fl
   await startCamera(page)
   await page.getByRole('button', { name: 'Connection', exact: true }).click()
   await expect(page.locator('.health-list > div').filter({ hasText: 'Worker connected' })).toContainText('Reported')
-  await expect(page.locator('.health-list > div').filter({ hasText: 'Hosted API configuration' })).toContainText('Not confirmed')
+  await expect(page.locator('.health-list > div').filter({ hasText: 'Worker model reported' })).toContainText('Not confirmed')
   await expect(page.locator('.health-list > div').filter({ hasText: 'Live sandbox check of this worker' })).toContainText('Not confirmed')
   await expect(page.locator('.privacy-note')).toContainText('send a question or enable automatic companion')
   await expect(page.locator('.privacy-note')).toContainText('camera preview stays on this device')

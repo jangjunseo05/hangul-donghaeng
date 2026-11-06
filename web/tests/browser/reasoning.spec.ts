@@ -29,13 +29,15 @@ const result = {
   conflicts: [{ evidence_ids: ['seoul:notice-2016', 'visitkorea:gwanghwamun'], decision: 'Guard ceremony at 10:00 and 14:00 (2026 schedule)', reason: 'The 2016 notice lists an older timetable; the 2026 tourism page is newer.' }],
 }
 
-async function mockApi(page: Page, options: { holdAt?: number } = {}) {
+async function mockApi(page: Page, options: { holdAt?: number; workerModel?: unknown; evidence?: unknown; observed?: Record<string, string>; undated?: boolean } = {}) {
+  const shownResult = options.undated ? { ...result, evidence: result.evidence.map(item => item.id === 'wikipedia:Gwanghwamun' || item.id === 'seoul:notice-2016' ? { ...item, as_of: null } : item) } : result
   let polls = 0
   await page.route('**/api/**', async route => {
     const path = new URL(route.request().url()).pathname
     if (path === '/api/sessions') return route.fulfill({ json: { session_id: 's-trace' } })
-    if (path === '/api/health') return route.fulfill({ json: { status: 'ok', worker_connected: true, model_configured: true, sandbox_verified: false, sandbox_evidence: evidence, catalog_count: 3, version: 'trace-fixture' } })
+    if (path === '/api/health') return route.fulfill({ json: { status: 'ok', worker_connected: true, model_configured: true, sandbox_verified: false, sandbox_evidence: 'evidence' in options ? options.evidence : evidence, worker_model: 'workerModel' in options ? options.workerModel : { id: 'nvidia/nemotron-nano-12b-v2-vl', thinking: 'default', run_context: 'openshell' }, catalog_count: 3, version: 'trace-fixture' } })
     if (path === '/api/catalog') return route.fulfill({ json: { catalog_count: 0, scope_label: 'fixture', catalog_version: 'fixture', places: [] } })
+    if (path === '/api/evidence/observed') return route.fulfill({ json: { evidence_observed: options.observed ?? {} } })
     if (path === '/api/tts') return route.fulfill({ status: 503, json: { error_code: 'TTS_UNAVAILABLE' } })
     if (path === '/api/photos') return route.fulfill({ json: { photo_id: 'p-1', width: 1, height: 1 } })
     if (path === '/api/requests' && route.request().method() === 'POST') return route.fulfill({ status: 202, json: { request_id: 'r-trace', status: 'queued', poll_url: '/api/requests/r-trace' } })
@@ -44,7 +46,7 @@ async function mockApi(page: Page, options: { holdAt?: number } = {}) {
       const shown = Math.min(fullTrace.length, options.holdAt ?? polls * 4)
       const done = shown >= fullTrace.length && options.holdAt === undefined
       const stage = [...fullTrace.slice(0, shown)].reverse().find(event => event.kind === 'stage')?.name ?? null
-      return route.fulfill({ json: { request_id: 'r-trace', status: done ? 'completed' : 'running', stage: done ? null : stage, trace: fullTrace.slice(0, shown), result: done ? result : null, error_code: null } })
+      return route.fulfill({ json: { request_id: 'r-trace', status: done ? 'completed' : 'running', stage: done ? null : stage, trace: fullTrace.slice(0, shown), result: done ? shownResult : null, error_code: null } })
     }
     return route.fulfill({ status: 404, json: { detail: 'Not Found' } })
   })
@@ -90,7 +92,7 @@ test('U2: OpenShell badge opens the stored effective-policy summary', async ({ p
   const badge = page.locator('.sandbox-badge')
   await expect(badge).toHaveClass(/ok/)
   await expect(badge).toContainText('OpenShell sandbox')
-  await expect(badge).toContainText('Nemotron 12B VL')
+  await expect(badge).toContainText('Self-reported · nemotron-nano-12b-v2-vl')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await shot(page, 'u2-topbar', info.project.name, '.top-bar')
   await badge.click()
@@ -104,6 +106,77 @@ test('U2: OpenShell badge opens the stored effective-policy summary', async ({ p
   await expect(card).toContainText('not a live check')
   await expect(page.locator('.session-blocked')).toContainText('Broker rejected 0 app calls this session')
   await shot(page, 'u2-policy', info.project.name, '.sandbox-card')
+})
+
+test('U2: a local-dev or unlabeled worker never shows a sandbox state', async ({ page }) => {
+  await mockApi(page, { workerModel: { id: 'nvidia/nemotron-3.5-super-vl-120b-a12b', thinking: 'disabled', run_context: 'local-dev' } })
+  await page.goto('/')
+  const badge = page.locator('.sandbox-badge')
+  await expect(badge).toContainText('Local worker')
+  await expect(badge).toContainText('No sandbox · nemotron-3.5-super-vl-120b-a12b')
+  await expect(badge).not.toContainText('OpenShell')
+  await expect(badge).toHaveClass(/local/)
+  await expect(badge).not.toHaveClass(/ok/)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  // A long model ID must not push the language toggle off-screen.
+  const toggle = await page.locator('.language-toggle').boundingBox()
+  expect(toggle!.x + toggle!.width).toBeLessThanOrEqual(page.viewportSize()!.width)
+  await badge.click()
+  await expect(page.locator('.sandbox-model')).toContainText('nvidia/nemotron-3.5-super-vl-120b-a12b · reasoning mode off · label local-dev')
+  await expect(page.locator('.health-list > div').filter({ hasText: 'Worker model reported' })).toContainText('Reported')
+  // The stored PASS belongs to another deployment: not green, and said so.
+  await expect(page.locator('.sandbox-card')).not.toHaveClass(/ok/)
+  await expect(page.locator('.elsewhere-note')).toContainText('labels itself local-dev')
+  await expect(badge).toHaveAttribute('aria-label', /Local worker without a sandbox/)
+  await expect(badge).not.toHaveAttribute('aria-label', /PASS/)
+})
+
+test('U2: an explicit "unknown" label is treated like no label', async ({ page }) => {
+  await mockApi(page, { workerModel: { id: 'nvidia/nemotron-nano-12b-v2-vl', thinking: 'default', run_context: 'unknown' } })
+  await page.goto('/')
+  const badge = page.locator('.sandbox-badge')
+  await expect(badge).toContainText('Sandbox not reported · nemotron-nano-12b-v2-vl')
+  await expect(badge).not.toHaveClass(/ok/)
+  await expect(badge).not.toHaveAttribute('aria-label', /PASS/)
+  await badge.click()
+  await expect(page.locator('.sandbox-card')).not.toHaveClass(/ok/)
+  await expect(page.locator('.elsewhere-note')).toContainText('does not report a sandbox')
+})
+
+test('U2: an "openshell" worker with incomplete stored evidence stays neutral', async ({ page }) => {
+  await mockApi(page, { evidence: { ...evidence, boundary_verdict: 'FAIL', boundary_checks_passed: 9 } })
+  await page.goto('/')
+  const badge = page.locator('.sandbox-badge')
+  await expect(badge).toContainText('OpenShell sandbox')
+  await expect(badge).not.toHaveClass(/ok/)
+  await badge.click()
+  await expect(page.locator('.sandbox-card')).not.toHaveClass(/ok/)
+  await expect(page.locator('.elsewhere-note')).toHaveCount(0)
+})
+
+test('U3: an undated source shows the team check date, never as a publication date', async ({ page }) => {
+  await mockApi(page, { undated: true, observed: { 'wikipedia:Gwanghwamun': '2026-10-27', 'seoul:notice-2016': 'not-a-date', 'visitkorea:gwanghwamun': '2026-10-07' } })
+  await page.goto('/')
+  await ask(page)
+  const rows = page.locator('.trust-sources li')
+  await expect(rows.filter({ hasText: 'wikipedia.org' }).locator('.fresh-badge')).toHaveText('Checked 2026-10-27')
+  await expect(rows.filter({ hasText: 'wikipedia.org' }).locator('.fresh-badge')).toHaveClass(/checked/)
+  // A malformed checked date is dropped; a source with its own date keeps its age, never the check date.
+  await expect(rows.filter({ hasText: 'seoul.go.kr' }).locator('.fresh-badge')).toHaveText('Date not provided')
+  await expect(rows.filter({ hasText: 'visitkorea.or.kr' }).locator('.fresh-badge')).not.toHaveClass(/checked/)
+  await expect(rows.filter({ hasText: 'visitkorea.or.kr' }).locator('.fresh-badge')).not.toContainText('Checked')
+})
+
+test('U2: a worker from before worker_model is treated as unlabeled', async ({ page }) => {
+  await mockApi(page, { workerModel: null })
+  await page.goto('/')
+  const badge = page.locator('.sandbox-badge')
+  await expect(badge).toContainText('Worker connected')
+  await expect(badge).toContainText('Sandbox not reported · model not reported')
+  await expect(badge).not.toHaveClass(/ok/)
+  await badge.click()
+  await expect(page.locator('.sandbox-model')).toContainText('not reported')
+  await expect(page.locator('.health-list > div').filter({ hasText: 'Worker model reported' })).toContainText('Not confirmed')
 })
 
 test('U1/U5: live timeline advances by real phases, no fixed estimate', async ({ page }, info) => {
@@ -177,7 +250,7 @@ test('U2 live: badge and policy card from the local broker (stored evidence, no 
   const badge = page.locator('.sandbox-badge')
   // No worker on the local broker: the badge must not look like a live sandbox.
   await expect(badge).not.toHaveClass(/ok/)
-  await expect(badge).toContainText('Stored evidence · no worker')
+  await expect(badge).toContainText('No worker connected')
   const label = 'LOCAL BROKER · stored evidence (no worker)'
   await shot(page, 'live-u2-topbar', info.project.name, '.top-bar', label)
   await badge.click()

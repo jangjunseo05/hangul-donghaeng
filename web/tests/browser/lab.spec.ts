@@ -133,6 +133,9 @@ test('F2: source review lists inputs, takes an extra condition and shows per-sou
   const sources = screen.locator('.review-source')
   await expect(sources).toHaveCount(5)
   await expect(sources.nth(0)).toContainText('cited')
+  await expect(sources.nth(0)).not.toContainText('not cited')
+  // Given to the model but backing no claim: used is not cited.
+  await expect(sources.nth(2)).toContainText('Given to the model · not cited')
   await expect(sources.nth(1)).toContainText("Model's reason · not an official verdict")
   await expect(sources.nth(3)).toContainText('Irrelevant')
   await expect(sources.nth(4)).toHaveClass(/danger/)

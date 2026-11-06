@@ -109,17 +109,19 @@ export function PhraseCard({ ko, gloss, t, disabled, onListen, language }: { ko:
 /** Short label for a cited record: host for URLs, otherwise the id. */
 const recordLabel = (id: string, evidence: Evidence[]) => { const record = evidence.find(item => item.id === id); const href = record && safeSourceUrl(record.source); return href ? hostOf(href).replace(/^www\./, '') : record?.source || id }
 
-export function FreshnessBadge({ asOf, reference, type, t }: { asOf: string | null; reference: string; type: Evidence['type']; t: T }) {
+export function FreshnessBadge({ asOf, reference, type, checkedOn, t }: { asOf: string | null; reference: string; type: Evidence['type']; checkedOn?: string; t: T }) {
   if (type === 'live_statement') return <span className="fresh-badge live">{t('On-site statement', '현장 발언')}{asOf ? ' · ' + asOf : ''}</span>
   if (type === 'example') return <span className="fresh-badge example">{t('Example', '예시')}</span>
   const { level, months } = freshness(asOf, reference)
+  // No source date: show when the team last checked it (a retrieval date, never a publication date), neutral color.
+  if (asOf == null && checkedOn) return <span className="fresh-badge checked" title={t('The source states no date. This is when our team last retrieved and checked it.', '출처에 날짜가 없어요. 우리 팀이 마지막으로 조회·확인한 날짜예요.')}>{t('Checked ', '확인일 ')}{checkedOn}</span>
   if (level === 'unknown' || months === null) return <span className="fresh-badge unknown">{t('Date not provided', '날짜 미상')}</span>
   const age = months < 1 ? t('<1 mo ago', '1개월 이내') : months < 24 ? t(`${months} mo ago`, `${months}개월 전`) : t(`${Math.floor(months / 12)} yr ago`, `${Math.floor(months / 12)}년 전`)
   return <span className={'fresh-badge ' + level} title={asOf ?? undefined}>{level === 'stale' && <Info size={10}/>}{age}</span>
 }
 
 /** Trust card: conflicts resolved (A vs B → kept, why) and per-source freshness, shown outside any disclosure. */
-export function TrustCard({ evidence, conflicts, reference, checked = false, t }: { evidence: Evidence[]; conflicts: { evidence_ids: string[]; decision: string; reason: string }[]; reference: string; checked?: boolean; t: T }) {
+export function TrustCard({ evidence, conflicts, reference, checked = false, observed = {}, t }: { evidence: Evidence[]; conflicts: { evidence_ids: string[]; decision: string; reason: string }[]; reference: string; checked?: boolean; observed?: Record<string, string>; t: T }) {
   if (!evidence.length && !conflicts.length) return <p className="trust-empty">{t('No source was provided for this answer.', '이 답변에는 출처가 제공되지 않았어요.')}</p>
   return <section className="trust-card" aria-label={t('Sources and conflicts', '출처와 충돌 판정')}>
     <div className="trust-head"><ShieldCheck size={15}/><strong>{t('Why you can trust this', '믿을 수 있는 이유')}</strong>{checked && <span className="shield-tag"><ShieldCheck size={10}/>{t('broker-checked', '브로커 검증')}</span>}<small>{t(`${evidence.length} sources`, `출처 ${evidence.length}`)}{conflicts.length > 0 && t(` · ${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''}`, ` · 충돌 ${conflicts.length}`)}</small></div>
@@ -133,7 +135,7 @@ export function TrustCard({ evidence, conflicts, reference, checked = false, t }
     })}
     <ul className="trust-sources">{evidence.map(item => {
       const href = safeSourceUrl(item.source)
-      return <li key={item.id}>{href ? <a href={href} target="_blank" rel="noopener noreferrer">{hostOf(href).replace(/^www\./, '')}<ArrowUpRight size={11}/></a> : <span className="source-text">{item.source}</span>}<small className="src-type">{item.type === 'document' ? t('Document', '문서') : ''}</small><FreshnessBadge asOf={item.as_of} reference={reference} type={item.type} t={t}/></li>
+      return <li key={item.id}>{href ? <a href={href} target="_blank" rel="noopener noreferrer">{hostOf(href).replace(/^www\./, '')}<ArrowUpRight size={11}/></a> : <span className="source-text">{item.source}</span>}<small className="src-type">{item.type === 'document' ? t('Document', '문서') : ''}</small><FreshnessBadge asOf={item.as_of} reference={reference} type={item.type} checkedOn={Object.hasOwn(observed, item.id) ? observed[item.id] : undefined} t={t}/></li>
     })}</ul>
   </section>
 }

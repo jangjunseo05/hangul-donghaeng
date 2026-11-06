@@ -1,4 +1,4 @@
-import type { Catalog, GuideRequest, GuideResult, Health, Job, TraceEvent } from './types'
+import type { Catalog, EvidenceObserved, GuideRequest, GuideResult, Health, Job, TraceEvent } from './types'
 
 export class ApiError extends Error {
   constructor(public code: string, public status = 0) { super(code); this.name = 'ApiError' }
@@ -32,6 +32,8 @@ export const api = {
   session: (signal?: AbortSignal) => request<{ session_id: string }>('/api/sessions', jsonPost({}, signal)),
   health: () => request<Health>('/api/health'),
   catalog: () => request<Catalog>('/api/catalog'),
+  /** Team retrieval dates of curated evidence (not publication dates); older servers 404. */
+  evidenceObserved: () => request<EvidenceObserved>('/api/evidence/observed'),
   /** purpose 'observe' frames do not count toward the 20-photo bound (contract M2; older servers ignore the field). */
   upload: (file: File, signal?: AbortSignal, purpose: 'capture' | 'observe' = 'capture') => { const form = new FormData(); form.append('file', file); form.append('purpose', purpose); return request<{ photo_id: string; width: number; height: number }>('/api/photos', { method: 'POST', body: form, signal }) },
   submit: (body: GuideRequest, signal?: AbortSignal) => request<{ request_id: string; status: 'queued'; poll_url: string }>('/api/requests', jsonPost(body, signal)),
