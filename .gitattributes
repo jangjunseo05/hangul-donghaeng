@@ -1,2 +1,4 @@
 # Preserve evidence bytes so recorded SHA256 values survive Windows checkouts.
 docs/runtime/evidence/** -text
+# Demo review inputs are hash-checked by the broker against the worker image.
+data/review-demo/** -text

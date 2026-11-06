@@ -160,18 +160,30 @@ class WorkerAPI:
             "request_id": job["request_id"], "error_code": code, "detail": code})
 
 
-async def handle_job(job, api, model):
+async def handle_job(job, api, model, run_context="unknown"):
+    kind = job.get("kind", "guide")
     try:
         async with asyncio.timeout(JOB_TIMEOUT_SECONDS):
-            result = await execute_job(job, api, model)
-            receipt = await api.submit(job, result)
-            if receipt.get("saved") is not True:
-                raise AgentError("save_not_confirmed")
+            # Imported lazily: agent.challenge imports this module for Config.
+            if kind == "review":
+                from agent.review import run_review_job
+                await run_review_job(job, api, model)
+            elif kind == "probe":
+                from agent.probe import run_probe_job
+                await run_probe_job(job, api, run_context)
+            else:
+                result = await execute_job(job, api, model)
+                receipt = await api.submit(job, result)
+                if receipt.get("saved") is not True:
+                    raise AgentError("save_not_confirmed")
         return "saved"
     except TimeoutError:
         code = "job_timeout"
     except AgentError as exc:
         code = exc.code
+    except ValueError as exc:
+        # agent.challenge.ChallengeError carries a fixed error code; other ValueErrors are not exposed.
+        code = str(exc) if type(exc).__name__ == "ChallengeError" else "invalid_job_or_result"
     except Exception:
         code = "invalid_job_or_result"
     if code != "superseded":
@@ -202,7 +214,7 @@ async def run(config: Config, once=False):
                 continue
             if job is not None:
                 model = ModelSession(model_client, config.model)
-                outcome = await handle_job(job, api, model)
+                outcome = await handle_job(job, api, model, config.run_context)
                 print(json.dumps({"event": "job_finished", "outcome": outcome,
                                   "model_calls": model.calls, "run_context": config.run_context,
                                   "sandbox_verified": False}), flush=True)

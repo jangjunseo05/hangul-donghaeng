@@ -5,6 +5,7 @@ from collections import OrderedDict
 import hmac
 import io
 import json
+import re
 import os
 import secrets
 import threading
@@ -22,8 +23,8 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from shared.cards import build_card, catalog_card, evidence_label, has_catalog_card
 from shared.models import (Evidence, GuideRequest, GuideResult, Location, NearbyPlace, NearbyResponse, Place,
-                           PlaceCandidate, SearchRequest, TtsRequest, WikiRequest, WorkerFailure, WorkerProgress,
-                           WorkerResult)
+                           PlaceCandidate, ReviewRequest, SandboxProbeRequest, SearchRequest, TtsRequest, WikiRequest,
+                           WorkerFailure, WorkerProbeResult, WorkerProgress, WorkerResult, WorkerReviewResult)
 from service import catalog, content, tts
 from service.render import html_card, markdown_card
 
@@ -68,6 +69,25 @@ def add_trace(job: dict, kind: str, name: str, ok: bool = True, detail: str | No
 
 def error_code(exc: HTTPException) -> str:
     return exc.detail.get("error_code", "ERROR") if isinstance(exc.detail, dict) else "ERROR"
+
+
+SESSION_JOB_KEEP = 20
+
+
+MD_LINE_START = re.compile(r"^(?:[-=+*#>_~|`:]|\d+[.)])")
+
+
+def flatten_text(value):
+    """Collapse line breaks in user/model strings before Markdown rendering, and put a zero-width space in front
+    of line-start syntax (-, =, +, #, 1. ...) so a value can never become a heading, list, rule or quote."""
+    if isinstance(value, str):
+        text = " ".join(value.split())
+        return "\u200b" + text if MD_LINE_START.match(text) else text
+    if isinstance(value, list):
+        return [flatten_text(item) for item in value]
+    if isinstance(value, dict):
+        return {key: flatten_text(item) for key, item in value.items()}
+    return value
 
 
 def count_detail(count: int, noun: str, code: str | None) -> str:
@@ -142,6 +162,7 @@ class Store:
         self.photos: dict[str, dict] = {}
         self.worker_seen = 0.0
         self.session_attempts: dict[str, list[float]] = {}
+        self.canary_hits = 0  # requests that reached the worker-unlisted /worker/canary route
         self.runtime = runtime.resolve()
         self.output = Path(os.getenv("GUIDE_OUTPUT_DIR", str(self.runtime / "output"))).resolve()
         (self.runtime / "photos").mkdir(parents=True, exist_ok=True)
@@ -160,6 +181,20 @@ class Store:
                      if job["request"]["session_id"] not in expired_ids}
         self.session_attempts = {ip: recent for ip, attempts in self.session_attempts.items()
                                  if (recent := [t for t in attempts if now - t < 60])}
+
+    def prune_session_jobs(self, session_id: str, keep: int = SESSION_JOB_KEEP):
+        """Forget all but the newest `keep` finished jobs of one session (any kind), so one client cannot fill
+        JOB_LIMIT (64 sessions x 21 < 1500). The newest finished guide "ask" job is always kept, so automatic
+        observe frames never evict the answer card on screen. Saved files stay on disk."""
+        finished = sorted((job for job in self.jobs.values()
+                           if job["request"]["session_id"] == session_id and job["status"] in TERMINAL),
+                          key=lambda job: job["created"])
+        asks = [job for job in finished if job.get("kind", "guide") == "guide"
+                and job["request"].get("interaction_mode", "ask") == "ask"]
+        protected = asks[-1]["request_id"] if asks else None
+        for job in finished[:max(0, len(finished) - keep)]:
+            if job["request_id"] != protected:
+                self.jobs.pop(job["request_id"], None)
 
     def drop_photo(self, photo_id: str):
         photo = self.photos.pop(photo_id, None)
@@ -182,10 +217,12 @@ class Store:
         if job["status"] not in TERMINAL and time.monotonic() - job["created"] > REQUEST_TIMEOUT_SECONDS:
             self.finish(job, "failed", "WORKER_UNAVAILABLE" if job["status"] == "queued" else "REQUEST_TIMEOUT")
 
-    def active_job(self, sid: str, rid: str, running: bool = True) -> dict:
+    def active_job(self, sid: str, rid: str, running: bool = True, kind: str | None = "guide") -> dict:
         job = self.jobs.get(rid)
         if not job or job["request"]["session_id"] != sid:
             abort(404, "JOB_NOT_FOUND", "No job belongs to this session.")
+        if kind is not None and job.get("kind", "guide") != kind:
+            abort(409, "JOB_KIND_MISMATCH", "This endpoint does not handle this job type.")
         self.expire(job)
         session = job["session"]
         if session.active_request_id != rid or job["status"] in TERMINAL:
@@ -486,6 +523,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                 store.expire(previous)
             if body.interaction_mode == "observe" and previous and previous["status"] not in TERMINAL:
                 abort(409, "JOB_BUSY", "Wait for the current question before observing another scene.")
+            store.prune_session_jobs(session.id)
             if len(store.jobs) >= 1500:
                 abort(503, "JOB_LIMIT", "Demo capacity reached.")
             if session.history_mode != body.dataset_mode:
@@ -520,10 +558,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
     @app.get("/api/requests/{request_id}")
     def poll(request_id: str, session: Session = Depends(browser_session)):
         with store.lock:
-            job = store.jobs.get(request_id)
-            if not job or job["request"]["session_id"] != session.id:
-                abort(404, "JOB_NOT_FOUND", "No matching request.")
-            store.expire(job)
+            job = owned_job(request_id, session, "guide")
             return {**{key: job[key] for key in ("request_id", "status", "result", "error_code")},
                     "stage": job.get("stage") if job["status"] == "running" else None,
                     "trace": list(job.get("trace", []))}
@@ -537,6 +572,10 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                     job["status"] = "running"
                     add_trace(job, "sandbox", "job_claimed")
                     req = job["request"]
+                    if job.get("kind", "guide") != "guide":
+                        job["canary_start"] = store.canary_hits
+                        return {"kind": job["kind"], "session_id": req["session_id"], "request_id": job["request_id"],
+                                **{key: req[key] for key in ("question", "condition", "response_language") if key in req}}
                     return {"session_id": req["session_id"], "request_id": job["request_id"], "request": req,
                             "history": job["history"], "last_visual_observation": job.get("last_visual_observation"),
                             "confirmed_external_place": job.get("confirmed_external_place"),
@@ -668,9 +707,11 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
     @app.post("/worker/progress", dependencies=[Depends(worker_auth)])
     def report_progress(body: WorkerProgress):
         with store.lock:
-            job = store.active_job(body.session_id, body.request_id)
+            job = store.active_job(body.session_id, body.request_id, kind=None)
+            # Trace a stage only when it changes, so repeated calls cannot crowd out later events.
+            if job.get("stage") != body.stage:
+                add_trace(job, "stage", body.stage)
             job["stage"] = body.stage
-            add_trace(job, "stage", body.stage)
             return {"accepted": True}
 
     @app.post("/worker/wiki", dependencies=[Depends(worker_auth)])
@@ -823,17 +864,260 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
     @app.post("/worker/fail", dependencies=[Depends(worker_auth)])
     def fail_job(body: WorkerFailure):
         with store.lock:
-            job = store.active_job(body.session_id, body.request_id)
+            job = store.active_job(body.session_id, body.request_id, kind=None)
             store.finish(job, "failed", body.error_code)
             add_trace(job, "sandbox", "worker_failed", False, body.error_code)
             # Deliberately do not persist or echo upstream exception details.
             return {"accepted": True}
 
+    def owned_job(request_id: str, session: Session, kind: str) -> dict:
+        job = store.jobs.get(request_id)
+        if not job or job["request"]["session_id"] != session.id or job.get("kind", "guide") != kind:
+            abort(404, "JOB_NOT_FOUND", "No matching request.")
+        store.expire(job)
+        return job
+
+    def start_side_job(session: Session, kind: str, request: dict) -> dict:
+        """Queue a review/probe job; like guide requests it supersedes the session's active job."""
+        previous = store.jobs.get(session.active_request_id)
+        if previous:
+            store.expire(previous)
+            if previous["status"] not in TERMINAL:
+                if kind == "probe" and previous.get("kind") == "probe":
+                    abort(409, "JOB_BUSY", "A sandbox probe is already running.")
+                store.finish(previous, "superseded")
+        store.prune_session_jobs(session.id)
+        if len(store.jobs) >= 1500:
+            abort(503, "JOB_LIMIT", "Demo capacity reached.")
+        rid = uuid.uuid4().hex
+        session.active_request_id = rid
+        store.jobs[rid] = {"request_id": rid, "kind": kind, "request": request, "status": "queued", "result": None,
+                           "error_code": None, "created": time.monotonic(), "session": session, "stage": None}
+        add_trace(store.jobs[rid], "broker", "request_accepted")
+        return store.jobs[rid]
+
+    def side_status(job: dict) -> dict:
+        return {**{key: job[key] for key in ("request_id", "status", "result", "error_code")},
+                "trace": list(job.get("trace", []))}
+
+    demo_cache: dict = {}
+
+    def demo_sources() -> dict:
+        """The bundled demo input as read by the broker (cached; it ships with the code)."""
+        if "sources" not in demo_cache:
+            from agent.challenge import ChallengeError, load_sources
+            from agent.review import DEMO_INPUT
+            try:
+                demo_cache["sources"] = {item.id: item for item in load_sources(DEMO_INPUT)}
+            except (ChallengeError, OSError):
+                return {}
+        return demo_cache["sources"]
+
+    @app.get("/api/reviews/inputs")
+    def review_inputs(session: Session = Depends(browser_session)):
+        from agent.review import as_of
+        sources = list(demo_sources().values())
+        return {"input_label": "review-demo", "sources": [
+            {"id": item.id, "path": item.path, "sha256": item.sha256, "bytes": len(item.text.encode("utf-8")),
+             "as_of": as_of(item.text)} for item in sources]}
+
+    @app.post("/api/reviews", status_code=202)
+    def submit_review(body: ReviewRequest, session: Session = Depends(browser_session)):
+        with store.lock:
+            if body.session_id != session.id:
+                abort(403, "SESSION_MISMATCH", "Use your own session.")
+            job = start_side_job(session, "review", body.model_dump(mode="json"))
+            return {"request_id": job["request_id"], "status": "queued", "poll_url": f"/api/reviews/{job['request_id']}"}
+
+    @app.get("/api/reviews/{request_id}")
+    def poll_review(request_id: str, session: Session = Depends(browser_session)):
+        with store.lock:
+            return side_status(owned_job(request_id, session, "review"))
+
+    @app.get("/api/reviews/{request_id}/download")
+    def download_review(request_id: str, format: Literal["json", "md"] = "json", session: Session = Depends(browser_session)):
+        with store.lock:
+            job = owned_job(request_id, session, "review")
+            if job["status"] != "completed":
+                abort(404, "RESULT_NOT_FOUND", "No saved result in this session.")
+            path = store.output / job["request_id"] / f"answer.{format}"
+            media = {"json": "application/json", "md": "text/markdown"}[format]
+            return FileResponse(path, media_type=media, filename=f"hangul-donghaeng-review-{request_id}.{format}")
+
+    def check_cited(item, allowed: set, excerpt_text: dict):
+        if not set(item.source_ids) <= allowed or {quote.source_id for quote in item.quotes} != set(item.source_ids):
+            abort(422, "MISSING_EVIDENCE", "Every claim must cite considered sources with quotes.")
+        for quote in item.quotes:
+            # A quote must sit inside ONE excerpt so it cannot straddle two joined windows.
+            if not any(quote.text in chunk for chunk in excerpt_text.get(quote.source_id, [])):
+                abort(422, "MISSING_EVIDENCE", "Quotes must be exact text from the supplied excerpts.")
+
+    def validate_review(body: WorkerReviewResult, job: dict) -> bool:
+        """Validate a worker review result; returns True when the broker verified the demo input itself."""
+        from agent.challenge import select_evidence
+        from agent.review import INJECTION, as_of, relevant
+        result, req = body.result, job["request"]
+        if (result.question, result.condition) != (req["question"], req.get("condition")):
+            abort(422, "RESULT_MODE_MISMATCH", "Result does not answer the assigned question.")
+        ids = [source.id for source in result.sources]
+        if len(set(ids)) != len(ids):
+            abort(422, "INVALID_EVIDENCE", "Duplicate source IDs.")
+        used = {source.id for source in result.sources if source.verdict == "used"}
+        # Superseded sources may appear in a conflict (that is why they lost), never as claim support.
+        superseded = {source.id for source in result.sources if source.reason in {"outdated", "conflict_superseded"}}
+        excerpt_text = {}
+        for excerpt in body.excerpts:
+            if excerpt.source_id not in used | superseded:
+                abort(422, "INVALID_EVIDENCE", "Excerpts must come from considered sources.")
+            excerpt_text.setdefault(excerpt.source_id, []).append(excerpt.text)
+        full_text = {}
+        actual = demo_sources()
+        # The broker, not the worker's label, decides whether this is the demo set it can verify.
+        # Any demo file name or hash in the result means it must pass the full demo verification.
+        demo_paths = {item.path for item in actual.values()}
+        demo_hashes = {item.sha256 for item in actual.values()}
+        is_demo = (result.input_label == "review-demo"
+                   or any(s.path in demo_paths or s.sha256 in demo_hashes for s in result.sources))
+        if is_demo:
+            if not actual:
+                abort(500, "INPUT_UNAVAILABLE", "Demo input cannot be read.")
+            for source in result.sources:
+                item = actual.get(source.id)
+                if item is None or (item.path, item.sha256) != (source.path, source.sha256):
+                    abort(422, "INVALID_EVIDENCE", "Sources must match the demo input files.")
+                full_text[source.id] = item.text
+            if set(actual) != set(ids):
+                abort(422, "INVALID_EVIDENCE", "Every input file must be listed with a verdict.")
+            for excerpt in body.excerpts:
+                if excerpt.text not in full_text[excerpt.source_id]:
+                    abort(422, "INVALID_EVIDENCE", "Excerpts must be exact input text.")
+            # Re-run the deterministic rules: an injected source is never used, an off-topic one never cited.
+            search_text = req["question"] + (" " + req["condition"] if req.get("condition") else "")
+            candidates = [item for item in actual.values()
+                          if not INJECTION.search(item.text) and relevant(search_text, item)]
+            selected = ({item["source_id"] for item in select_evidence(search_text, candidates)[0]}
+                        if candidates else set())
+            for source in result.sources:
+                if source.reason == "unreadable":
+                    abort(422, "INVALID_EVIDENCE", "The broker read every demo file; none is unreadable.")
+                if source.reason == "not_selected" and source.id in selected:
+                    abort(422, "INVALID_EVIDENCE", "This source was within the excerpt budget.")
+                injected = bool(INJECTION.search(full_text[source.id]))
+                if injected != (source.reason == "untrusted_instruction"):
+                    abort(422, "INVALID_EVIDENCE", "Instruction-like sources, and only those, must be excluded as such.")
+                on_topic = relevant(search_text, actual[source.id])
+                if not injected and on_topic == (source.reason == "irrelevant"):
+                    abort(422, "INVALID_EVIDENCE", "Relevance verdicts must match the question terms.")
+                if source.as_of != as_of(full_text[source.id]):
+                    abort(422, "INVALID_EVIDENCE", "as_of must be read from the source file.")
+        elif os.getenv("REVIEW_ALLOW_EXTERNAL_INPUT", "").lower() != "true":
+            abort(422, "INVALID_EVIDENCE", "Only the bundled demo input is accepted on this broker.")
+        for claim in result.claims:
+            check_cited(claim, used, excerpt_text)
+        for conflict in result.conflicts:
+            check_cited(conflict, used | superseded, excerpt_text)
+        for conflict in result.conflicts:
+            if len(set(conflict.source_ids)) < 2:
+                abort(422, "INVALID_EVIDENCE", "A conflict needs two distinct sources.")
+        if result.status == "answered" and not result.claims:
+            abort(422, "INVALID_EVIDENCE", "An answer needs at least one claim.")
+        return is_demo
+
+    @app.post("/worker/review-results", dependencies=[Depends(worker_auth)])
+    def save_review(body: WorkerReviewResult):
+        from agent.challenge import _markdown
+        with store.lock:
+            job = store.active_job(body.session_id, body.request_id, kind="review")
+            try:
+                verified = validate_review(body, job)
+            except HTTPException as exc:
+                add_trace(job, "check", "grounding_check", False, error_code(exc))
+                raise
+            result = {**body.result.model_dump(mode="json"), "verified_input": verified}
+            used = sum(1 for source in result["sources"] if source["verdict"] == "used")
+            add_trace(job, "tool", "review_sources", detail=f"{used} used · {len(result['sources']) - used} excluded")
+            add_trace(job, "check", "grounding_check",
+                      detail=f"{used} sources · {len(result['conflicts'])} conflicts")
+            document = flatten_text({**result, "limitations": [
+                "Bounded excerpts, not an exhaustive review of every input byte.",
+                "Citation membership and exact quotes checked; semantic entailment is not mechanically proven.",
+                "Source notes are the model's stated reasons, not verified judgements.",
+                "Broker verified: input files and hashes, excerpts, instruction/relevance/date verdicts. "
+                "Not verified: claim wording and the model's outdated/superseded judgements and notes." if verified else
+                "Input files were NOT visible to the broker; quotes were checked only against worker-supplied excerpts."],
+                "sources": [{**source, "relative_path": source["path"]} for source in result["sources"]]})
+            directory = store.output / job["request_id"]
+            try:
+                directory.mkdir()
+                for name, content in (("answer.json", json.dumps(result, ensure_ascii=False, indent=2)),
+                                      ("answer.md", _markdown(document))):
+                    with (directory / name).open("x", encoding="utf-8", newline="\n") as handle:
+                        handle.write(content)
+            except (OSError, FileExistsError):
+                store.finish(job, "failed", "SAVE_FAILED")
+                abort(500, "SAVE_FAILED", "A new result could not be saved.")
+            job["result"] = result
+            store.finish(job, "completed")
+            add_trace(job, "broker", "result_saved")
+            return {"saved": True, "result_id": job["request_id"]}
+
+    @app.post("/api/sandbox-probe", status_code=202)
+    def submit_probe(body: SandboxProbeRequest, session: Session = Depends(browser_session)):
+        with store.lock:
+            if body.session_id != session.id:
+                abort(403, "SESSION_MISMATCH", "Use your own session.")
+            job = start_side_job(session, "probe", body.model_dump(mode="json"))
+            return {"request_id": job["request_id"], "status": "queued",
+                    "poll_url": f"/api/sandbox-probe/{job['request_id']}"}
+
+    @app.get("/api/sandbox-probe/{request_id}")
+    def poll_probe(request_id: str, session: Session = Depends(browser_session)):
+        with store.lock:
+            return side_status(owned_job(request_id, session, "probe"))
+
+    @app.post("/worker/canary")
+    def canary():
+        """Deliberately NOT in the worker policy allowlist. Any request that arrives here got past the sandbox.
+        No auth: a bypass without the gateway-injected token must still be counted. Anyone else hitting it
+        can only cause a false "evidence mismatch", never a false "blocked"."""
+        with store.lock:
+            store.canary_hits += 1
+            # Only a claimed, unfinished probe (its canary window is open) gets the event.
+            # One trace event per probe (the count is in broker_received), so floods cannot crowd out the
+            # per-attempt events. Cross-site POSTs from a visitor's browser can only cause "evidence mismatch".
+            for job in store.jobs.values():
+                if (job.get("kind") == "probe" and job["status"] == "running" and "canary_start" in job
+                        and not job.get("canary_traced")):
+                    job["canary_traced"] = True
+                    add_trace(job, "broker", "canary_received", False, "request reached the broker")
+            return {"received": True}
+
+    @app.post("/worker/probe-results", dependencies=[Depends(worker_auth)])
+    def save_probe(body: WorkerProbeResult):
+        with store.lock:
+            job = store.active_job(body.session_id, body.request_id, kind="probe")
+            attempts = body.result.attempts
+            if sorted(item.id for item in attempts) != sorted(
+                    ["read_outside_allowlist", "write_code_dir", "egress_unlisted_host", "broker_unlisted_path"]):
+                add_trace(job, "check", "probe_check", False, "INVALID_PROBE")
+                abort(422, "INVALID_PROBE", "Report each probe attempt exactly once.")
+            result = body.result.model_dump(mode="json")
+            received = store.canary_hits - job.get("canary_start", store.canary_hits)
+            for item in result["attempts"]:
+                # The broker's own count is authoritative for the broker path; the worker never sets it.
+                item["broker_received"] = received if item["id"] == "broker_unlisted_path" else None
+                add_trace(job, "sandbox", "probe_" + item["id"], item["observed"] == "denied", item["detail"])
+            job["result"] = result
+            store.finish(job, "completed")
+            add_trace(job, "broker", "result_saved")
+            return {"saved": True, "result_id": job["request_id"]}
+
     @app.get("/api/results/{request_id}/download")
     def download(request_id: str, format: Literal["json", "html", "md"] = "json", session: Session = Depends(browser_session)):
         with store.lock:
             job = store.jobs.get(request_id)
-            if not job or job["request"]["session_id"] != session.id or job["status"] != "completed":
+            if (not job or job["request"]["session_id"] != session.id or job["status"] != "completed"
+                    or job.get("kind", "guide") != "guide"):
                 abort(404, "RESULT_NOT_FOUND", "No saved result in this session.")
             path = store.output / job["request_id"] / f"travel-card.{format}"
             media = {"json": "application/json", "html": "text/html", "md": "text/markdown"}[format]

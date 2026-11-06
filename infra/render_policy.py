@@ -9,9 +9,12 @@ from urllib.parse import urlsplit
 PYTHON = "/usr/local/bin/python3.11"
 # progress: UI stage hint; wiki: broker-side public evidence for the job's confirmed place
 # (the worker never reaches Wikipedia/OSM itself).
+# review-results / probe-results: F2 source review and F3 sandbox probe results (broker validates and saves).
+# /worker/canary is deliberately NOT listed: the F3 probe expects OpenShell to deny it.
 WORKER_ROUTES = [("GET", "/worker/jobs/next"), ("GET", "/worker/photos/*"),
                  ("POST", "/worker/search"), ("POST", "/worker/results"), ("POST", "/worker/fail"),
-                 ("POST", "/worker/progress"), ("POST", "/worker/wiki")]
+                 ("POST", "/worker/progress"), ("POST", "/worker/wiki"),
+                 ("POST", "/worker/review-results"), ("POST", "/worker/probe-results")]
 
 def endpoint(url, *, model=False):
     p = urlsplit(url)

@@ -59,6 +59,11 @@ def main():
     for key in ("GUIDE_SERVER_URL", "NVIDIA_BASE_URL", "NVIDIA_MODEL"):
         command += ["--env", key + "=" + os.environ[key]]
     command += ["--env", "RUN_CONTEXT=openshell", "--env", "PYTHONDONTWRITEBYTECODE=1", "--env", "GUIDE_ALLOW_HTTP_OPENSHELL_GATEWAY=true"]
+    # Optional F2/F3 settings (non-secret paths/labels); forwarded only when the operator sets them.
+    # A REVIEW_INPUT_DIR outside /app still needs a read_only policy entry and a mount, approved separately.
+    for key in ("REVIEW_INPUT_DIR", "REVIEW_INPUT_LABEL", "PROBE_READ_PATH"):
+        if os.environ.get(key):
+            command += ["--env", key + "=" + os.environ[key]]
     if args.probe:
         command += ["--", "sh", "-c", "sleep 12; exec python /app/runtime_probe.py --model"]
     else:

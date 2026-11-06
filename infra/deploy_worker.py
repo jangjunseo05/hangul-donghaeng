@@ -60,6 +60,46 @@ def check(condition, reason):
         raise RuntimeError(reason)
 
 
+def with_added_routes(policy, worker, routes):
+    """Expected effective policy after adding `routes` to the worker's guide provider endpoint.
+
+    Only allow rules on that one broker endpoint may be added; nothing is removed or changed.
+    Returns (expected_policy, added_routes). Rule order is normalized so the comparison is exact.
+    """
+    expected = json.loads(json.dumps(policy))
+    group = expected["network_policies"]["_provider_" + worker.replace("-", "_") + "_guide"]
+    endpoint, = group["endpoints"]
+    present = {(rule["allow"]["method"], rule["allow"]["path"]) for rule in endpoint["rules"]}
+    added = [route for route in routes if tuple(route) not in present]
+    endpoint["rules"] = sorted(endpoint["rules"] + [{"allow": {"method": method, "path": path}} for method, path in added],
+                               key=lambda rule: (rule["allow"]["path"], rule["allow"]["method"]))
+    return expected, added
+
+
+# The only rules --allow-added-worker-routes may add. Literal paths only: a wildcard could cover /worker/canary.
+ADDABLE_ROUTES = {("POST", "/worker/progress"), ("POST", "/worker/wiki"),
+                  ("POST", "/worker/review-results"), ("POST", "/worker/probe-results")}
+
+
+def added_routes_check(actual, reference, worker, routes):
+    """The --allow-added-worker-routes acceptance rule. Returns the added routes or raises RuntimeError."""
+    expected, added = with_added_routes(reference, worker, routes)
+    check(not any("canary" in path for _, path in added), "canary route must never be allowed")
+    check(all(tuple(route) in ADDABLE_ROUTES for route in added), "only the declared F2/F3 result routes may be added")
+    check(normalized(actual) == normalized(expected), "new worker differs from reference plus declared routes")
+    return added
+
+
+def normalized(policy):
+    """Sort REST allow rules so semantically equal policies compare equal."""
+    copy = json.loads(json.dumps(policy))
+    for group in copy.get("network_policies", {}).values():
+        for endpoint in group.get("endpoints", []):
+            if "rules" in endpoint:
+                endpoint["rules"] = sorted(endpoint["rules"], key=lambda rule: (rule["allow"]["path"], rule["allow"]["method"]))
+    return copy
+
+
 def main():
     global OLD, NEW
     parser = argparse.ArgumentParser(description=__doc__)
@@ -68,6 +108,9 @@ def main():
     parser.add_argument("--reference-policy", type=Path,
                         default=ROOT / "docs/runtime/evidence/worker-04-effective-policy.json")
     parser.add_argument("--skip-security-tests", action="store_true", help="Root-authorized immediate deployment without repeating unit tests")
+    parser.add_argument("--allow-added-worker-routes", action="store_true",
+                        help="Accept a new worker whose policy equals the reference plus the WORKER_ROUTES in "
+                             "infra/render_policy.py that the reference lacks (allow rules only; recorded in the receipt)")
     parser.add_argument("--core-sha", required=True)
     parser.add_argument("--contract-sha", required=True)
     parser.add_argument("--qa-idle", action="store_true",
@@ -114,6 +157,11 @@ def main():
             run([sys.executable, "-m", "unittest", "discover", "-s", "tests/security", "-p", "test_*.py", "-v"],
                 timeout=60, log=evidence / "security-tests.log", env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
             state["security_unit_tests"] = "passed"
+        if args.allow_added_worker_routes:
+            # Captured before the source snapshot so a later edit of render_policy.py is caught by snapshot().
+            sys.path.insert(0, str(ROOT / "infra"))
+            from render_policy import WORKER_ROUTES
+            declared_routes = [tuple(route) for route in WORKER_ROUTES]
         before = snapshot()
         (evidence / "source-snapshot.json").write_text(json.dumps(before, indent=2) + "\n")
         state["stage"] = "build"
@@ -169,7 +217,11 @@ def main():
         policy_text = run(["openshell", "policy", "get", NEW, "--full", "-o", "json"])
         policy = json.loads(policy_text)
         check(policy["status"] == "effective" and policy["sandbox"] == NEW, "policy not effective")
-        check(policy["policy"] == policy_for(NEW), "new worker differs from validated reference allowlist")
+        if args.allow_added_worker_routes:
+            added = added_routes_check(policy["policy"], policy_for(NEW), NEW, declared_routes)
+            state["added_worker_routes"] = [" ".join(route) for route in added]
+        else:
+            check(policy["policy"] == policy_for(NEW), "new worker differs from validated reference allowlist")
         check(policy["hash"] in logs and "CONFIG:LOADED" in logs, "runtime policy ACK missing")
         runtime_image = run(["docker", "inspect", "--format", "{{.Image}}", current[0]]).strip()
         check(runtime_image == image_id, "running image mismatch")
@@ -178,7 +230,7 @@ def main():
         (evidence / "worker-events.jsonl").write_text(events)
         state.update(stage="READY_FOR_REVIEW", worker=NEW, core_sha256=built["core_sha256"],
                      image_id=image_id, policy_hash=policy["hash"], policy_path=str(evidence / "effective-policy.json"),
-                     single_consumer=True, same_validated_allowlist=True, reference_policy=str(reference_path), contract_sha256=args.contract_sha.lower(), docker_worker_process_visible=worker_process_visible, docker_top_header_only=top_header_only, model_generation="unverified on new worker; root QA next")
+                     single_consumer=True, same_validated_allowlist=not args.allow_added_worker_routes, reference_policy=str(reference_path), contract_sha256=args.contract_sha.lower(), docker_worker_process_visible=worker_process_visible, docker_top_header_only=top_header_only, model_generation="unverified on new worker; root QA next")
         (evidence / "receipt.json").write_text(json.dumps(state, indent=2) + "\n")
         print(json.dumps(state))
         return 0

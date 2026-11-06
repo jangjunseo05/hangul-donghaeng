@@ -11,3 +11,7 @@ One curated restaurant does not establish coverage, user demand or recommendatio
 Historical leaflet vs investigation, visit-date notice vs old blog, and different-gate route notes remain separate evidence records. Later date alone is not the decision rule. as_of=null indicates an unstated document date, not a current measurement.
 
 Sample: [Samgye tang.jpg / Brücke-Osteuropa / CC0](https://commons.wikimedia.org/wiki/File:Samgye_tang.jpg). Generic samgyetang, not a verified Tosokchon dish. The 960px Commons thumbnail was downloaded and its license/hash verified; see [sample manifest](samples/license-manifest.json). Actual model recognition remains a separate runtime check.
+
+## review-demo/
+
+F2 자료 판단 모드용 **가상 연습 자료**(실존 장소 아님 · "해온궁"). 관련·오래됨/충돌·무관·지시문 삽입 자료를 일부러 섞었다. 실제 장소 카탈로그·근거와 섞지 않는다. 계약: `shared/api-contract.md` "Source review mode".

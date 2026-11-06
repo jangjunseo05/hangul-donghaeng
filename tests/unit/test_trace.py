@@ -93,3 +93,13 @@ def test_health_evidence_is_null_when_files_are_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "EVIDENCE_DIR", tmp_path / "missing")
     with TestClient(create_app(tmp_path, worker_token="test-worker-token")) as client:
         assert client.get("/api/health").json()["sandbox_evidence"] is None
+
+
+def test_repeated_progress_does_not_flood_the_trace(app):
+    with TestClient(app) as client:
+        sid = session(client)
+        rid = new_job(client, sid)
+        client.get("/worker/jobs/next", headers=AUTH)
+        for _ in range(50):
+            client.post("/worker/progress", headers=AUTH, json={"session_id": sid, "request_id": rid, "stage": "writing"})
+        assert [e["name"] for e in trace(client, rid)].count("writing") == 1

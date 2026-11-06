@@ -40,12 +40,13 @@ export type TraceEvent = { t_ms: number; kind: 'broker' | 'sandbox' | 'stage' | 
 export type Job = { request_id: string; status: 'queued' | 'running' | 'completed' | 'failed' | 'superseded'; stage?: JobStage | null; trace?: TraceEvent[]; result: GuideResult | null; error_code: string | null }
 
 /** F2 source review mode (shared/api-contract.md "Source review mode"); draft. */
-export type ReviewExclusion = 'irrelevant' | 'outdated' | 'conflict_superseded' | 'untrusted_instruction' | 'unreadable'
+export type ReviewExclusion = 'irrelevant' | 'not_selected' | 'outdated' | 'conflict_superseded' | 'untrusted_instruction' | 'unreadable'
 export type ReviewSource = { id: string; path: string; sha256: string; as_of: string | null; verdict: 'used' | 'excluded'; reason: ReviewExclusion | null; note: string | null }
 export type ReviewQuote = { source_id: string; text: string }
 export type ReviewClaim = { text: string; source_ids: string[]; quotes: ReviewQuote[] }
 export type ReviewConflict = { source_ids: string[]; quotes: ReviewQuote[]; reason: string; resolution: string }
-export type ReviewResult = { status: 'answered' | 'insufficient_evidence'; question: string; condition: string | null; input_label: string; sources: ReviewSource[]; claims: ReviewClaim[]; conflicts: ReviewConflict[]; unknowns: string[] }
+/** verified_input is set by the broker only: true when it re-read and verified the demo files itself. */
+export type ReviewResult = { status: 'answered' | 'insufficient_evidence'; question: string; condition: string | null; input_label: string; sources: ReviewSource[]; claims: ReviewClaim[]; conflicts: ReviewConflict[]; unknowns: string[]; verified_input: boolean }
 export type ReviewInputs = { input_label: string; sources: { id: string; path: string; sha256: string; bytes: number; as_of: string | null }[] }
 export type ReviewJob = { request_id: string; status: Job['status']; trace?: TraceEvent[]; result: ReviewResult | null; error_code: string | null }
 

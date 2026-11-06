@@ -349,3 +349,103 @@ class WorkerFailure(StrictModel):
     request_id: Identifier
     error_code: Identifier
     detail: Text = ""
+
+
+# --- F2 source review mode (shared/api-contract.md "Source review mode") ---
+ReviewExclusion = Literal["irrelevant", "not_selected", "outdated", "conflict_superseded", "untrusted_instruction",
+                          "unreadable"]
+SourceId = Annotated[str, StringConstraints(pattern=r"^input:\d{3}$")]
+
+
+class ReviewRequest(StrictModel):
+    session_id: Identifier
+    question: str = Field(min_length=1, max_length=500)
+    condition: str | None = Field(default=None, max_length=300)
+    response_language: Language
+
+
+class ReviewQuote(StrictModel):
+    source_id: SourceId
+    text: str = Field(min_length=5, max_length=260)
+
+
+class ReviewClaim(StrictModel):
+    text: str = Field(min_length=1, max_length=650)
+    source_ids: list[SourceId] = Field(min_length=1, max_length=4)
+    quotes: list[ReviewQuote] = Field(min_length=1, max_length=4)
+
+
+class ReviewConflict(StrictModel):
+    source_ids: list[SourceId] = Field(min_length=2, max_length=4)
+    quotes: list[ReviewQuote] = Field(min_length=2, max_length=4)
+    reason: str = Field(min_length=1, max_length=500)
+    resolution: str = Field(min_length=1, max_length=500)
+
+
+class ReviewSource(StrictModel):
+    id: SourceId
+    path: str = Field(min_length=1, max_length=300)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    as_of: str | None = Field(default=None, max_length=40)
+    verdict: Literal["used", "excluded"]
+    reason: ReviewExclusion | None = None
+    note: str | None = Field(default=None, max_length=300)
+
+    @model_validator(mode="after")
+    def reason_matches_verdict(self):
+        if (self.verdict == "excluded") != (self.reason is not None):
+            raise ValueError("excluded sources need a reason; used sources have none")
+        return self
+
+
+class ReviewResult(StrictModel):
+    status: Literal["answered", "insufficient_evidence"]
+    question: str = Field(min_length=1, max_length=500)
+    condition: str | None = Field(default=None, max_length=300)
+    input_label: str = Field(pattern=r"^[A-Za-z0-9._-]{1,80}$")
+    sources: list[ReviewSource] = Field(min_length=1, max_length=64)
+    claims: list[ReviewClaim] = Field(max_length=5)
+    conflicts: list[ReviewConflict] = Field(max_length=4)
+    unknowns: list[Annotated[str, StringConstraints(max_length=300)]] = Field(max_length=8)
+    # Set by the broker only: true when it re-read and verified the (demo) input files itself.
+    verified_input: bool = False
+
+
+class ReviewExcerpt(StrictModel):
+    source_id: SourceId
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class WorkerReviewResult(StrictModel):
+    session_id: Identifier
+    request_id: Identifier
+    result: ReviewResult
+    excerpts: list[ReviewExcerpt] = Field(max_length=64)
+
+
+# --- F3 sandbox probe (shared/api-contract.md "Sandbox probe") ---
+ProbeAttemptId = Literal["read_outside_allowlist", "write_code_dir", "egress_unlisted_host", "broker_unlisted_path"]
+
+
+class SandboxProbeRequest(StrictModel):
+    session_id: Identifier
+
+
+class ProbeAttempt(StrictModel):
+    id: ProbeAttemptId
+    expected: Literal["denied"] = "denied"
+    observed: Literal["denied", "allowed", "error"]
+    detail: str | None = Field(default=None, max_length=80, pattern=r"^[A-Za-z0-9_.: -]*$")
+    broker_received: int | None = Field(default=None, ge=0)
+
+
+class ProbeResult(StrictModel):
+    run_context: str = Field(pattern=r"^[a-z0-9_.-]{1,40}$")
+    finished_at: datetime
+    attempts: list[ProbeAttempt] = Field(min_length=4, max_length=4)
+
+
+class WorkerProbeResult(StrictModel):
+    session_id: Identifier
+    request_id: Identifier
+    result: ProbeResult

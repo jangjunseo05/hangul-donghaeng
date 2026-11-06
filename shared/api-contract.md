@@ -225,6 +225,10 @@ Example (`shared/examples/result.observe.json`, scene only):
 
 Example: `{"request_id":"r-example","status":"running","stage":"matching","result":null,"error_code":null}`
 
+### Finished-job retention
+
+Each session keeps at most its 20 newest finished jobs (any type) in memory, plus its newest finished guide `ask` job. That ask job is always kept, so automatic observe frames never evict the answer card on screen. With the 64-session cap this stays below the global 1500-job limit. Polling or downloading an older job returns 404. Files already saved stay on disk.
+
 ### Agent trace
 
 `GET /api/requests/{id}` adds `trace: TraceEvent[]` (max 40, in order, for every status).
@@ -238,7 +242,7 @@ Example: `{"request_id":"r-example","status":"running","stage":"matching","resul
 |---|---|---|
 | `broker` | `request_accepted` | Request queued. detail `photo normalized, EXIF removed` when a photo is attached. |
 | `sandbox` | `job_claimed` | The sandboxed worker took the job (`/worker/jobs/next`). |
-| `stage` | `observing` \| `matching` \| `writing` | `/worker/progress`. |
+| `stage` | `observing` \| `matching` \| `writing` | `/worker/progress`, recorded only when the stage changes. |
 | `tool` | `catalog_search` \| `osm_live_search` \| `landmark_candidates` \| `wikipedia` | Each broker tool call. detail is `N results`/`N candidates`/`N records`, plus ` · ERROR_CODE` when an error occurs. A rejected call has `ok:false` and detail = error code (e.g. `RADIUS_MISMATCH`, `SEARCH_LIMIT`, `MODE_BOUNDARY`). |
 | `check` | `grounding_check` | `/worker/results` validation. On pass, detail is `N sources · M conflicts`. On rejection, `ok:false` and detail = error code (e.g. `INVALID_EVIDENCE`). |
 | `broker` | `result_saved` | Result stored and download cards written. |
@@ -350,26 +354,52 @@ Purpose: show, in the web UI, how the agent judges mixed input material. The mat
 
 Input set: the worker reads `REVIEW_INPUT_DIR`. The default is `/app/data/review-demo` (read-only in the image). At the event, the operator may point it to a read-only mounted `/hackathon/input`. `restricted`/`secrets` are never read (`FORBIDDEN` in challenge.py). `input_label` names the set shown to the user.
 
-- `GET /api/reviews/inputs` → `{input_label, sources:[{id, path, sha256, bytes, as_of}]}`. The listing is a broker-side read of the same demo set. It is `null` for event-mounted input that the broker cannot see.
+- `GET /api/reviews/inputs` → `{input_label:'review-demo', sources:[{id, path, sha256, bytes, as_of}]}`. This is the broker's own read of the bundled demo set (`data/review-demo`). If the worker is configured with other input (`REVIEW_INPUT_DIR`), the result's `input_label` differs. In that case, show the sources from the result rather than this listing.
 - `POST /api/reviews` with `{session_id, question (1–500 chars), condition (≤300 chars or null), response_language}` → 202 `{request_id, poll_url:"/api/reviews/{id}"}`. It shares the session's single active job: a new request supersedes the previous one.
 - `GET /api/reviews/{id}` → `{request_id, status, trace, result: ReviewResult|null, error_code}`. Status values and `trace` work as for guide requests.
 - `GET /api/reviews/{id}/download?format=json|md` returns the broker-saved files.
 
 ```
-ReviewResult = {status:'answered'|'insufficient_evidence', question, condition, input_label,
-  sources: ReviewSource[], claims: ReviewClaim[], conflicts: ReviewConflict[], unknowns: string[]}
+ReviewResult = {status:'answered'|'insufficient_evidence', question, condition, input_label /^[A-Za-z0-9._-]{1,80}$/,
+  sources: ReviewSource[], claims: ReviewClaim[], conflicts: ReviewConflict[], unknowns: string[] (each ≤300),
+  verified_input: boolean}   // set by the broker only; true = broker re-read and verified the demo files
 ReviewSource = {id:'input:001', path, sha256, as_of:string|null, verdict:'used'|'excluded',
-  reason: null|'irrelevant'|'outdated'|'conflict_superseded'|'untrusted_instruction'|'unreadable', note:string|null}
+  reason: null|'irrelevant'|'not_selected'|'outdated'|'conflict_superseded'|'untrusted_instruction'|'unreadable', note:string|null}
 ReviewClaim = {text, source_ids:string[], quotes:[{source_id, text}]}   // every quote is an exact substring of that source
 ReviewConflict = {source_ids (≥2 distinct), quotes, reason, resolution}
 ```
 
 How each `reason` is decided:
-- `irrelevant`: not selected by `select_evidence` (deterministic).
+- `irrelevant`: no question/condition term appears in the source (deterministic).
+- `not_selected`: the source is relevant but fell outside the bounded excerpt budget.
+- `used` means the source was given to the model as evidence. It is not necessarily cited; only the claims' `source_ids` show which sources support the answer.
 - `untrusted_instruction`: the source contains instruction-like text (deterministic pattern). It is still never followed.
 - `outdated` and `conflict_superseded`: decided by the model with quotes. The broker checks the quotes.
 
-Trace adds the tool names `review_sources` (detail `N used · M excluded`) and `review_model`.
+Broker validation (`POST /worker/review-results {session_id, request_id, result, excerpts:[{source_id, text}]}`):
+- For `review-demo`, every input file must be listed, and each id/path/sha256 must match the broker's own read. Every excerpt must be exact file text.
+- The broker re-runs the deterministic rules on the demo set:
+  - an instruction-like source must be `untrusted_instruction`, and only such a source may be;
+  - a source is `irrelevant` exactly when it has no question/condition term;
+  - `as_of` must equal the value read from the file.
+  - `unreadable` is never valid, because the broker read every file.
+  - `not_selected` is valid only for a source outside the deterministic `select_evidence` selection.
+- `note` is the model's stated reason. It is not verified, and the UI must label it as such.
+- The broker decides whether the input is the demo set, not the worker's label alone. The input is the demo set if the label is `review-demo` or any demo file name or hash appears, and then it must pass every demo check.
+- `verified_input` is set by the broker: `true` only for the verified demo set. The UI shows `false` as "input not verified by the broker".
+- Other input is rejected unless the broker sets `REVIEW_ALLOW_EXTERNAL_INPUT=true`. For such input the broker cannot read the files, so it checks quotes only against the submitted excerpts.
+- A quote must lie inside a single excerpt.
+- Claim quotes must be exact excerpt text from `used` sources.
+- Conflicts may also cite sources excluded as `outdated`/`conflict_superseded`. Each conflict needs two distinct sources.
+
+Trace adds the tool name `review_sources` (detail `N used · M excluded`) before `grounding_check`. Model calls are not observed by the broker.
+
+The bundled demo set is fictional ("해온궁"). It contains:
+- a 2026 official notice (relevant)
+- a 2019 blog that conflicts with and is outdated by that notice
+- a relevant heritage guide
+- an irrelevant food list
+- a forum post with injected instructions, which is excluded and never reaches the model
 
 ## Sandbox probe (F3) — draft 2026-11-06
 
@@ -390,10 +420,21 @@ What each attempt does:
 - `egress_unlisted_host`: connects to a host that is not in the policy.
 - `broker_unlisted_path`: `POST /worker/canary`, which is not in the worker allowlist. `broker_received` is the broker's own hit count for that route during this probe. With OpenShell enforcing, it must be 0.
 
-`detail` holds only an errno name or HTTP status (e.g. `EACCES`, `403`), never file contents.
+`detail` holds only an errno name, HTTP status or httpx error class (e.g. `EACCES`, `403`, `ConnectError`), never file contents.
+- Only HTTP 403 counts as `denied`. Other non-2xx statuses are `error`.
+- On egress, `ConnectError`/`ProxyError` counts as `denied` only when `run_context` is `openshell`. Outside the sandbox it is `error` (offline/DNS/firewall).
+- In the recorded OpenShell boundary test, an unlisted broker path returned `403` and an unlisted destination raised `ConnectError`. A plain network outage also raises `ConnectError`, which is why the egress rule below depends on `run_context`. Timeouts are `error`, not `denied`.
+- `broker_received` is set by the broker for `broker_unlisted_path` only (canary hits since the job was claimed). A value sent by the worker is overwritten.
+- The trace gets at most one `canary_received` event per probe. The number of hits is in `broker_received`.
+- `/worker/canary` counts requests before any auth, so a bypass without the gateway token is still counted. Unrelated hits can only cause a false "evidence mismatch", never a false "blocked".
+- The other three attempts are **worker-reported**; the UI labels them so. `run_context` must match `^[a-z0-9_.-]{1,40}$`.
+- Trace adds `canary_received` (`kind:'broker'`, `ok:false`) whenever the canary is hit during a running probe. It also adds one `probe_<attempt id>` event per attempt (`kind:'sandbox'`, `ok` = observed is `denied`).
+- A second probe while one is running returns `409 JOB_BUSY`.
 
 Interpretation for the UI:
 - All attempts `denied` and `broker_received == 0` means the sandbox blocked them.
 - Any `allowed` means the run is not sandboxed (e.g. a local worker). Show this plainly; do not hide it.
+- Any `error` means the result cannot be judged.
+- All `denied` but `broker_received > 0` or a `canary_received` trace event means the worker and broker evidence disagree. Show "cannot judge · evidence mismatch", never "blocked".
 
 `run_context` is the worker's `RUN_CONTEXT` label, which is not proof by itself. The worker policy must allow `POST /worker/probe-results` and `POST /worker/review-results`, so `infra/render_policy.py` gains these routes and the policy must be re-applied.
