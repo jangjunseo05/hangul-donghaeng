@@ -88,7 +88,7 @@ export default function LookScreen({ g, hidden }: { g: Guide; hidden: boolean })
           <button type="button" className="stage-close" onClick={() => { changeAutomatic(false); camera.stop() }} aria-label={camera.phase === 'starting' ? t('Cancel camera request', '카메라 요청 취소') : t('Stop camera', '카메라 중지')}><X size={18}/></button>
         </div>}
         {real && camera.phase === 'starting' && <p className="stage-status" role="status">{t('Waiting for camera permission…', '카메라 권한을 기다리고 있어요…')}</p>}
-        {real && live && <p className="stage-status" role="status">{automatic ? automaticPaused ? t('Paused while you ask, listen, or wait for an answer.', '질문·음성 입력·답변 중에는 잠시 기다려요.') : t('Looking for a change in the view… ask any time.', '장면이 바뀌면 살펴볼게요. 언제든 직접 물어보세요.') : t('Tap the shutter to freeze a photo, or just ask.', '셔터로 사진을 고정하거나 바로 물어보세요.')}</p>}
+        {real && live && !(automatic && busy && g.requestKind === 'observe') && <p className="stage-status" role="status">{automatic ? automaticPaused ? t('Paused while you ask, listen, or wait for an answer.', '질문·음성 입력·답변 중에는 잠시 기다려요.') : t('Looking for a change in the view… ask any time.', '장면이 바뀌면 살펴볼게요. 언제든 직접 물어보세요.') : t('Tap the shutter to freeze a photo, or just ask.', '셔터로 사진을 고정하거나 바로 물어보세요.')}</p>}
         {real && live && !automaticAvailable && <small className="stage-hint">{t('To use automatic guidance, connect your guide and release any saved photo.', '가이드에 연결하고 고정 사진을 해제하면 자동동행을 사용할 수 있어요.')}</small>}
         {camera.notice && <p className="inline-notice" role="status"><Info size={14}/>{camera.notice}</p>}
         {/* With an answer sheet up, the camera controls move to the top so the sheet never hides them. */}

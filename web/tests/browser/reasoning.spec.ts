@@ -102,7 +102,7 @@ test('U2: OpenShell badge opens the stored effective-policy summary', async ({ p
   await expect(card).toContainText('55f944108939')
   await expect(card).toContainText('probe sandbox hangul-matrix-01')
   await expect(card).toContainText('not a live check')
-  await expect(page.locator('.session-blocked')).toContainText('Broker blocked 0 calls')
+  await expect(page.locator('.session-blocked')).toContainText('Broker rejected 0 app calls this session')
   await shot(page, 'u2-policy', info.project.name, '.sandbox-card')
 })
 
@@ -147,7 +147,7 @@ test('U1/U3: answer keeps the timeline, conflicts and freshness in view', async 
   await trust.scrollIntoViewIfNeeded()
   await shot(page, 'u3-trust', info.project.name, '.trust-card')
   await page.locator('.sandbox-badge').click()
-  await expect(page.locator('.session-blocked')).toContainText('Broker blocked 1 call')
+  await expect(page.locator('.session-blocked')).toContainText('Broker rejected 1 app call this session')
   await shot(page, 'u2-policy-after-ask', info.project.name, '.status-dialog')
 })
 
@@ -170,7 +170,9 @@ test('U2 live: badge and policy card from the local broker (stored evidence, no 
   test.skip(process.env.HD_LIVE_BROKER !== '1', 'needs the local broker on :8000')
   await page.goto('/')
   const badge = page.locator('.sandbox-badge')
-  await expect(badge).toHaveClass(/ok/)
+  // No worker on the local broker: the badge must not look like a live sandbox.
+  await expect(badge).not.toHaveClass(/ok/)
+  await expect(badge).toContainText('Stored evidence · no worker')
   const label = 'LOCAL BROKER · stored evidence (no worker)'
   await shot(page, 'live-u2-topbar', info.project.name, '.top-bar', label)
   await badge.click()

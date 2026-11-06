@@ -11,7 +11,7 @@ const REASON: Record<ReviewExclusion, [string, string, string, string]> = {
   irrelevant: ['Irrelevant', '무관함', 'No question or condition term appears in it (rule, checked by the broker).', '질문·조건 단어가 하나도 없어요 (규칙 · 브로커 검사).'],
   not_selected: ['Not selected', '선택 안 됨', 'Relevant, but outside the excerpt budget.', '관련은 있지만 발췌 한도 밖이에요.'],
   outdated: ['Outdated', '오래됨', 'A newer source supersedes it (model judgement, quotes checked by the broker).', '더 새로운 자료가 대체해요 (모델 판단 · 인용은 브로커 검사).'],
-  conflict_superseded: ['Lost a conflict', '충돌에서 밀림', 'It conflicts with a stronger source (model judgement, quotes checked by the broker).', '더 믿을 만한 자료와 충돌해요 (모델 판단 · 인용은 브로커 검사).'],
+  conflict_superseded: ['Lost a conflict', '충돌로 제외', 'It conflicts with a stronger source (model judgement, quotes checked by the broker).', '더 믿을 만한 자료와 충돌해요 (모델 판단 · 인용은 브로커 검사).'],
   untrusted_instruction: ['Embedded instructions', '지시문 삽입', 'It tries to give the agent orders. Excluded and never sent to the model (rule, checked by the broker).', '에이전트에게 명령하려는 문장이 있어요. 제외했고 모델에 보내지 않았어요 (규칙 · 브로커 검사).'],
   unreadable: ['Unreadable', '읽을 수 없음', 'The file could not be read.', '파일을 읽을 수 없었어요.'],
 }
@@ -20,13 +20,13 @@ const DEFAULT_QUESTION: [string, string] = ['When is Haeon Palace open, and what
 
 function describeError(error: unknown, t: T) {
   if (error instanceof ApiError) {
-    if (error.code === 'WORKER_UNAVAILABLE') return t('No worker picked up the review. Check that the worker is running.', '자료 판단을 받은 워커가 없어요. 워커가 실행 중인지 확인해 주세요.')
+    if (error.code === 'WORKER_UNAVAILABLE') return t('No worker picked up the review. Check that the worker is running.', '자료 검토를 받은 워커가 없어요. 워커가 실행 중인지 확인해 주세요.')
     if (error.code === 'SUPERSEDED') return t('A newer request replaced this one.', '새 요청으로 바뀌었어요.')
-    if (error.code === 'TIMEOUT') return t('The review took too long. Please try again.', '자료 판단이 너무 오래 걸렸어요. 다시 시도해 주세요.')
-    if (error.status === 404 || error.status === 405) return t('This server does not offer source review yet.', '이 서버는 아직 자료 판단 모드를 지원하지 않아요.')
-    return t('The review could not finish', '자료 판단을 마치지 못했어요') + ` (${error.code}).`
+    if (error.code === 'TIMEOUT') return t('The review took too long. Please try again.', '자료 검토가 너무 오래 걸렸어요. 다시 시도해 주세요.')
+    if (error.status === 404 || error.status === 405) return t('This server does not offer source review yet.', '이 서버는 아직 자료 검토 모드를 지원하지 않아요.')
+    return t('The review could not finish', '자료 검토를 마치지 못했어요') + ` (${error.code}).`
   }
-  return t('The review could not finish.', '자료 판단을 마치지 못했어요.')
+  return t('The review could not finish.', '자료 검토를 마치지 못했어요.')
 }
 
 function SourceVerdict({ source, cited, t }: { source: ReviewSource; cited: boolean; t: T }) {
@@ -35,10 +35,10 @@ function SourceVerdict({ source, cited, t }: { source: ReviewSource; cited: bool
   return <li className={'review-source ' + (used ? 'used' : 'excluded') + (source.reason === 'untrusted_instruction' ? ' danger' : '')}>
     <span className="review-source-icon" aria-hidden="true">{used ? <FileCheck2 size={17}/> : source.reason === 'untrusted_instruction' ? <ShieldAlert size={17}/> : <FileX2 size={17}/>}</span>
     <div>
-      <div className="review-source-head"><strong>{fileName(source.path)}</strong><span className={'review-verdict ' + (used ? 'used' : 'excluded')}>{used ? t('Given to the model', '모델에 제공') : t('Excluded', '배제')}{reason ? ' · ' + t(reason[0], reason[1]) : ''}</span>{cited && <span className="review-cited">{t('cited', '인용됨')}</span>}</div>
+      <div className="review-source-head"><strong>{fileName(source.path)}</strong><span className={'review-verdict ' + (used ? 'used' : 'excluded')}>{used ? t('Given to the model', '모델에 제공') : t('Excluded', '제외')}{reason ? ' · ' + t(reason[0], reason[1]) : ''}</span>{cited && <span className="review-cited">{t('cited', '인용됨')}</span>}</div>
       {reason && <p>{t(reason[2], reason[3])}</p>}
       {source.note && <p className="review-note"><b>{t("Model's reason · not an official verdict: ", '모델 판단 이유 · 공식 판정 아님: ')}</b>{source.note}</p>}
-      <small>{source.as_of ? t('Dated ', '작성 ') + source.as_of : t('No date', '날짜 없음')} · sha256 {source.sha256.slice(0, 10)}</small>
+      <small>{source.as_of ? t('Dated ', '작성일 ') + source.as_of : t('No date', '날짜 없음')} · sha256 {source.sha256.slice(0, 10)}</small>
     </div>
   </li>
 }
@@ -48,8 +48,8 @@ function ResultView({ result, sourceName, t }: { result: ReviewResult; sourceNam
   const used = result.sources.filter(source => source.verdict === 'used').length
   return <div className="review-result">
     <div className={'review-status ' + result.status}>{result.status === 'answered' ? <ShieldCheck size={18}/> : <CircleAlert size={18}/>}
-      <div><b>{result.status === 'answered' ? t('Answered from the kept sources', '남긴 자료로 답했어요') : t('Not enough evidence to answer', '답하기에 근거가 부족해요')}</b>
-        <small>{t(`${used} given to the model · ${result.sources.length - used} excluded · ${cited.size} cited`, `모델 제공 ${used} · 배제 ${result.sources.length - used} · 인용 ${cited.size}`)}{result.condition ? t(' · with your extra condition', ' · 추가 조건 반영') : ''}</small></div>
+      <div><b>{result.status === 'answered' ? t('Answered from the sources it kept', '남긴 자료로 답했어요') : t('Not enough evidence to answer', '답하기에 근거가 부족해요')}</b>
+        <small>{t(`${used} given to the model · ${result.sources.length - used} excluded · ${cited.size} cited`, `모델 제공 ${used} · 제외 ${result.sources.length - used} · 인용 ${cited.size}`)}{result.condition ? t(' · with your extra condition', ' · 추가 조건 반영') : ''}</small></div>
       {!result.verified_input && <span className="review-unverified">{t('Input not verified by the broker', '브로커 미검증 입력')}</span>}
     </div>
     {result.claims.length > 0 && <section className="review-block"><h3>{t('Answer', '답변')}</h3>{result.claims.map((claim, index) => <div className="review-claim" key={index}>
@@ -62,7 +62,7 @@ function ResultView({ result, sourceName, t }: { result: ReviewResult; sourceNam
       <p><b>{t('Resolution: ', '판정: ')}</b>{conflict.resolution}</p>
       <small>{t('Why: ', '이유: ')}{conflict.reason}</small>
     </div>)}</section>}
-    <section className="review-block"><h3>{t('Source by source', '자료별 판정')}</h3><ul className="review-sources">{result.sources.map(source => <SourceVerdict key={source.id} source={source} cited={cited.has(source.id)} t={t}/>)}</ul></section>
+    <section className="review-block"><h3>{t('Each source', '자료별 판정')}</h3><ul className="review-sources">{result.sources.map(source => <SourceVerdict key={source.id} source={source} cited={cited.has(source.id)} t={t}/>)}</ul></section>
     {result.unknowns.length > 0 && <section className="review-block unknowns"><h3>{t('Still unknown', '아직 모르는 점')}</h3><ul>{result.unknowns.map((item, index) => <li key={index}>{item}</li>)}</ul></section>}
   </div>
 }
@@ -116,10 +116,10 @@ export default function ReviewScreen({ g, onClose }: { g: Guide; onClose(): void
   const listed = result && result.input_label !== inputs?.input_label ? result.sources : inputs?.sources ?? []
   const label = result?.input_label ?? inputs?.input_label
   const sourceName = (id: string) => fileName((result?.sources ?? inputs?.sources ?? []).find(source => source.id === id)?.path ?? id)
-  return <section className="review-screen" aria-label={t('Source review mode', '자료 판단 모드')}>
+  return <section className="review-screen" aria-label={t('Source review mode', '자료 검토 모드')}>
     <header className="review-top">
       <button type="button" ref={back} className="icon-button" onClick={onClose} aria-label={t('Back', '뒤로')}><ArrowLeft size={18}/></button>
-      <div><h2>{t('Source review mode', '자료 판단 모드')}</h2><small>{t('Which sources does the agent trust, and why?', '에이전트는 어떤 자료를 믿고, 왜 그런가요?')}</small></div>
+      <div><h2>{t('Source review mode', '자료 검토 모드')}</h2><small>{t('Which sources does the agent trust, and why?', '에이전트는 어떤 자료를 믿고, 왜 그런가요?')}</small></div>
     </header>
     <div className="review-body">
       {label === 'review-demo' && <p className="practice-banner review-banner"><FileText size={15}/><span>{t('Fictional practice material · “Haeon Palace” is not a real place. It mixes a current notice, an old blog, an unrelated list and a post with injected instructions.', '가상 연습 자료 · “해온궁”은 실제 장소가 아니에요. 최신 공지, 오래된 블로그, 무관한 목록, 지시문이 숨은 게시글이 섞여 있어요.')}</span></p>}
@@ -132,7 +132,7 @@ export default function ReviewScreen({ g, onClose }: { g: Guide; onClose(): void
         <textarea id="review-question" value={question} maxLength={500} rows={2} onChange={event => setQuestion(event.target.value)}/>
         <label htmlFor="review-condition">{t('Extra condition (optional)', '추가 조건 (선택)')}</label>
         <input id="review-condition" value={condition} maxLength={300} placeholder={t('e.g. I am visiting on a Monday with a wheelchair user', '예: 월요일에 휠체어 이용자와 함께 방문해요')} onChange={event => setCondition(event.target.value)}/>
-        <button type="button" className="button button-primary review-run" disabled={!session || running || !question.trim()} onClick={() => void run()}>{running ? <LoaderCircle className="spin" size={16}/> : <Play size={16}/>}{running ? t('Reviewing in the sandbox…', '샌드박스에서 판단 중…') : t('Review the sources', '자료 판단하기')}</button>
+        <button type="button" className="button button-primary review-run" disabled={!session || running || !question.trim()} onClick={() => void run()}>{running ? <LoaderCircle className="spin" size={16}/> : <Play size={16}/>}{running ? t('Reviewing in the sandbox…', '샌드박스에서 검토 중…') : t('Review the sources', '자료 검토하기')}</button>
       </section>
       {(running || trace.events.length > 0) && <ReasoningTimeline review live={running} follow={running} events={trace.events} startedAt={trace.startedAt} totalMs={trace.events.length ? undefined : 0} t={t}/>}
       {error && <div className="error-panel" role="alert"><CircleAlert size={18}/><div><strong>{t('Let’s try that again.', '다시 한번 해볼까요?')}</strong><p>{error}</p></div></div>}

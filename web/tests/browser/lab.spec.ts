@@ -127,7 +127,7 @@ test('F2: source review lists inputs, takes an extra condition and shows per-sou
   await shot(page, 'f2-inputs', info.project.name)
   await screen.getByRole('button', { name: 'Review the sources' }).click()
   await expect(screen.locator('.reasoning.is-live')).toBeVisible()
-  await expect(screen.locator('.review-status.answered')).toContainText('Answered from the kept sources')
+  await expect(screen.locator('.review-status.answered')).toContainText('Answered from the sources it kept')
   expect(posted[0]).toMatchObject({ session_id: 's-lab', condition: 'Visiting on a Tuesday' })
   await expect(screen.locator('.review-unverified')).toHaveCount(0)
   const sources = screen.locator('.review-source')

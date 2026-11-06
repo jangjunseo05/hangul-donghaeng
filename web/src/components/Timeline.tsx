@@ -73,7 +73,7 @@ export function ReasoningTimeline({ events, t, review = false, live = false, fol
         const [en, ko] = PHASE_LABEL[row.phase]
         const status = state === 'done' ? t('done', '완료') : state === 'now' ? t('in progress', '진행 중') : state === 'skip' ? t('not used', '사용 안 함') : t('waiting', '대기')
         return <li key={row.phase} className={'reasoning-step ' + state + (row.blocked ? ' has-blocked' : '')} aria-current={state === 'now' ? 'step' : undefined}>
-          <div className="reasoning-step-head"><span className="reasoning-dot"/><b>{t(en, ko)}</b><span className="visually-hidden">, {status}</span>{row.events.length > 0 && <span className="reasoning-ms">{formatSeconds(row.ms)}</span>}</div>
+          <div className="reasoning-step-head"><span className="reasoning-dot"/><b>{t(en, ko)}</b><span className="visually-hidden">, {status}</span>{row.events.length > 0 ? <span className="reasoning-ms">{formatSeconds(row.ms)}</span> : state === 'skip' && <span className="reasoning-ms">{t('skipped', '건너뜀')}</span>}</div>
           {row.phase === 'judge' && result && !live && <p className="reasoning-judge">{t(`${adopted} source${adopted === 1 ? '' : 's'} kept`, `출처 ${adopted}곳 채택`)}{conflicts > 0 && <> · <em>{t(`${conflicts} conflict${conflicts > 1 ? 's' : ''} resolved`, `충돌 ${conflicts}건 해결`)}</em></>}{blocked > 0 && <> · <em className="bad">{t(`${blocked} blocked`, `차단 ${blocked}건`)}</em></>}</p>}
           {row.events.length > 0 && <ul>{row.events.map((event, i) => {
             const shield = SHIELD[event.kind]
