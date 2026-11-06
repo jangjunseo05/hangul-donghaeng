@@ -917,6 +917,60 @@
       ],
       "title": "StoryBlocks",
       "type": "object"
+    },
+    "TraceEvent": {
+      "additionalProperties": false,
+      "description": "One step observed by the trusted broker (worker claims, stages, tool calls, result checks).",
+      "properties": {
+        "t_ms": {
+          "minimum": 0,
+          "title": "T Ms",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "broker",
+            "sandbox",
+            "stage",
+            "tool",
+            "check"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Name",
+          "type": "string"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        }
+      },
+      "required": [
+        "t_ms",
+        "kind",
+        "name",
+        "ok"
+      ],
+      "title": "TraceEvent",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -956,6 +1010,14 @@
       ],
       "default": null,
       "title": "Stage"
+    },
+    "trace": {
+      "items": {
+        "$ref": "#/$defs/TraceEvent"
+      },
+      "maxItems": 40,
+      "title": "Trace",
+      "type": "array"
     },
     "result": {
       "anyOf": [

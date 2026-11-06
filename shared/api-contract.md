@@ -21,6 +21,8 @@ Owner root. All routes are same-origin JSON unless stated. Browser fetch uses cr
 
 - `POST /api/sessions` body `{}` -> `{session_id}` and HttpOnly session cookie. Reuses a valid existing cookie. No secret token in response.
 - `GET /api/health` -> `{status, worker_connected, model_configured, sandbox_verified, catalog_count, version}`. Only actual observations may set flags true. A connected local worker does not imply OpenShell verified.
+  - `sandbox_evidence`: `null` or `{scope:'stored_deployment_evidence', runtime, worker, captured_at, policy_hash, policy_loaded, boundary_verdict, boundary_sandbox, boundary_checks_passed, boundary_checks_total}`. It summarizes `docs/runtime/evidence/latest-readiness.json` (`worker`, `policy_hash`, `policy_loaded`) and `boundary-combined-verdict.json` + `boundary-matrix-01.log` (`boundary_*`) on the broker host. The boundary test was run in a controlled probe sandbox (`boundary_sandbox`), not in the product worker. It describes a past deployment, not the running worker, so `sandbox_verified` stays `false`. The UI must label it as stored evidence with its worker and date.
+  - Policy summary from `latest-effective-policy.json` (worker policy, not the probe): `policy_read_only: string[]`, `policy_read_write: string[]`, `policy_network_allow: string[]` (each `METHOD :port/path`, e.g. `POST :8001/v1/chat/completions`). Everything not listed is denied by default. Show these as the stored policy of `worker`, in the past tense.
 - `POST /api/photos` multipart `file` (JPEG/PNG <=8MiB) -> `{photo_id,width,height}`; requires cookie. Server normalizes orientation/resolution and strips EXIF. Worker receives normalized bytes only.
 - `POST /api/requests` body: `{schema_version:1, session_id, question, photo_id:null|string, dataset_mode:'real_place'|'fictional_task', response_language:'en'|'ko', location:null|{lat,lng,origin:'gps'|'selected'}, radius_m:500|1000|2000|3000, confirmed_food_id:null|string, confirmed_shop_id:null|string}` -> HTTP202 `{request_id,status:'queued',poll_url}`. Unknown fields rejected. New request supersedes older queued/running work for this session. JSON errors `{error_code,detail}`.
 - `GET /api/requests/{id}` -> `{request_id,status:'queued'|'running'|'completed'|'failed'|'superseded',result:null|Result,error_code:null|string}`. Session ownership enforced. UI polls <=1sec, stops on terminal states and ignores old IDs.
@@ -222,6 +224,30 @@ Example (`shared/examples/result.observe.json`, scene only):
 - The worker reports the stage with `POST /worker/progress {session_id,request_id,stage}`. It uses the same auth and stale-job rules as `/worker/results`.
 
 Example: `{"request_id":"r-example","status":"running","stage":"matching","result":null,"error_code":null}`
+
+### Agent trace
+
+`GET /api/requests/{id}` adds `trace: TraceEvent[]` (max 40, in order, for every status).
+`TraceEvent = {t_ms, kind, name, ok, detail}`.
+- `t_ms` is the number of milliseconds since the request was accepted.
+- `detail` is a short string or null. It never contains photo bytes, credentials, model text or user questions.
+- The broker records events itself at the trust boundary. The worker cannot write trace entries directly.
+- Model calls go worker→model and are not observed. They appear only as worker-reported `stage` events.
+
+| kind | name | when |
+|---|---|---|
+| `broker` | `request_accepted` | Request queued. detail `photo normalized, EXIF removed` when a photo is attached. |
+| `sandbox` | `job_claimed` | The sandboxed worker took the job (`/worker/jobs/next`). |
+| `stage` | `observing` \| `matching` \| `writing` | `/worker/progress`. |
+| `tool` | `catalog_search` \| `osm_live_search` \| `landmark_candidates` \| `wikipedia` | Each broker tool call. detail is `N results`/`N candidates`/`N records`, plus ` · ERROR_CODE` when an error occurs. A rejected call has `ok:false` and detail = error code (e.g. `RADIUS_MISMATCH`, `SEARCH_LIMIT`, `MODE_BOUNDARY`). |
+| `check` | `grounding_check` | `/worker/results` validation. On pass, detail is `N sources · M conflicts`. On rejection, `ok:false` and detail = error code (e.g. `INVALID_EVIDENCE`). |
+| `broker` | `result_saved` | Result stored and download cards written. |
+| `sandbox` | `worker_failed` | `/worker/fail`. `ok:false`, detail = worker error code. |
+| `broker` | `trace_truncated` | Added once, `ok:false`, when non-final events would exceed the cap. The last 4 slots stay reserved for `grounding_check`, `result_saved` and `worker_failed`. |
+
+A tool call that fails during or after the lookup (job superseded or expired, lookup exception) is recorded with `ok:false` and its error code, or `LOOKUP_FAILED`.
+
+Example: `{"t_ms":4210,"kind":"tool","name":"osm_live_search","ok":true,"detail":"3 results"}`
 
 ### Observe frames vs the 20-photo bound
 

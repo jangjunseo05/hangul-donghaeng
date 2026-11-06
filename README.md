@@ -31,7 +31,7 @@
 
 ## 환경과 학습 여부
 
-실제 확인한 추론 구성은 **NVIDIA L40S · vLLM 0.12.0 · `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16` · NVIDIA OpenShell 0.1.2**입니다. 모델 호출과 경계 시험 근거는 [실측 문서](docs/runtime/SECURITY-EVIDENCE.md)에 있습니다. 이 구현은 **NIM·NeMoClaw를 사용하지 않습니다.**
+실제 확인한 추론 구성은 **NVIDIA L40S · vLLM 0.12.0 · `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-BF16` · NVIDIA OpenShell 0.1.2**입니다. 모델 호출과 경계 시험 근거는 [실측 문서](docs/runtime/SECURITY-EVIDENCE.md)에 있습니다. 음성 답변은 같은 L40S 호스트의 **NVIDIA Magpie TTS Multilingual NIM**(Speech NIM 1.10.1, [서빙 스크립트](infra/serve_magpie.sh))으로 합성하며, 설정이 없거나 실패하면 브라우저 TTS로 대체합니다. 모델 추론은 NIM이 아닌 vLLM 서빙이며 **NeMoClaw는 사용하지 않습니다.**
 
 **학습 절차: 해당 없음.** 사전 학습된 모델로 추론하며 추가 학습·미세조정·가중치 갱신은 하지 않았습니다. [카탈로그](data/catalog.json)와 [근거 자료](data/evidence.json)는 검색·응답 검증용 입력입니다. 모델 revision·서빙 이미지·옵션은 [서빙 스크립트](infra/serve_nemotron.sh), worker의 Python 3.11 환경은 [Dockerfile](infra/Dockerfile.worker)과 [고정 의존성](infra/requirements-worker.txt), Python 평가 환경은 [requirements-lock.txt](requirements-lock.txt)에 기록합니다.
 

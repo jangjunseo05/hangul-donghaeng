@@ -41,10 +41,74 @@ CANDIDATE_RADIUS_M = 1000
 # Observe waits at most this long for OSM; catalog candidates alone are enough to proceed.
 CANDIDATE_OSM_BUDGET_S = 4.0
 OSM_ATTRIBUTION = "© OpenStreetMap contributors (ODbL)"
+EVIDENCE_DIR = ROOT / "docs" / "runtime" / "evidence"
+TRACE_LIMIT = 40
+TRACE_TERMINAL = {"grounding_check", "result_saved", "worker_failed"}
 
 
 def abort(status: int, code: str, message: str):
     raise HTTPException(status, detail={"error_code": code, "detail": message})
+
+
+def add_trace(job: dict, kind: str, name: str, ok: bool = True, detail: str | None = None):
+    """Append a broker-observed step. The worker can only reach the broker and model, so every
+    tool call and result check passes here; model calls appear only as worker-reported stages."""
+    events = job.setdefault("trace", [])
+    # Keep room for the final check/save/failure so a flood of rejected calls cannot hide them.
+    if name in TRACE_TERMINAL:
+        if len(events) >= TRACE_LIMIT:
+            return
+    elif len(events) >= TRACE_LIMIT - 4:
+        return
+    elif len(events) == TRACE_LIMIT - 5:
+        kind, name, ok, detail = "broker", "trace_truncated", False, None
+    events.append({"t_ms": max(0, int((time.monotonic() - job["created"]) * 1000)),
+                   "kind": kind, "name": name, "ok": ok, "detail": detail})
+
+
+def error_code(exc: HTTPException) -> str:
+    return exc.detail.get("error_code", "ERROR") if isinstance(exc.detail, dict) else "ERROR"
+
+
+def count_detail(count: int, noun: str, code: str | None) -> str:
+    return f"{count} {noun}" + (f" · {code}" if code else "")
+
+
+def load_sandbox_evidence() -> dict | None:
+    """Summarize stored OpenShell deployment evidence. This is not a live check of the running worker."""
+    try:
+        readiness = json.loads((EVIDENCE_DIR / "latest-readiness.json").read_text(encoding="utf-8"))
+        verdict = json.loads((EVIDENCE_DIR / "boundary-combined-verdict.json").read_text(encoding="utf-8"))
+        policy = json.loads((EVIDENCE_DIR / "latest-effective-policy.json").read_text(encoding="utf-8"))
+        probe_log = (EVIDENCE_DIR / "boundary-matrix-01.log").read_text(encoding="utf-8", errors="replace")
+    except (OSError, ValueError):
+        return None
+    if not all(isinstance(item, dict) for item in (readiness, verdict, policy)):
+        return None
+    rules = policy.get("policy") if isinstance(policy.get("policy"), dict) else {}
+    files = rules.get("filesystem_policy") if isinstance(rules.get("filesystem_policy"), dict) else {}
+    allow = []
+    for group in (rules.get("network_policies") or {}).values():
+        for endpoint in (group.get("endpoints") or []) if isinstance(group, dict) else []:
+            for rule in endpoint.get("rules") or []:
+                found = (rule or {}).get("allow") or {}
+                if found.get("method") and found.get("path"):
+                    allow.append(f"{found['method']} :{endpoint.get('port')}{found['path']}")
+    probe = next((line.split(":", 1)[1].strip() for line in probe_log.splitlines()
+                  if line.startswith("Created sandbox:")), None)
+    checks = verdict.get("checks") or {}
+    policy_hash = readiness.get("effective_policy_hash")
+    return {"scope": "stored_deployment_evidence", "runtime": "OpenShell 0.1.2",
+            "worker": readiness.get("worker"), "captured_at": readiness.get("captured_at"),
+            "policy_hash": policy_hash,
+            "policy_loaded": any("CONFIG:LOADED" in line and f"hash:{policy_hash}" in line
+                                 for line in readiness.get("runtime_policy_ack", [])),
+            "boundary_verdict": verdict.get("verdict"), "boundary_sandbox": probe,
+            "boundary_checks_passed": sum(1 for value in checks.values() if value is True),
+            "boundary_checks_total": len(checks),
+            "policy_read_only": [str(path) for path in files.get("read_only", [])],
+            "policy_read_write": [str(path) for path in files.get("read_write", [])],
+            "policy_network_allow": sorted(set(allow))}
 
 
 @dataclass
@@ -221,11 +285,14 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
         with store.lock:
             store.worker_seen = time.monotonic()
 
+    sandbox_evidence = load_sandbox_evidence()
+
     @app.get("/api/health")
     def health():
         # Keep a busy single worker connected through the bounded request deadline.
         return {"status": "ok", "worker_connected": time.monotonic() - store.worker_seen < REQUEST_TIMEOUT_SECONDS + 5,
                 "model_configured": bool(os.getenv("NVIDIA_API_KEY")), "sandbox_verified": False,
+                "sandbox_evidence": sandbox_evidence,
                 "catalog_count": catalog.catalog_summary()["catalog_count"], "version": "0.1.0"}
 
     @app.get("/api/catalog")
@@ -446,6 +513,8 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                                "candidates": {}, "public_records": {}, "wiki_count": 0,
                                "confirmed_external_place": None if external is None else {
                                    key: external.get(key) for key in ("place_id", "name", "name_en", "kind", "category")}}
+            add_trace(store.jobs[rid], "broker", "request_accepted",
+                      detail="photo normalized, EXIF removed" if body.photo_id else None)
             return {"request_id": rid, "status": "queued", "poll_url": f"/api/requests/{rid}"}
 
     @app.get("/api/requests/{request_id}")
@@ -456,7 +525,8 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                 abort(404, "JOB_NOT_FOUND", "No matching request.")
             store.expire(job)
             return {**{key: job[key] for key in ("request_id", "status", "result", "error_code")},
-                    "stage": job.get("stage") if job["status"] == "running" else None}
+                    "stage": job.get("stage") if job["status"] == "running" else None,
+                    "trace": list(job.get("trace", []))}
 
     @app.get("/worker/jobs/next", dependencies=[Depends(worker_auth)])
     def next_job():
@@ -465,6 +535,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                 store.expire(job)
                 if job["status"] == "queued":
                     job["status"] = "running"
+                    add_trace(job, "sandbox", "job_claimed")
                     req = job["request"]
                     return {"session_id": req["session_id"], "request_id": job["request_id"], "request": req,
                             "history": job["history"], "last_visual_observation": job.get("last_visual_observation"),
@@ -485,31 +556,59 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
 
     @app.post("/worker/search", dependencies=[Depends(worker_auth)])
     def search(body: SearchRequest):
+        tool = ("landmark_candidates" if body.kind == "landmark" else
+                "osm_live_search" if body.live else "catalog_search")
         with store.lock:
             job = store.active_job(body.session_id, body.request_id)
-            req = job["request"]
-            if req["dataset_mode"] != "real_place":
-                abort(403, "MODE_BOUNDARY", "Fictional places cannot use real map search.")
-            if body.radius_m != req["radius_m"]:
-                abort(422, "RADIUS_MISMATCH", "Use the radius selected by the user.")
-            if body.food_id and body.food_id not in catalog.valid_food_ids():
-                abort(422, "UNKNOWN_FOOD", "Unknown food ID.")
-            if body.shop_id and not catalog.get_place(body.shop_id):
-                abort(422, "UNKNOWN_PLACE", "Unknown place ID.")
-            if job["search_count"] >= 2:
-                abort(429, "SEARCH_LIMIT", "Search limit reached.")
-            job["search_count"] += 1
-            if body.live and body.kind not in {"restaurant", "landmark"}:
-                abort(422, "SEARCH_KIND", "Live lookup supports restaurants and landmark candidates.")
-            if body.kind == "landmark" and (not body.live or body.landmark_name or body.food_id or body.shop_id):
-                abort(422, "SEARCH_KIND", "Landmark candidates use only the request location.")
-            visual = job.get("last_visual_observation") or {}
-            if body.live and body.landmark_name and body.landmark_name != visual.get("landmark_name"):
-                abort(422, "LANDMARK_CONTEXT_MISMATCH", "Use the landmark from the assigned conversation.")
-            location = req["location"]
+            try:
+                location = check_search(body, job)
+            except HTTPException as exc:
+                add_trace(job, "tool", tool, False, error_code(exc))
+                raise
         # Public map lookups must not block polling, cancellation or other sessions.
-        if body.kind == "landmark":
-            return landmark_candidates(body, location, req["response_language"])
+        try:
+            if body.kind == "landmark":
+                found = landmark_candidates(body, location, job["request"]["response_language"])
+                count, noun = len(found["candidates"]), "candidates"
+            else:
+                found = run_search(body, location, job["request"])
+                count, noun = len(found["places"]), "results"
+        except HTTPException as exc:
+            with store.lock:
+                add_trace(job, "tool", tool, False, error_code(exc))
+            raise
+        except Exception:
+            with store.lock:
+                add_trace(job, "tool", tool, False, "LOOKUP_FAILED")
+            raise
+        with store.lock:
+            add_trace(job, "tool", tool, not found.get("error_code"), count_detail(count, noun, found.get("error_code")))
+        return found
+
+    def check_search(body: SearchRequest, job: dict) -> dict | None:
+        """Validate a worker search against the assigned job; returns the request location."""
+        req = job["request"]
+        if req["dataset_mode"] != "real_place":
+            abort(403, "MODE_BOUNDARY", "Fictional places cannot use real map search.")
+        if body.radius_m != req["radius_m"]:
+            abort(422, "RADIUS_MISMATCH", "Use the radius selected by the user.")
+        if body.food_id and body.food_id not in catalog.valid_food_ids():
+            abort(422, "UNKNOWN_FOOD", "Unknown food ID.")
+        if body.shop_id and not catalog.get_place(body.shop_id):
+            abort(422, "UNKNOWN_PLACE", "Unknown place ID.")
+        if job["search_count"] >= 2:
+            abort(429, "SEARCH_LIMIT", "Search limit reached.")
+        job["search_count"] += 1
+        if body.live and body.kind not in {"restaurant", "landmark"}:
+            abort(422, "SEARCH_KIND", "Live lookup supports restaurants and landmark candidates.")
+        if body.kind == "landmark" and (not body.live or body.landmark_name or body.food_id or body.shop_id):
+            abort(422, "SEARCH_KIND", "Landmark candidates use only the request location.")
+        visual = job.get("last_visual_observation") or {}
+        if body.live and body.landmark_name and body.landmark_name != visual.get("landmark_name"):
+            abort(422, "LANDMARK_CONTEXT_MISMATCH", "Use the landmark from the assigned conversation.")
+        return req["location"]
+
+    def run_search(body: SearchRequest, location: dict | None, req: dict) -> dict:
         if body.live:
             from service.nearby import search_nearby
             found = search_nearby(landmark_name=body.landmark_name, location=location, radius_m=body.radius_m)
@@ -571,6 +670,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
         with store.lock:
             job = store.active_job(body.session_id, body.request_id)
             job["stage"] = body.stage
+            add_trace(job, "stage", body.stage)
             return {"accepted": True}
 
     @app.post("/worker/wiki", dependencies=[Depends(worker_auth)])
@@ -578,16 +678,22 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
         with store.lock:
             job = store.active_job(body.session_id, body.request_id)
             place = job.get("confirmed_external_place")
-            if job["request"]["dataset_mode"] != "real_place" or not place:
-                abort(403, "MODE_BOUNDARY", "Public evidence is only for a confirmed external place.")
-            if job["wiki_count"] >= 1:
-                abort(429, "SEARCH_LIMIT", "Public evidence lookup limit reached.")
+            try:
+                if job["request"]["dataset_mode"] != "real_place" or not place:
+                    abort(403, "MODE_BOUNDARY", "Public evidence is only for a confirmed external place.")
+                if job["wiki_count"] >= 1:
+                    abort(429, "SEARCH_LIMIT", "Public evidence lookup limit reached.")
+            except HTTPException as exc:
+                add_trace(job, "tool", "wikipedia", False, error_code(exc))
+                raise
             job["wiki_count"] += 1
             issued = job["session"].issued_places.get(place["place_id"]) or place
         from service.wiki import lookup
         found = lookup(issued, body.lang)
         with store.lock:
             job = store.active_job(body.session_id, body.request_id)
+            add_trace(job, "tool", "wikipedia", not found["error_code"],
+                      count_detail(len(found["records"]), "records", found["error_code"]))
             records = []
             for record in found["records"]:
                 evidence = Evidence.model_validate({key: record[key] for key in
@@ -671,7 +777,13 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
     def save_result(body: WorkerResult):
         with store.lock:
             job = store.active_job(body.session_id, body.request_id)
-            validate_grounding(body.result, job)
+            try:
+                validate_grounding(body.result, job)
+            except HTTPException as exc:
+                add_trace(job, "check", "grounding_check", False, error_code(exc))
+                raise
+            add_trace(job, "check", "grounding_check",
+                      detail=f"{len(body.result.evidence)} sources · {len(body.result.conflicts)} conflicts")
             result = body.result.model_dump(mode="json")
             rid = job["request_id"]
             # The worker proposes content, never filenames. Exclusive creation
@@ -689,6 +801,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
                 abort(500, "SAVE_FAILED", "A new result could not be saved.")
             job["result"] = result
             store.finish(job, "completed")
+            add_trace(job, "broker", "result_saved")
             session = job["session"]
             if job["request"].get("interaction_mode", "ask") == "observe":
                 name = body.result.scene.observed_place_name
@@ -712,6 +825,7 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
         with store.lock:
             job = store.active_job(body.session_id, body.request_id)
             store.finish(job, "failed", body.error_code)
+            add_trace(job, "sandbox", "worker_failed", False, body.error_code)
             # Deliberately do not persist or echo upstream exception details.
             return {"accepted": True}
 

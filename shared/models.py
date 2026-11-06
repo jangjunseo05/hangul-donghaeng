@@ -188,11 +188,21 @@ class GuideResult(StrictModel):
 JobStage = Literal["observing", "matching", "writing"]
 
 
+class TraceEvent(StrictModel):
+    """One step observed by the trusted broker (worker claims, stages, tool calls, result checks)."""
+    t_ms: int = Field(ge=0)
+    kind: Literal["broker", "sandbox", "stage", "tool", "check"]  # broker trace_truncated marks dropped events
+    name: Identifier
+    ok: bool
+    detail: str | None = Field(default=None, max_length=200)
+
+
 class RequestStatus(StrictModel):
     """GET /api/requests/{id}. stage is a progress hint while running, null otherwise."""
     request_id: Identifier
     status: Literal["queued", "running", "completed", "failed", "superseded"]
     stage: JobStage | None = None
+    trace: list[TraceEvent] = Field(default_factory=list, max_length=40)
     result: GuideResult | None
     error_code: Identifier | None
 
