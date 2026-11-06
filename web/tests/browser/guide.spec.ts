@@ -66,8 +66,7 @@ test('named fixture: upload, scoped request, evidence, sentence and download', a
   await expect(page.locator('.answer-text')).toContainText('Development fixture')
   expect(requests[0]).toMatchObject({ photo_id: 'fixture-photo', dataset_mode: 'real_place', location: { origin: 'selected', lat: 37.579, lng: 126.973 }, radius_m: 1000 })
   await expect(page.locator('.korean-card')).toContainText('고기 육수')
-  await page.getByText('Sources & what we considered', { exact: false }).click()
-  await expect(page.locator('.evidence-item')).toContainText('Example')
+  await expect(page.locator('.trust-card .trust-sources')).toContainText('Example')
   await expect(page.getByRole('link', { name: 'JSON', exact: true })).toHaveAttribute('href', '/api/results/fixture-request-1/download?format=json')
 })
 test('named fixture: new question supersedes the delayed old result', async ({ page }) => {

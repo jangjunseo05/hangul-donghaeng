@@ -1,4 +1,4 @@
-import type { Catalog, GuideRequest, GuideResult, Health, Job } from './types'
+import type { Catalog, GuideRequest, GuideResult, Health, Job, TraceEvent } from './types'
 
 export class ApiError extends Error {
   constructor(public code: string, public status = 0) { super(code); this.name = 'ApiError' }
@@ -46,13 +46,13 @@ export function pause(ms: number, signal: AbortSignal): Promise<void> {
     signal.addEventListener('abort', abort, { once: true })
   })
 }
-export async function waitForResult(id: string, session: string, signal: AbortSignal, onStatus: (status: Job['status'], stage: Job['stage']) => void): Promise<GuideResult> {
+export async function waitForResult(id: string, session: string, signal: AbortSignal, onStatus: (status: Job['status'], stage: Job['stage'], trace: TraceEvent[]) => void): Promise<GuideResult> {
   const deadline = Date.now() + 70000
   while (!signal.aborted && Date.now() < deadline) {
     const job = await api.job(id, signal)
     if (job.request_id !== id) throw new ApiError('INVALID_RESPONSE')
     if (!['queued', 'running', 'completed', 'failed', 'superseded'].includes(job.status)) throw new ApiError('INVALID_RESPONSE')
-    onStatus(job.status, job.status === 'running' ? job.stage ?? null : null)
+    onStatus(job.status, job.status === 'running' ? job.stage ?? null : null, Array.isArray(job.trace) ? job.trace : [])
     if (job.status === 'superseded') throw new ApiError('SUPERSEDED')
     if (job.status === 'failed') throw new ApiError(job.error_code || 'JOB_FAILED')
     if (job.status === 'completed') {

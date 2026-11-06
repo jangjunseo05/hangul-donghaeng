@@ -133,7 +133,7 @@ test('live model: a real ask shows job stages, then the answer is read by the se
   await page.locator('#question').fill('What is this place?')
   started = Date.now()
   await page.locator('.ask-button').click()
-  await expect(page.locator('.wait-hint')).toBeVisible({ timeout: 10000 })
+  await expect(page.locator('.reasoning.is-live')).toBeVisible({ timeout: 10000 })
   await expect(page.locator('.result-panel:not(.is-stale), .error-panel').first()).toBeVisible({ timeout: 90000 })
   const answeredAt = Date.now() - started
   const answeredPerf = await page.evaluate(() => performance.now())

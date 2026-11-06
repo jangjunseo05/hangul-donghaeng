@@ -5,9 +5,10 @@ import { useCamera } from './useCamera'
 import { useAutoCompanion } from './useAutoCompanion'
 import { useSceneGate } from './useSceneGate'
 import { ObservationSpeechGuard } from './autoCompanion'
+import { blockedCount } from './trace'
 import type { ObserveOutcome } from './autoCompanion'
 import type { JobStage } from './contract'
-import type { Catalog, CatalogPlace, DatasetMode, GuideResult, Health, InteractionMode, Language, Location, Place, Radius } from './types'
+import type { Catalog, CatalogPlace, DatasetMode, GuideResult, Health, InteractionMode, Language, Location, Place, Radius, TraceEvent } from './types'
 
 export type Phase = 'idle' | 'uploading' | 'submitting' | 'queued' | 'running' | 'ready' | 'need_confirmation' | 'failed'
 export type SubmitOptions = { question?: string; food?: string | null; shop?: string | null; place?: string | null; radius?: Radius; location?: Location; frame?: File; interaction?: InteractionMode; valid?: () => boolean }
@@ -56,6 +57,11 @@ export function useGuide() {
   const [awaitingAnswer, setAwaitingAnswer] = useState(false)
   const awaitingTimer = useRef<number | null>(null)
   const [stage, setStage] = useState<JobStage | null>(null)
+  // Broker trace (contract "Agent trace"): live while busy; kept with the shown result. startedAt is the client clock at send.
+  const [trace, setTrace] = useState<{ events: TraceEvent[]; startedAt: number }>({ events: [], startedAt: 0 })
+  const [resultTrace, setResultTrace] = useState<{ events: TraceEvent[]; totalMs: number } | null>(null)
+  // Tool calls and checks the broker rejected in this browser session (summed from each request's trace).
+  const [sessionBlocked, setSessionBlocked] = useState(0)
   const [photoCount, setPhotoCount] = useState(0)
   const photoCountRef = useRef(0)
   const manualRevision = useRef(0)
@@ -186,7 +192,7 @@ export function useGuide() {
     setError('')
     try {
       const [freshSession, freshHealth] = await Promise.all([api.session(), api.health()])
-      if (freshSession.session_id !== session) { invalidate(); stopAutomatic(); photoCountRef.current = 0; setPhotoCount(0); setPhoto(previous => previous ? { ...previous, id: null } : null); setResult(null); lastQuestion.current = '' }
+      if (freshSession.session_id !== session) { invalidate(); stopAutomatic(); photoCountRef.current = 0; setPhotoCount(0); setPhoto(previous => previous ? { ...previous, id: null } : null); setResult(null); setResultTrace(null); setSessionBlocked(0); lastQuestion.current = '' }
       setSession(freshSession.session_id); setHealth(freshHealth); setHealthFailed(false); setCheckedAt(new Date().toLocaleTimeString())
     } catch { setHealthFailed(true); setError(t('Your guide could not connect. Please try again shortly.', '아직 가이드에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.')) }
   }
@@ -279,6 +285,9 @@ export function useGuide() {
     controller.current = nextController
     if (!observing) { speech.stopListening(); speech.stopReading() }
     setError(''); setCopyNotice(''); setStale(Boolean(result))
+    const startedAt = Date.now()
+    let latestTrace: TraceEvent[] = []
+    setTrace({ events: [], startedAt })
     setPhase(captureCurrent || (selectedPhoto && !selectedPhoto.id && mode === 'real_place') ? 'uploading' : 'submitting')
     const current = () => sequence.current === generation && !nextController.signal.aborted && (!observing || observationEpoch.current === observationVersion)
     try {
@@ -320,7 +329,7 @@ export function useGuide() {
       if (typeof queued.request_id !== 'string' || !queued.request_id) throw new ApiError('INVALID_RESPONSE')
       setPhase('queued')
       if (!observing) lastQuestion.current = text
-      const received = await waitForResult(queued.request_id, session, nextController.signal, (state, nextStage) => { if (current() && (state === 'queued' || state === 'running')) { setPhase(state); setStage(nextStage ?? null) } })
+      const received = await waitForResult(queued.request_id, session, nextController.signal, (state, nextStage, events) => { if (!current()) return; latestTrace = events; setTrace({ events, startedAt }); if (state === 'queued' || state === 'running') { setPhase(state); setStage(nextStage ?? null) } })
       if (!current()) return
       if (observing && (!options.valid?.() || !camera.isLive())) { stopAutomatic(); return }
       if (received.dataset_mode !== mode || (mode === 'fictional_task' && received.places.length > 0)) throw new ApiError('INVALID_RESPONSE')
@@ -334,7 +343,7 @@ export function useGuide() {
         return 'quiet'
       }
       setAutomaticNotice('')
-      setResult(received); setStale(false); setPhase(received.status === 'need_confirmation' ? 'need_confirmation' : 'ready')
+      setResult(received); setResultTrace({ events: latestTrace, totalMs: Date.now() - startedAt }); setStale(false); setPhase(received.status === 'need_confirmation' ? 'need_confirmation' : 'ready')
       if (!observing) setQuestion(previous => previous.trim() === text ? '' : previous)
       const suggestions = [...(!received.scene.confirmed_food_id ? received.scene.food_candidates.map(item => item.id) : []), ...(!received.scene.confirmed_place_id ? (received.scene.place_candidates ?? []).map(item => item.id) : []), ...received.places.map(place => place.place_id), ...(received.scene.observed_place_name?.trim() ? ['name:' + received.scene.observed_place_name.trim().toLowerCase()] : [])]
       const spokenText = observing ? received.speech_text.trim() || observationQuestion || '' : received.speech_text
@@ -353,6 +362,8 @@ export function useGuide() {
       if (observing || value instanceof ApiError && value.code === 'PHOTO_LIMIT') stopAutomatic(description)
       setError(description); setPhase('failed')
     } finally {
+      const blocked = blockedCount(latestTrace)
+      if (blocked) setSessionBlocked(count => count + blocked)
       if (sequence.current === generation) {
         requestBusy.current = false; activeInteraction.current = null
         if (photoCountRef.current >= 20) stopAutomatic(t('The20-photo session limit has been reached. Automatic companion is off; you can keep asking about the current photo.', '세션 사진 20장 한도에 도달해 자동동행을 껐어요. 현재 사진에 대한 질문은 계속할 수 있어요.'))
@@ -398,7 +409,7 @@ export function useGuide() {
   function dismissResult() {
     prioritizeUser(); invalidate(); readGuard.current.reset()
     identityPlace.current = null
-    setResult(null); setStale(false)
+    setResult(null); setResultTrace(null); setStale(false)
   }
   async function copyKorean() {
     try { await navigator.clipboard.writeText(currentResult?.order_ko || ''); setCopyNotice(t('Copied!', '복사했어요!')) }
@@ -408,7 +419,7 @@ export function useGuide() {
     prioritizeUser(); stopAutomatic(); camera.stop()
     identityPlace.current = null
     currentMode.current = next
-    invalidate(); setMode(next); setResult(null); setQuestion(''); lastQuestion.current = ''; setStatusOpen(false)
+    invalidate(); setMode(next); setResult(null); setResultTrace(null); setQuestion(''); lastQuestion.current = ''; setStatusOpen(false)
   }
   const stageText = phase !== 'running' || !stage ? null : stage === 'observing' ? t('Looking at your photo…', '사진을 살펴보고 있어요…') : stage === 'matching' ? t('Matching it with nearby places…', '주변 장소와 맞춰 보고 있어요…') : t('Writing your story…', '이야기를 쓰고 있어요…')
   const phaseText = stageText ?? (phase === 'uploading' ? t('Preparing your photo…', '사진을 준비하고 있어요…') : phase === 'submitting' ? t('Sending your question…', '질문을 보내고 있어요…') : phase === 'queued' ? t('Your guide will be with you shortly…', '가이드가 곧 함께할게요…') : t('Looking at the details and the sources…', '내용과 근거를 살펴보고 있어요…'))
@@ -417,7 +428,7 @@ export function useGuide() {
     t, language, setLanguage, session, health, healthFailed, checkedAt, statusOpen, setStatusOpen, mode, question, photo, photoLocked, photoNotice,
     location, mapPickerOpen, setMapPickerOpen, radius, locating, locationNotice, result, stale, phase, error, copyNotice, autoRead, setAutoRead,
     catalog, catalogFailed, anchor, automatic, automaticNotice, busy, currentResult, automaticAvailable, automaticPaused, speech, camera,
-    fileInput, cameraInput, dialog, answer, lastQuestion, phaseText, stage, awaitingAnswer,
+    fileInput, cameraInput, dialog, answer, lastQuestion, phaseText, stage, awaitingAnswer, trace, resultTrace, sessionBlocked,
     editQuestion, changeAutomatic, capturePhoto, reconnect, choosePhoto, removePhoto, selectLocation, useMyLocation, changeRadius, submit,
     selectAnchor, confirmPlace, choosePlace, copyKorean, changeMode, dismissResult, stopAutomatic, prioritizeUser,
   }

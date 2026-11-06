@@ -5,6 +5,7 @@ import { chromeIntentUrl, detectInAppBrowser } from '../inApp'
 import Composer from '../components/Composer'
 import ResultDetails from '../components/ResultDetails'
 import { BottomSheet } from '../components/shell'
+import { InfoTip } from '../components/cards'
 import { ConnectionNotices } from '../components/StatusDialog'
 
 function InAppNotice({ g }: { g: Guide }) {
@@ -68,7 +69,7 @@ export default function LookScreen({ g, hidden }: { g: Guide; hidden: boolean })
         <span className="stage-idle-icon"><Camera size={30}/></span>
         <h2>{t('Point your camera at anything Korean', '눈앞의 한국을 카메라로 비춰 보세요')}</h2>
         <p>{t('A palace, a sign, a dish. We tell you the story behind it — in simple words.', '궁궐, 간판, 음식까지. 그 뒤의 이야기를 쉽게 들려드려요.')}</p>
-        <ul><li><ShieldCheck size={13}/>{t('Only photos you take (or automatic snapshots) are sent.', '찍은 사진(또는 자동 스냅)만 보내요.')}</li><li><ShieldCheck size={13}/>{t('The live preview stays on this device.', '실시간 미리보기는 이 기기에만 남아요.')}</li></ul>
+        <p className="idle-privacy"><ShieldCheck size={13}/>{t('Only photos you send leave this device.', '보낸 사진만 기기 밖으로 나가요.')}<InfoTip t={t} text={t('Only photos you take (or automatic snapshots) are sent. The live preview stays on this device.', '찍은 사진(또는 자동 스냅)만 보내요. 실시간 미리보기는 이 기기에만 남아요.')}/></p>
       </div>}
       {!real && <div className="stage-idle practice"><h2>{t('Practice itinerary', '연습 일정')}</h2><p>{t('Fictional places from the practice materials. Ask below.', '연습 자료의 가상 장소예요. 아래에서 질문해 주세요.')}</p></div>}
       {!sheet && controls}

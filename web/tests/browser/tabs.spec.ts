@@ -144,8 +144,8 @@ test('Look: running job reports its stage', async ({ page }) => {
   await page.goto('/')
   await ask(page)
   await expect(page.locator('.working-panel h3')).toHaveText('Matching it with nearby places…')
-  await expect(page.locator('.stage-steps li.now')).toHaveText('Matching')
-  await expect(page.locator('.stage-steps li.done')).toHaveText('Looking')
+  await expect(page.locator('.reasoning-step.now .reasoning-step-head b')).toHaveText('Candidates')
+  await expect(page.locator('.reasoning-step.done .reasoning-step-head b')).toHaveText('Observe')
 })
 
 test('server voice is tried first; on 503 the browser voice reads each sentence', async ({ page }) => {
