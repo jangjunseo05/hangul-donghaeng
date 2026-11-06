@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, CircleAlert, Download, FileCheck2, FileText, FileX2, LoaderCircle, Play, Quote, Scale, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, CircleAlert, Download, FileCheck2, FileText, FileX2, LoaderCircle, Play, Quote, Scale, ShieldAlert } from 'lucide-react'
 import { ApiError } from '../api'
 import { isReviewResult, labApi, pollJob } from '../labApi'
 import type { ReviewExclusion, ReviewInputs, ReviewJob, ReviewResult, ReviewSource, TraceEvent } from '../types'
@@ -47,7 +47,7 @@ function ResultView({ result, sourceName, t }: { result: ReviewResult; sourceNam
   const cited = new Set(result.claims.flatMap(claim => claim.source_ids))
   const used = result.sources.filter(source => source.verdict === 'used').length
   return <div className="review-result">
-    <div className={'review-status ' + result.status}>{result.status === 'answered' ? <ShieldCheck size={18}/> : <CircleAlert size={18}/>}
+    <div className={'review-status ' + result.status}>{result.status === 'answered' ? <FileCheck2 size={18}/> : <CircleAlert size={18}/>}
       <div><b>{result.status === 'answered' ? t('Answered from the sources it kept', '남긴 자료로 답했어요') : t('Not enough evidence to answer', '답하기에 근거가 부족해요')}</b>
         <small>{t(`${used} given to the model · ${result.sources.length - used} excluded · ${cited.size} cited`, `모델 제공 ${used} · 제외 ${result.sources.length - used} · 인용 ${cited.size}`)}{result.condition ? t(' · with your extra condition', ' · 추가 조건 반영') : ''}</small></div>
       {!result.verified_input && <span className="review-unverified">{t('Input not verified by the broker', '브로커 미검증 입력')}</span>}

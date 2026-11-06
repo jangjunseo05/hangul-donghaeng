@@ -29,7 +29,7 @@ function SandboxEvidenceCard({ g }: { g: Guide }) {
     <div className="policy-block">
       <h3>{t(`Stored policy for ${worker}`, `${worker}에 저장된 정책`)} <span className={'policy-state' + (evidence.policy_loaded && !elsewhere ? ' ok' : '')}>{evidence.policy_loaded ? t('load confirmed', '적용 확인') : t('recorded only', '기록만 있음')}</span></h3>
       {allow.length > 0 && <><p className="policy-label">{t(`Network allowed (${allow.length})`, `네트워크 허용 ${allow.length}건`)}</p><ul className="policy-chips">{allow.map(rule => <li key={rule}><code>{rule}</code></li>)}</ul></>}
-      <p className="policy-deny"><ShieldCheck size={12}/>{allow.length > 0 ? t('Everything not listed was denied by default.', '목록에 없는 요청은 기본적으로 모두 차단됐어요.') : t('Network allow-list not reported.', '네트워크 허용 목록이 보고되지 않았어요.')}</p>
+      <p className="policy-deny">{green ? <ShieldCheck size={12}/> : <Info size={12}/>}{allow.length > 0 ? t('Everything not listed was denied by default.', '목록에 없는 요청은 기본적으로 모두 차단됐어요.') : t('Network allow-list not reported.', '네트워크 허용 목록이 보고되지 않았어요.')}</p>
       {(evidence.policy_read_write?.length || evidence.policy_read_only?.length) ? <p className="policy-fs">{t('Writable', '쓰기 가능')}: <code>{(evidence.policy_read_write ?? []).join(' ')}</code>{evidence.policy_read_only?.length ? <> · {t('read-only', '읽기 전용')} {evidence.policy_read_only.length}{t(' paths', '개 경로')}</> : null}</p> : null}
       {evidence.policy_hash && <p className="policy-hash">{t('Policy hash', '정책 해시')} <code>{evidence.policy_hash.slice(0, 12)}</code></p>}
     </div>

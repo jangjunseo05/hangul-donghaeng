@@ -47,7 +47,7 @@ async function shot(page: Page, name: string, project: string, crop?: string, pa
     const strip = document.createElement('div')
     strip.id = 'shot-crop-tag'
     strip.setAttribute('popover', 'manual')
-    strip.setAttribute('style', `position:fixed;left:${left}px;top:${top}px;width:${width}px;height:28px;margin:0;border:0;padding:6px 0 0;background:#fffdf9;overflow:hidden`)
+    strip.setAttribute('style', `position:fixed;left:${left}px;top:${top}px;width:${width}px;height:28px;margin:0;border:0;padding:6px 0 0;background:#ffffff;overflow:hidden`)
     const pill = document.createElement('span')
     pill.textContent = text
     pill.setAttribute('style', 'display:inline-block;white-space:nowrap;padding:2px 8px;border-radius:999px;background:#7a4a12;color:#fff;font:700 9.5px/1.4 system-ui;letter-spacing:.04em')

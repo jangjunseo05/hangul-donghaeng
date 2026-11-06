@@ -36,7 +36,7 @@ export default function MapView({ location, places, language, onLocation, onChoo
   useEffect(() => {
     if (!map.current || !layer.current) return
     layer.current.clearLayers()
-    if (route && route.length > 1) L.polyline(route, { color: '#bd6748', weight: 4, opacity: .85, dashArray: '2 9', lineCap: 'round' }).addTo(layer.current)
+    if (route && route.length > 1) L.polyline(route, { color: '#3f6b00', weight: 4, opacity: .85, dashArray: '2 9', lineCap: 'round' }).addTo(layer.current)
     if (location) {
       L.marker([location.lat, location.lng], { icon: L.divIcon({ className: 'start-marker', html: '<span></span>', iconSize: [20, 20], iconAnchor: [10, 10] }) }).addTo(layer.current)
     }
