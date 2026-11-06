@@ -45,8 +45,10 @@ export function TabBar({ tab, onTab, t }: { tab: Tab; onTab(tab: Tab): void; t: 
 }
 
 /** Rounded sheet with a grab handle that collapses to its header. */
-export function BottomSheet({ title, children, className = '', defaultOpen = true, t }: { title?: ReactNode; children: ReactNode; className?: string; defaultOpen?: boolean; t: Guide['t'] }) {
-  const [open, setOpen] = useState(defaultOpen)
+export function BottomSheet({ title, children, className = '', defaultOpen = true, open: controlled, onOpenChange, t }: { title?: ReactNode; children: ReactNode; className?: string; defaultOpen?: boolean; open?: boolean; onOpenChange?(open: boolean): void; t: Guide['t'] }) {
+  const [own, setOwn] = useState(defaultOpen)
+  const open = controlled ?? own
+  const setOpen = (next: (value: boolean) => boolean) => { const value = next(open); setOwn(value); onOpenChange?.(value) }
   return <section className={'bottom-sheet ' + className + (open ? ' is-open' : ' is-collapsed')}>
     <button type="button" className="sheet-grab" aria-expanded={open} aria-label={open ? t('Collapse sheet', '시트 접기') : t('Expand sheet', '시트 펼치기')} onClick={() => setOpen(value => !value)}><span />{open ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}</button>
     {title && <div className="sheet-title">{title}</div>}

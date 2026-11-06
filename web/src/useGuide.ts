@@ -62,6 +62,9 @@ export function useGuide() {
   const [resultTrace, setResultTrace] = useState<{ events: TraceEvent[]; totalMs: number } | null>(null)
   // Tool calls and checks the broker rejected in this browser session (summed from each request's trace).
   const [sessionBlocked, setSessionBlocked] = useState(0)
+  // U4: automatic observations surface as a caption over the camera instead of opening the sheet.
+  const [requestKind, setRequestKind] = useState<InteractionMode | null>(null)
+  const [resultOrigin, setResultOrigin] = useState<InteractionMode | null>(null)
   const [photoCount, setPhotoCount] = useState(0)
   const photoCountRef = useRef(0)
   const manualRevision = useRef(0)
@@ -288,6 +291,7 @@ export function useGuide() {
     const startedAt = Date.now()
     let latestTrace: TraceEvent[] = []
     setTrace({ events: [], startedAt })
+    setRequestKind(observing ? 'observe' : 'ask')
     setPhase(captureCurrent || (selectedPhoto && !selectedPhoto.id && mode === 'real_place') ? 'uploading' : 'submitting')
     const current = () => sequence.current === generation && !nextController.signal.aborted && (!observing || observationEpoch.current === observationVersion)
     try {
@@ -343,7 +347,7 @@ export function useGuide() {
         return 'quiet'
       }
       setAutomaticNotice('')
-      setResult(received); setResultTrace({ events: latestTrace, totalMs: Date.now() - startedAt }); setStale(false); setPhase(received.status === 'need_confirmation' ? 'need_confirmation' : 'ready')
+      setResult(received); setResultOrigin(observing ? 'observe' : 'ask'); setResultTrace({ events: latestTrace, totalMs: Date.now() - startedAt }); setStale(false); setPhase(received.status === 'need_confirmation' ? 'need_confirmation' : 'ready')
       if (!observing) setQuestion(previous => previous.trim() === text ? '' : previous)
       const suggestions = [...(!received.scene.confirmed_food_id ? received.scene.food_candidates.map(item => item.id) : []), ...(!received.scene.confirmed_place_id ? (received.scene.place_candidates ?? []).map(item => item.id) : []), ...received.places.map(place => place.place_id), ...(received.scene.observed_place_name?.trim() ? ['name:' + received.scene.observed_place_name.trim().toLowerCase()] : [])]
       const spokenText = observing ? received.speech_text.trim() || observationQuestion || '' : received.speech_text
@@ -428,7 +432,7 @@ export function useGuide() {
     t, language, setLanguage, session, health, healthFailed, checkedAt, statusOpen, setStatusOpen, mode, question, photo, photoLocked, photoNotice,
     location, mapPickerOpen, setMapPickerOpen, radius, locating, locationNotice, result, stale, phase, error, copyNotice, autoRead, setAutoRead,
     catalog, catalogFailed, anchor, automatic, automaticNotice, busy, currentResult, automaticAvailable, automaticPaused, speech, camera,
-    fileInput, cameraInput, dialog, answer, lastQuestion, phaseText, stage, awaitingAnswer, trace, resultTrace, sessionBlocked,
+    fileInput, cameraInput, dialog, answer, lastQuestion, phaseText, stage, awaitingAnswer, trace, resultTrace, sessionBlocked, requestKind, resultOrigin,
     editQuestion, changeAutomatic, capturePhoto, reconnect, choosePhoto, removePhoto, selectLocation, useMyLocation, changeRadius, submit,
     selectAnchor, confirmPlace, choosePlace, copyKorean, changeMode, dismissResult, stopAutomatic, prioritizeUser,
   }

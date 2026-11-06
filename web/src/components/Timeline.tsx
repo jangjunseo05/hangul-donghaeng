@@ -16,6 +16,7 @@ const EVENT_LABEL: Record<string, [string, string]> = {
   osm_live_search: ['OpenStreetMap live', 'OpenStreetMap 실시간'], wikipedia: ['Wikipedia', '위키백과'],
   grounding_check: ['Broker source check', '브로커 근거 검증'], writing: ['Writing the answer', '답변 작성'],
   result_saved: ['Answer saved', '답변 저장'], worker_failed: ['Worker failed', '워커 실패'], trace_truncated: ['Trace truncated', '기록 일부 생략'],
+  review_sources: ['Sort the sources (rules)', '자료 분류 (규칙)'], canary_received: ['Canary route hit at the broker', '브로커 canary 경로 수신'],
 }
 /** Broker-mediated steps carry a shield: the broker ran the tool or check itself, at the trust boundary. */
 const SHIELD: Partial<Record<TraceEvent['kind'], [string, string]>> = { tool: ['via broker', '브로커 경유'], check: ['broker check', '브로커 검사'] }
@@ -41,7 +42,7 @@ function useElapsed(startedAt: number, running: boolean) {
  * "How it decided": the broker-recorded trace grouped as observe → candidates → tools → weigh → answer,
  * with per-phase time and shield badges. Live while a request runs (progress = phases reached, no fixed estimate).
  */
-export function ReasoningTimeline({ events, t, live = false, follow = false, startedAt = 0, stage = null, totalMs, result }: { events: TraceEvent[]; t: T; live?: boolean; follow?: boolean; startedAt?: number; stage?: JobStage | null; totalMs?: number; result?: GuideResult | null }) {
+export function ReasoningTimeline({ events, t, review = false, live = false, follow = false, startedAt = 0, stage = null, totalMs, result }: { events: TraceEvent[]; t: T; review?: boolean; live?: boolean; follow?: boolean; startedAt?: number; stage?: JobStage | null; totalMs?: number; result?: GuideResult | null }) {
   const elapsed = useElapsed(startedAt, live)
   const reached = reachedPhase(events, stage)
   // Live: keep the running phase in view inside the scrolling sheet.
@@ -76,7 +77,7 @@ export function ReasoningTimeline({ events, t, live = false, follow = false, sta
           {row.phase === 'judge' && result && !live && <p className="reasoning-judge">{t(`${adopted} source${adopted === 1 ? '' : 's'} kept`, `출처 ${adopted}곳 채택`)}{conflicts > 0 && <> · <em>{t(`${conflicts} conflict${conflicts > 1 ? 's' : ''} resolved`, `충돌 ${conflicts}건 해결`)}</em></>}{blocked > 0 && <> · <em className="bad">{t(`${blocked} blocked`, `차단 ${blocked}건`)}</em></>}</p>}
           {row.events.length > 0 && <ul>{row.events.map((event, i) => {
             const shield = SHIELD[event.kind]
-            const label = EVENT_LABEL[event.name] ?? [event.name, event.name]
+            const label = review && event.name === 'observing' ? ['Reading the sources (worker-reported)', '자료 읽기 (워커 보고)'] as [string, string] : EVENT_LABEL[event.name] ?? [event.name, event.name]
             return <li key={i} className={event.ok ? '' : 'bad'}>
               {(shield || !event.ok) && <span className={'shield-tag' + (event.ok ? '' : ' bad')}>{event.ok ? <ShieldCheck size={10}/> : <ShieldX size={10}/>}{event.ok ? t(...shield!) : isBlocked(event) ? t('blocked', '차단') : t('failed', '실패')}</span>}
               <span>{t(...label)}</span>{detailText(event.detail, t) && <small>{detailText(event.detail, t)}</small>}

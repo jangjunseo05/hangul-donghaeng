@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
-import { Camera, Check, ExternalLink, ImagePlus, Info, RefreshCw, ShieldCheck, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Camera, Check, ChevronUp, ExternalLink, ImagePlus, Info, LoaderCircle, RefreshCw, ShieldCheck, X } from 'lucide-react'
 import type { Guide } from '../useGuide'
 import { chromeIntentUrl, detectInAppBrowser } from '../inApp'
 import Composer from '../components/Composer'
 import ResultDetails from '../components/ResultDetails'
 import { BottomSheet } from '../components/shell'
 import { InfoTip } from '../components/cards'
+import { formatSeconds, totalMs } from '../trace'
 import { ConnectionNotices } from '../components/StatusDialog'
 
 function InAppNotice({ g }: { g: Guide }) {
@@ -24,6 +25,28 @@ function InAppNotice({ g }: { g: Guide }) {
   </div></div>
 }
 
+const firstSentence = (text: string) => text.trim().split(/(?<=[.!?。])\s+/)[0] ?? ''
+
+/**
+ * U4 live caption: in automatic companion mode the latest observation is one line over the viewfinder
+ * (webcam-VLM style). Tapping it opens the full answer sheet.
+ */
+function LiveCaption({ g, onOpen, aboveSheet }: { g: Guide; onOpen(): void; aboveSheet: boolean }) {
+  const { t, busy, requestKind, phaseText, result, resultOrigin, resultTrace, automaticNotice, stale } = g
+  const watching = busy && requestKind === 'observe'
+  const shown = result && resultOrigin === 'observe' && !stale ? result : null
+  const name = shown?.scene.observed_place_name?.trim()
+  const line = shown ? (name ? name + ' — ' : '') + firstSentence(shown.speech_text) : watching ? phaseText : automaticNotice
+  if (!line) return null
+  const ms = shown && resultTrace ? totalMs(resultTrace.events) : 0
+  return <button type="button" className={'live-caption' + (watching ? ' is-working' : '') + (aboveSheet ? ' above-sheet' : '')} onClick={onOpen} disabled={!shown} aria-label={shown ? t('Live caption: ', '실시간 자막: ') + line + t('. Open details', '. 자세히 보기') : undefined}>
+    <span className="live-dot" aria-hidden="true">{watching ? <LoaderCircle className="spin" size={13}/> : <i/>}</span>
+    <span className="live-text" aria-live={shown ? 'polite' : 'off'}>{line}</span>
+    {ms > 0 && <span className="live-ms">{formatSeconds(ms)}</span>}
+    {shown && <ChevronUp size={16} aria-hidden="true"/>}
+  </button>
+}
+
 /** Camera-first screen: full viewfinder, answer sheet over it, question dock below. */
 export default function LookScreen({ g, hidden }: { g: Guide; hidden: boolean }) {
   const { t, mode, camera, photo, photoLocked, fileInput, cameraInput, choosePhoto, removePhoto, automatic, automaticAvailable, automaticPaused, changeAutomatic, capturePhoto, busy, error, result } = g
@@ -31,6 +54,13 @@ export default function LookScreen({ g, hidden }: { g: Guide; hidden: boolean })
   const showPhoto = Boolean(photo && (photoLocked || !live))
   const real = mode === 'real_place'
   const sheet = Boolean(busy || error || result)
+  // Automatic mode: while the guide is watching, the sheet stays down and the caption shows progress.
+  // A new answer (a proposal or an ask) opens the sheet; collapsing it leaves the answer as a one-line caption.
+  const captionMode = real && live && !showPhoto && g.automatic
+  const watching = captionMode && busy && g.requestKind === 'observe'
+  const [sheetOpen, setSheetOpen] = useState(true)
+  useEffect(() => { setSheetOpen(true) }, [result, error])
+  useEffect(() => { if (watching && g.resultOrigin !== 'ask') setSheetOpen(false) }, [watching, g.resultOrigin])
   // Photo label/change/remove: over the photo, or in the top row while an answer sheet is up.
   const photoActions = <><span className="photo-label"><Check size={13}/>{t('Your photo', '선택한 사진')}</span><button className="icon-button remove-photo" onClick={removePhoto} aria-label={t('Remove photo', '사진 지우기')}><X size={17}/></button><button className="replace-photo" onClick={() => fileInput.current?.click()}><ImagePlus size={14}/>{t('Change photo', '사진 바꾸기')}</button></>
   const controls = real && <div className={'stage-controls' + (sheet ? ' compact' : '')}>
@@ -73,7 +103,8 @@ export default function LookScreen({ g, hidden }: { g: Guide; hidden: boolean })
       </div>}
       {!real && <div className="stage-idle practice"><h2>{t('Practice itinerary', '연습 일정')}</h2><p>{t('Fictional places from the practice materials. Ask below.', '연습 자료의 가상 장소예요. 아래에서 질문해 주세요.')}</p></div>}
       {!sheet && controls}
-      {sheet && <BottomSheet className="answer-sheet" t={t}><ResultDetails g={g}/></BottomSheet>}
+      {captionMode && (!sheet || !sheetOpen) && <LiveCaption g={g} aboveSheet={sheet} onOpen={() => { setSheetOpen(true); requestAnimationFrame(() => document.querySelector<HTMLElement>('.answer-sheet .sheet-grab')?.focus()) }}/>}
+      {sheet && <BottomSheet className="answer-sheet" open={sheetOpen} onOpenChange={setSheetOpen} t={t}><ResultDetails g={g}/></BottomSheet>}
     </div>
     <Composer g={g}/>
   </section>
