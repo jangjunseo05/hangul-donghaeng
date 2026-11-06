@@ -343,3 +343,57 @@ Example: `{"t_ms":4210,"kind":"tool","name":"osm_live_search","ok":true,"detail"
   - It proxies `/v1/health/ready` and `/v1/audio/list_voices`.
 - Tunnel: `TTS_TUNNEL_PORT=9100 infra/open_tts_tunnel.sh` and `TTS_BASE_URL=http://127.0.0.1:9100`.
 - `POST /api/tts` keeps its contract: `200 audio/wav`, otherwise 503/429 → browser TTS.
+
+## Source review mode (F2) — draft 2026-11-06
+
+Purpose: show, in the web UI, how the agent judges mixed input material. The material can be relevant, outdated, conflicting, irrelevant, or contain embedded instructions. The UI also accepts an extra condition given on stage. The sandboxed worker runs the same pipeline as `agent.challenge`: `load_sources` → `select_evidence` → model → `validate_answer`. The model never writes files. The broker validates the result and saves `answer.json`/`answer.md`.
+
+Input set: the worker reads `REVIEW_INPUT_DIR`. The default is `/app/data/review-demo` (read-only in the image). At the event, the operator may point it to a read-only mounted `/hackathon/input`. `restricted`/`secrets` are never read (`FORBIDDEN` in challenge.py). `input_label` names the set shown to the user.
+
+- `GET /api/reviews/inputs` → `{input_label, sources:[{id, path, sha256, bytes, as_of}]}`. The listing is a broker-side read of the same demo set. It is `null` for event-mounted input that the broker cannot see.
+- `POST /api/reviews` with `{session_id, question (1–500 chars), condition (≤300 chars or null), response_language}` → 202 `{request_id, poll_url:"/api/reviews/{id}"}`. It shares the session's single active job: a new request supersedes the previous one.
+- `GET /api/reviews/{id}` → `{request_id, status, trace, result: ReviewResult|null, error_code}`. Status values and `trace` work as for guide requests.
+- `GET /api/reviews/{id}/download?format=json|md` returns the broker-saved files.
+
+```
+ReviewResult = {status:'answered'|'insufficient_evidence', question, condition, input_label,
+  sources: ReviewSource[], claims: ReviewClaim[], conflicts: ReviewConflict[], unknowns: string[]}
+ReviewSource = {id:'input:001', path, sha256, as_of:string|null, verdict:'used'|'excluded',
+  reason: null|'irrelevant'|'outdated'|'conflict_superseded'|'untrusted_instruction'|'unreadable', note:string|null}
+ReviewClaim = {text, source_ids:string[], quotes:[{source_id, text}]}   // every quote is an exact substring of that source
+ReviewConflict = {source_ids (≥2 distinct), quotes, reason, resolution}
+```
+
+How each `reason` is decided:
+- `irrelevant`: not selected by `select_evidence` (deterministic).
+- `untrusted_instruction`: the source contains instruction-like text (deterministic pattern). It is still never followed.
+- `outdated` and `conflict_superseded`: decided by the model with quotes. The broker checks the quotes.
+
+Trace adds the tool names `review_sources` (detail `N used · M excluded`) and `review_model`.
+
+## Sandbox probe (F3) — draft 2026-11-06
+
+Purpose: a live, on-demand demonstration that the worker sandbox blocks actions outside the policy. The worker attempts each action. The broker independently counts any request that reaches its canary route.
+
+- `POST /api/sandbox-probe` with `{session_id}` → 202 `{request_id, poll_url:"/api/sandbox-probe/{id}"}`. Rate-limited: one probe at a time per session.
+- `GET /api/sandbox-probe/{id}` → `{request_id, status, trace, result: ProbeResult|null, error_code}`.
+
+```
+ProbeResult = {run_context:string, finished_at, attempts: ProbeAttempt[]}
+ProbeAttempt = {id:'read_outside_allowlist'|'write_code_dir'|'egress_unlisted_host'|'broker_unlisted_path',
+  expected:'denied', observed:'denied'|'allowed'|'error', detail:string|null, broker_received:number|null}
+```
+
+What each attempt does:
+- `read_outside_allowlist`: reads a harmless file outside the read allowlist.
+- `write_code_dir`: creates a file in `/app`.
+- `egress_unlisted_host`: connects to a host that is not in the policy.
+- `broker_unlisted_path`: `POST /worker/canary`, which is not in the worker allowlist. `broker_received` is the broker's own hit count for that route during this probe. With OpenShell enforcing, it must be 0.
+
+`detail` holds only an errno name or HTTP status (e.g. `EACCES`, `403`), never file contents.
+
+Interpretation for the UI:
+- All attempts `denied` and `broker_received == 0` means the sandbox blocked them.
+- Any `allowed` means the run is not sandboxed (e.g. a local worker). Show this plainly; do not hide it.
+
+`run_context` is the worker's `RUN_CONTEXT` label, which is not proof by itself. The worker policy must allow `POST /worker/probe-results` and `POST /worker/review-results`, so `infra/render_policy.py` gains these routes and the policy must be re-applied.

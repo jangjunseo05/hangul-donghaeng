@@ -38,3 +38,19 @@ export type Health = { status: string; worker_connected: boolean; model_configur
 /** One broker-observed step (shared/api-contract.md "Agent trace"). */
 export type TraceEvent = { t_ms: number; kind: 'broker' | 'sandbox' | 'stage' | 'tool' | 'check'; name: string; ok: boolean; detail: string | null }
 export type Job = { request_id: string; status: 'queued' | 'running' | 'completed' | 'failed' | 'superseded'; stage?: JobStage | null; trace?: TraceEvent[]; result: GuideResult | null; error_code: string | null }
+
+/** F2 source review mode (shared/api-contract.md "Source review mode"); draft. */
+export type ReviewExclusion = 'irrelevant' | 'outdated' | 'conflict_superseded' | 'untrusted_instruction' | 'unreadable'
+export type ReviewSource = { id: string; path: string; sha256: string; as_of: string | null; verdict: 'used' | 'excluded'; reason: ReviewExclusion | null; note: string | null }
+export type ReviewQuote = { source_id: string; text: string }
+export type ReviewClaim = { text: string; source_ids: string[]; quotes: ReviewQuote[] }
+export type ReviewConflict = { source_ids: string[]; quotes: ReviewQuote[]; reason: string; resolution: string }
+export type ReviewResult = { status: 'answered' | 'insufficient_evidence'; question: string; condition: string | null; input_label: string; sources: ReviewSource[]; claims: ReviewClaim[]; conflicts: ReviewConflict[]; unknowns: string[] }
+export type ReviewInputs = { input_label: string; sources: { id: string; path: string; sha256: string; bytes: number; as_of: string | null }[] }
+export type ReviewJob = { request_id: string; status: Job['status']; trace?: TraceEvent[]; result: ReviewResult | null; error_code: string | null }
+
+/** F3 sandbox probe (shared/api-contract.md "Sandbox probe"); draft. */
+export type ProbeAttemptId = 'read_outside_allowlist' | 'write_code_dir' | 'egress_unlisted_host' | 'broker_unlisted_path'
+export type ProbeAttempt = { id: ProbeAttemptId; expected: 'denied'; observed: 'denied' | 'allowed' | 'error'; detail: string | null; broker_received: number | null }
+export type ProbeResult = { run_context: string; finished_at: string; attempts: ProbeAttempt[] }
+export type ProbeJob = { request_id: string; status: Job['status']; trace?: TraceEvent[]; result: ProbeResult | null; error_code: string | null }
