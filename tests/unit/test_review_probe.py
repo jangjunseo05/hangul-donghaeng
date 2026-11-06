@@ -439,3 +439,25 @@ def test_broker_relevance_recheck_for_the_ui_default_questions(client, question)
         sources[index].update(change)
         rejected = submit_review_result(client, rid, job, result={"question": question, "sources": sources})
         assert rejected.json()["error_code"] == "INVALID_EVIDENCE", rejected.text
+
+
+def test_review_prompt_keeps_off_topic_sources_out_of_judgments():
+    """A real model labelled an on-topic-by-name but off-question source (heritage history vs opening hours)
+    "outdated"; the prompt must say that is not a supersession."""
+    from agent.review import REVIEW_SYSTEM
+    assert "SAME fact" in REVIEW_SYSTEM and "is NOT outdated" in REVIEW_SYSTEM
+
+
+def test_catalog_lists_checked_dates_for_real_evidence_only():
+    from service import catalog
+    observed = catalog.evidence_observed()
+    assert observed["visitkorea:gwanghwamun-culture"] == "2026-10-07"
+    assert all(not key.startswith("task:") for key in observed)  # fictional practice data is excluded
+    # A record's as_of is untouched (the culture page states no date of its own).
+    culture = next(item for item in catalog.evidence_for_mode("real_place") if item["id"] == "visitkorea:gwanghwamun-culture")
+    assert culture["as_of"] is None
+
+
+def test_evidence_observed_endpoint(client):
+    body = client.get("/api/evidence/observed").json()
+    assert body["evidence_observed"]["wikipedia:gwanghwamun"] == "2026-10-27"

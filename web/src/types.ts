@@ -8,6 +8,7 @@ export type InteractionMode = 'ask' | 'observe'
 export type Place = { place_id: string; name: string; lat: number; lng: number; distance_m: number; source_id: string; catalog_version: string; kind?: PlaceKind }
 export type CatalogPlace = Omit<Place, 'distance_m' | 'kind'> & { name_en: string; kind: PlaceKind }
 export type Catalog = { catalog_count: number; scope_label: string; catalog_version: string; places: CatalogPlace[] }
+export type EvidenceObserved = { evidence_observed: Record<string, string> }
 export type Candidate = { id: string; name_ko: string; name_en: string }
 export type Evidence = { id: string; source: string; as_of: string | null; type: 'document' | 'live_statement' | 'example'; dataset_id: string }
 export type GuideResult = {

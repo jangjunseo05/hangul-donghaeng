@@ -350,6 +350,11 @@ def create_app(runtime_dir: Path | None = None, worker_token: str | None = None)
     def public_catalog():
         return catalog.public_catalog()
 
+    @app.get("/api/evidence/observed")
+    def evidence_observed():
+        # Retrieval dates of curated real-place evidence; not publication dates (see the contract).
+        return {"evidence_observed": catalog.evidence_observed()}
+
     @app.post("/api/sessions")
     def start_session(request: Request, response: Response):
         with store.lock:

@@ -41,6 +41,12 @@ def public_catalog() -> dict:
                        for place in data["places"]]}
 
 
+def evidence_observed() -> dict[str, str]:
+    """Real-place evidence id -> date the team last retrieved and checked the source (observed_at).
+    Not a publication date: as_of stays null when the source states none. Fictional practice data is excluded."""
+    return {item["id"]: item["observed_at"] for item in _load("evidence.json").get("real_place", []) if item.get("observed_at")}
+
+
 def get_place(place_id: str) -> dict | None:
     data = _load("catalog.json")
     for place in data["places"]:
