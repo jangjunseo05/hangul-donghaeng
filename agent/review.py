@@ -74,7 +74,8 @@ def as_of(text: str) -> str | None:
 # the Korean default question's "열고" ("opens") matched an unrelated food list.
 EN_STOP = frozenset("""about after also and any are before but can could did does for from going had has have how
 into its just know like many more much need not over should some than that the then there these they this tell
-their was were what when where which while who why will with would you your visit visiting""".split())
+their was were what when where which while who why will with would you your visit visiting all here get got now
+use our his her may too its yes""".split())
 KO_STOP = frozenset("""언제 어디 어디서 어디에 무엇 무엇을 무엇이 뭐 뭘 뭐가 어떻게 어떤 얼마 얼마나 왜 누가 있나요 있어 있어요
 있나 있습니까 하나요 해요 돼요 되나요 알려 알려줘 알려주세요 주세요 알아야 알고 싶어요 궁금해요 전에 후에 그리고 또는
 근처 주변 정도 지금 오늘 내일 열고 닫고 가요 가나요 방문 방문할 방문하기 방문해 예정 예정이에요 하고 해서 그럼 혹시""".split())
@@ -101,12 +102,17 @@ def specific_terms(question: str) -> list[str]:
 
 
 def relevant(question: str, source: Source) -> bool:
-    """Deterministic, lexical: a content word of the question appears in the path or text. English terms match at
-    a word start; Korean terms also match by a 3-character stem, because particles attach to names (해온궁은 -> 해온궁)."""
+    """Deterministic, lexical: a content word of the question appears in the path or text. English terms and
+    two-character Korean words match at a word start; longer Korean terms also match by a 3-character stem,
+    because particles attach to names (해온궁은 -> 해온궁)."""
     searchable = (source.path + " " + source.text).casefold()
     for term in specific_terms(question):
         if term.isascii():
             if re.search(r"(?<![a-z0-9])" + re.escape(term), searchable):
+                return True
+        elif len(term) == 2:
+            # Two-character words only at a word start: 시에 must not match "11시에", 가면 not "들어가면".
+            if re.search(r"(?<!\w)" + re.escape(term), searchable):
                 return True
         elif term in searchable or (len(term) > 3 and any(term[i:i + 3] in searchable for i in range(len(term) - 2))):
             return True

@@ -390,6 +390,8 @@ def test_relevance_ignores_stopwords_and_substrings_and_keeps_content_words():
     food = next(s for s in __import__("agent.challenge", fromlist=["load_sources"]).load_sources(DEMO_INPUT)
                 if s.path.startswith("04"))
     assert relevant("해온궁 근처 밀면 맛집 있어?", food)
+    assert not relevant("해온궁 몇 시에 닫아요?", food)    # 시에 inside "11시에" is not a word start
+    assert not relevant("Are all open?", Source("input:005", "x.md", "0" * 64, "allowed only"))  # all != allowed
     # English: 3-letter content words and plurals.
     fee = Source("input:004", "x.md", "0" * 64, "Admission fee: 3,000 won. Ticket office opens at 9.")
     assert relevant("How much is the fee?", fee)
