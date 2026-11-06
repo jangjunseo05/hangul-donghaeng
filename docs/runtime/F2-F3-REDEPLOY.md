@@ -1,6 +1,6 @@
 # 인계: F2 자료 판단 · F3 차단 시연 배포 절차 (OpenShell worker · broker)
 
-> **배포 대상 커밋: `27dbf57`** (F2·F3 백엔드 `cc6f926` + web U1~U6·F2·F3 `3d7655f`·`77fcda7`·`27dbf57`). 이 문서를 고친 커밋이 그 뒤에 올 수 있는데, 문서 외에는 바뀌지 않는다.
+> **배포 대상 커밋: `997b5a8`** (F2·F3 백엔드 `cc6f926` + web U1~U6·F2·F3 `3d7655f`·`77fcda7`·`27dbf57` + 로컬 실모델 E2E 수정 `f659db4`~`82ef73a` + web `997b5a8`). 이 문서를 고친 커밋이 그 뒤에 올 수 있는데, 문서 외에는 바뀌지 않는다.
 > 작성자는 이 문서의 명령을 **한 번도 실행하지 않았다(실배포 미적용).** 로컬에서는 단위 테스트와 판정 로직만 확인했다(맨 아래 "검증 범위").
 > 대상 독자: 이 저장소를 처음 보는 운영 팀원. 위에서부터 순서대로 따라 한다. **기대 출력과 다르면 그 자리에서 멈추고 root에 보고한다.** 프로세스 강제 종료나 이름 재사용 같은 임의 복구는 하지 않는다.
 > AGENTS.md 규칙에 따라 커밋·push는 root만 한다.
@@ -23,6 +23,7 @@
 
 - `/worker/canary`는 **일부러 정책에 넣지 않았다.** F3는 이 경로가 거부되는지 시험한다.
 - 기존 기능(카메라 → 장소 설명 → 주변 음식점)의 API 형식은 바뀌지 않았다.
+- 로컬 E2E 수정(`f659db4`~`82ef73a`)으로 추가된 정책 경로는 없다. worker는 broker에 `X-Worker-*` 헤더를 더 보내고(health의 `worker_model`), broker에는 브라우저용 `GET /api/evidence/observed`가 생겼다. 배포 모델 설정에서는 `NVIDIA_DISABLE_THINKING`을 설정하지 않는다(기본 off).
 
 ## 1. 준비 (읽기만 함, 5분)
 
@@ -87,8 +88,8 @@ curl -s http://127.0.0.1:8001/v1/models | grep -o 'NVIDIA-Nemotron-Nano-12B-v2-V
 ```bash
 . ~/redeploy-vars.sh && cd "$REPO"
 git fetch origin && git checkout main && git pull --ff-only
-git merge-base --is-ancestor 27dbf57 HEAD && echo target-ok      # 기대 출력: target-ok
-git diff --stat 27dbf57 HEAD -- . ':!docs'                         # 기대 출력: 빈 출력 (그 뒤 커밋은 문서뿐)
+git merge-base --is-ancestor 997b5a8 HEAD && echo target-ok      # 기대 출력: target-ok
+git diff --stat 997b5a8 HEAD -- . ':!docs'                         # 기대 출력: 빈 출력 (그 뒤 커밋은 문서뿐)
 export REF="docs/runtime/evidence/${OLD#hangul-}-effective-policy-predeploy-$STAMP.json"
 openshell policy get "$OLD" --full -o json > "$REF"
 "$VENV_PY" -c "import json,sys;d=json.load(open(sys.argv[1]));print(d['status'],d['sandbox'],d['hash'])" "$REF"
@@ -194,6 +195,9 @@ Windows와 WSL에서 broker를 **동시에** 실행하지 않는다.
 ```bash
 sleep 5; curl -s http://127.0.0.1:8000/api/health | "$VENV_PY" -m json.tool
 # 기대 출력: "worker_connected": true, "sandbox_evidence": {…}  (재시작 직후에는 false일 수 있다. 몇 초 뒤 다시 확인한다)
+#           "worker_model": {"id": "<worker의 NVIDIA_MODEL>", "thinking": "default", "run_context": "openshell"}
+#           worker_model은 worker가 스스로 보고한 라벨이다(증명 아님). 새 worker가 연결된 뒤에만 보인다.
+#           null이면 예전 이미지의 worker가 아직 응답 중이다. "thinking": "disabled"이면 배포 설정이 아니므로 root에 보고한다.
 ```
 
 브라우저에서 broker 주소를 열어 상단 OpenShell 배지와 "자료 판단" 화면이 보이는지 확인한다.
@@ -219,12 +223,13 @@ sleep 5; curl -s http://127.0.0.1:8000/api/health | "$VENV_PY" -m json.tool
     3. 2절은 `git pull`을 건너뛰고 REF 저장 부분만 실행한다.
     4. 3절을 `export PROBE_READ_PATH=/var`가 설정된 셸에서 실행한다.
 
-**F2 자료 판단**에서 예시 질문 "해온궁 휴궁일과 관람시간은?"을 실행한다. 기대 결과:
+**F2 자료 판단**에서 예시 질문 "해온궁 휴궁일과 관람시간은?"을 실행한다. 화면의 기본 질문(한국어·영어)도 기대 결과가 같다. 기대 결과:
 - `05-visitor-forum-post.txt`는 "지시문 포함"으로 제외된다.
 - `04-seaside-food-list.md`는 "무관"으로 제외된다.
 - 01·02·03은 사용되거나 outdated·충돌로 처리된다. 모델 판단이라 실행마다 다를 수 있다.
 - "broker 검증 입력"으로 표시된다.
 - 실패하면 진행 표시의 `grounding_check`에 오류 코드가 남는다.
+- 참고: 배포 모델로 F2를 실행한 기록은 아직 없다. 로컬에서 대체 hosted 모델로 돌린 결과(10회 중 8회 완료, 완료된 8회 모두 04 무관·05 지시문 판정)는 [로컬 E2E 기록](../qa/local-e2e-20261106.md)에 있다. 이번 실행 결과(성공·실패, 02·03 판정)를 근거 요약에 그대로 적는다.
 
 ## 6. 실패 시 되돌리기 (10분)
 
@@ -342,7 +347,7 @@ git status --short docs/runtime/evidence     # 새 파일·변경 파일 목록�
 
 **로컬에서 확인한 것**
 
-`tests/unit/test_review_probe.py` (21건, 오프라인 모델 stub, in-process broker):
+`tests/unit/test_review_probe.py` (30건, 오프라인 모델 stub, in-process broker):
 - 데모 판정
 - broker가 다음을 거부하는지:
   - 위조 인용, 두 발췌에 걸친 인용, 변조 해시
@@ -354,6 +359,11 @@ git status --short docs/runtime/evidence     # 새 파일·변경 파일 목록�
 - 세션당 작업 보존 상한, 그리고 observe가 ask 결과를 밀어내지 않는지
 - 인증 없는 canary 요청도 집계되는지, canary 범람이 trace를 밀어내지 않는지
 - 로컬 probe가 allowed로 정직하게 보고되는지, 오프라인 egress를 denied로 표시하지 않는지, 403만 denied로 인정하는지
+- UI 기본 질문의 관련성 판정(worker와 broker 재검증), 프롬프트 항목 형태와 스키마의 일치, F2 검증 코드의 repair 힌트
+
+`tests/unit/test_worker_model.py` (9건): `NVIDIA_DISABLE_THINKING` 기본 off와 요청 본문 불변, 응답 model 불일치 기록(이름은 로그에 남기지 않음), `health.worker_model`(인증된 worker만, 연결 중에만, 허용 값만).
+
+**로컬 실모델 E2E(대체 모델, OpenShell 없음)**: [docs/qa/local-e2e-20261106.md](../qa/local-e2e-20261106.md). 이 기록은 파이프라인 검증이며 배포 모델의 품질을 보여 주지 않는다.
 
 `tests/security/test_deploy_routes.py` (6건):
 - 실제 판정 함수 `added_routes_check`를 그대로 시험한다.

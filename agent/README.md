@@ -16,6 +16,14 @@ Startup loads repo/.env without overriding existing environment variables. Never
 WORKER_TOKEN is always required. GUIDE_SERVER_URL defaults to http://127.0.0.1:8000.
 NVIDIA_BASE_URL defaults to https://integrate.api.nvidia.com/v1.
 NVIDIA_MODEL defaults to nvidia/nemotron-nano-12b-v2-vl; set the actual served model ID.
+The hosted nvidia/nemotron-nano-12b-v2-vl reached end of life on 2026-08-26 (HTTP 410), so these
+defaults alone no longer work. The product serves NVIDIA-Nemotron-Nano-12B-v2-VL-BF16 itself.
+NVIDIA_DISABLE_THINKING=true (off by default) adds chat_template_kwargs.enable_thinking=false to
+every model request, for hosted reasoning models used as a local substitute; they otherwise spend
+the token budget on reasoning and return empty content. The worker reports its configured
+NVIDIA_MODEL and this setting to the broker (X-Worker-Model / X-Worker-Thinking -> health.worker_model).
+A response whose model field differs from NVIDIA_MODEL is logged as response_model_match=false; the
+returned name itself is never logged.
 
 NVIDIA_API_KEY is used ONLY for https://integrate.api.nvidia.com (port 443).
 Other model hosts use the separate SELF_HOSTED_API_KEY; there is no NVIDIA-key fallback.
@@ -112,7 +120,7 @@ They do not establish live vision quality, latency, demand, device/audio perform
 or OpenShell enforcement. Required next gate: pM's actual NVIDIA-serving endpoint +
 effective OpenShell policy, then one real photo job with root's service and UI.
 
-Official API reviewed 2026-10-07:
+Official API reviewed 2026-10-07 (this hosted model was retired on 2026-08-26 per the API's 410 response):
 https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-nano-12b-v2-vl-infer
 The documented user-message image_url accepts base64 data URIs.
 

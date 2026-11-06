@@ -58,7 +58,7 @@ Copy-Item .env.example .env
 .\.venv\Scripts\python.exe -m agent.worker
 ```
 
-기본 NVIDIA hosted API는 `NVIDIA_API_KEY`가 필요합니다. 별도 GPU의 OpenAI 호환 모델 서버 설정·인증 규칙은 [agent/README.md](agent/README.md)를 따르세요. 실제 모델 서버나 필요한 키가 없으면 답변 생성은 진행되지 않습니다. 로컬 worker 실행은 OpenShell 검증이 아닙니다.
+코드 기본값은 NVIDIA hosted API(`NVIDIA_API_KEY` 필요)를 가리키지만, hosted `nvidia/nemotron-nano-12b-v2-vl`은 2026-08-26에 서비스가 종료되어 지금은 HTTP 410을 반환합니다. 따라서 이 기본값만으로는 동작하지 않으며, hosted API는 대체 경로가 아닙니다. 실제 구성은 GPU 호스트에서 직접 서빙하는 `NVIDIA-Nemotron-Nano-12B-v2-VL-BF16`(vLLM)입니다. 설정·인증 규칙은 [agent/README.md](agent/README.md)를 따르세요. 다른 hosted 모델로 돌린 로컬 시험은 파이프라인 검증일 뿐이고 배포 모델의 품질을 보여 주지 않습니다([로컬 E2E 기록](docs/qa/local-e2e-20261106.md)). 실제 모델 서버나 필요한 키가 없으면 답변 생성은 진행되지 않습니다. 로컬 worker 실행은 OpenShell 검증이 아닙니다.
 
 ### WSL Ubuntu 22.04
 
