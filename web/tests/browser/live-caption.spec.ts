@@ -77,6 +77,8 @@ test('U4: automatic observation streams into a one-line caption; tapping it open
   await page.getByRole('checkbox', { name: 'Read answers aloud' }).uncheck()
   await page.getByRole('button', { name: 'Start camera', exact: true }).click()
   await expect.poll(() => page.locator('video').evaluate((video: HTMLVideoElement) => video.videoWidth > 0 && video.readyState >= 2)).toBe(true)
+  // Positive control: with the camera live and nothing pending, the stage chip is shown.
+  await expect(page.locator('.stage-status')).toBeVisible()
   await page.clock.install()
   await page.getByRole('checkbox', { name: 'Automatic companion' }).check()
   for (let step = 0; step < 20 && api.requests.length === 0; step++) { await page.clock.runFor(1000); await page.waitForTimeout(40) }
@@ -99,6 +101,10 @@ test('U4: automatic observation streams into a one-line caption; tapping it open
   await page.locator('.answer-sheet .sheet-grab').click()
   await expect(caption).toContainText('Gwanghwamun — This is Gwanghwamun, the main gate of Gyeongbokgung Palace.')
   await expect(caption.locator('.live-ms')).toHaveText('6.5s')
+  // Waiting for the user's answer: one paused message (the notice), and a neutral caption dot.
+  await expect(page.locator('.automatic-notice')).toContainText('Paused so you can answer')
+  await expect(page.locator('.stage-status')).toHaveCount(0)
+  await expect(caption).toHaveClass(/is-paused/)
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/${info.project.name}-u4-caption.png` })
   await caption.click()
   await expect(page.locator('.answer-sheet')).toHaveClass(/is-open/)

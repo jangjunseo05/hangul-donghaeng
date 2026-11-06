@@ -168,6 +168,11 @@ test('U6: (i) tips are described, toggle by tap and close with Escape', async ({
 test('U2 live: badge and policy card from the local broker (stored evidence, no worker)', async ({ page }, info) => {
   // Real /api/health through the Vite proxy. Run with HD_LIVE_BROKER=1 and the broker on 127.0.0.1:8000.
   test.skip(process.env.HD_LIVE_BROKER !== '1', 'needs the local broker on :8000')
+  // Guard: never take a "LOCAL BROKER · stored evidence" shot unless the broker really serves that evidence.
+  const response = await page.request.get('/api/health')
+  expect(response.ok(), 'local broker must answer /api/health').toBe(true)
+  const health = await response.json()
+  expect(health.sandbox_evidence?.scope).toBe('stored_deployment_evidence')
   await page.goto('/')
   const badge = page.locator('.sandbox-badge')
   // No worker on the local broker: the badge must not look like a live sandbox.

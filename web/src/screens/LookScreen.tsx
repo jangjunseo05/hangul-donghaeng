@@ -32,14 +32,14 @@ const firstSentence = (text: string) => text.trim().split(/(?<=[.!?。])\s+/)[0]
  * (webcam-VLM style). Tapping it opens the full answer sheet.
  */
 function LiveCaption({ g, onOpen, aboveSheet }: { g: Guide; onOpen(): void; aboveSheet: boolean }) {
-  const { t, busy, requestKind, phaseText, result, resultOrigin, resultTrace, automaticNotice, stale } = g
+  const { t, busy, requestKind, phaseText, result, resultOrigin, resultTrace, automaticNotice, stale, awaitingAnswer } = g
   const watching = busy && requestKind === 'observe'
   const shown = result && resultOrigin === 'observe' && !stale ? result : null
   const name = shown?.scene.observed_place_name?.trim()
   const line = shown ? (name ? name + ' — ' : '') + firstSentence(shown.speech_text) : watching ? phaseText : automaticNotice
   if (!line) return null
   const ms = shown && resultTrace ? totalMs(resultTrace.events) : 0
-  return <button type="button" className={'live-caption' + (watching ? ' is-working' : '') + (aboveSheet ? ' above-sheet' : '')} onClick={onOpen} disabled={!shown} aria-label={shown ? t('Live caption: ', '실시간 자막: ') + line + t('. Open details', '. 자세히 보기') : undefined}>
+  return <button type="button" className={'live-caption' + (watching ? ' is-working' : '') + (awaitingAnswer ? ' is-paused' : '') + (aboveSheet ? ' above-sheet' : '')} onClick={onOpen} disabled={!shown} aria-label={shown ? t('Live caption: ', '실시간 자막: ') + line + t('. Open details', '. 자세히 보기') : undefined}>
     <span className="live-dot" aria-hidden="true">{watching ? <LoaderCircle className="spin" size={13}/> : <i/>}</span>
     <span className="live-text" aria-live={shown ? 'polite' : 'off'}>{line}</span>
     {ms > 0 && <span className="live-ms">{formatSeconds(ms)}</span>}
@@ -78,7 +78,7 @@ export default function LookScreen({ g, hidden }: { g: Guide; hidden: boolean })
     {real && <><input ref={fileInput} className="visually-hidden" type="file" accept="image/jpeg,image/png" aria-label={t('Choose a place, food or menu photo', '장소·음식·메뉴 사진 선택')} onChange={e => { choosePhoto(e.target.files?.[0]); e.target.value = '' }}/><input ref={cameraInput} className="visually-hidden" type="file" accept="image/jpeg,image/png" capture="environment" aria-label={t('Take a photo', '사진 촬영')} onChange={e => { choosePhoto(e.target.files?.[0]); e.target.value = '' }}/></>}
     <div className={'camera-stage camera-panel' + (live && !showPhoto ? ' is-live' : '')} aria-label={t('Camera companion', '카메라 동행')}>
       <video ref={camera.videoRef} className={live && !showPhoto ? 'camera-video' : 'camera-video camera-hidden'} autoPlay muted playsInline aria-label={t('Local camera preview', '기기 내 카메라 미리보기')} onClick={event => { void event.currentTarget.play().catch(() => {}) }}/>
-      {real && live && !showPhoto && <div className="reticle" aria-hidden="true"><i/><i/><i/><i/></div>}
+      {real && live && !showPhoto && !sheet && <div className="reticle" aria-hidden="true"><i/><i/><i/><i/></div>}
       {real && showPhoto && photo && <div className="photo-preview stage-photo"><img src={photo.url} alt={t('Your selected place, food or menu photo', '선택한 장소·음식·메뉴 사진')}/>{!sheet && photoActions}</div>}
       <div className="stage-top">
         <ConnectionNotices g={g}/>
@@ -88,7 +88,7 @@ export default function LookScreen({ g, hidden }: { g: Guide; hidden: boolean })
           <button type="button" className="stage-close" onClick={() => { changeAutomatic(false); camera.stop() }} aria-label={camera.phase === 'starting' ? t('Cancel camera request', '카메라 요청 취소') : t('Stop camera', '카메라 중지')}><X size={18}/></button>
         </div>}
         {real && camera.phase === 'starting' && <p className="stage-status" role="status">{t('Waiting for camera permission…', '카메라 권한을 기다리고 있어요…')}</p>}
-        {real && live && !(automatic && busy && g.requestKind === 'observe') && <p className="stage-status" role="status">{automatic ? automaticPaused ? t('Paused while you ask, listen, or wait for an answer.', '질문·음성 입력·답변 중에는 잠시 기다려요.') : t('Looking for a change in the view… ask any time.', '장면이 바뀌면 살펴볼게요. 언제든 직접 물어보세요.') : t('Tap the shutter to freeze a photo, or just ask.', '셔터로 사진을 고정하거나 바로 물어보세요.')}</p>}
+        {real && live && !(automatic && busy && g.requestKind === 'observe') && !g.awaitingAnswer && <p className="stage-status" role="status">{automatic ? automaticPaused ? t('Paused while you ask, listen, or wait for an answer.', '질문·음성 입력·답변 중에는 잠시 기다려요.') : t('Looking for a change in the view… ask any time.', '장면이 바뀌면 살펴볼게요. 언제든 직접 물어보세요.') : t('Tap the shutter to freeze a photo, or just ask.', '셔터로 사진을 고정하거나 바로 물어보세요.')}</p>}
         {real && live && !automaticAvailable && <small className="stage-hint">{t('To use automatic guidance, connect your guide and release any saved photo.', '가이드에 연결하고 고정 사진을 해제하면 자동동행을 사용할 수 있어요.')}</small>}
         {camera.notice && <p className="inline-notice" role="status"><Info size={14}/>{camera.notice}</p>}
         {/* With an answer sheet up, the camera controls move to the top so the sheet never hides them. */}
