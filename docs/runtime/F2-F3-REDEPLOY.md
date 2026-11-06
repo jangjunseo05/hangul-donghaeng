@@ -1,6 +1,6 @@
 # 인계: F2 자료 판단 · F3 차단 시연 배포 절차 (OpenShell worker · broker)
 
-> **배포 대상 커밋: `77fcda7`** (F2·F3 백엔드 `cc6f926` + web U1~U6·F2·F3 `3d7655f`·`77fcda7`). 이 문서를 고친 커밋이 그 뒤에 올 수 있는데, 문서 외에는 바뀌지 않는다.
+> **배포 대상 커밋: `27dbf57`** (F2·F3 백엔드 `cc6f926` + web U1~U6·F2·F3 `3d7655f`·`77fcda7`·`27dbf57`). 이 문서를 고친 커밋이 그 뒤에 올 수 있는데, 문서 외에는 바뀌지 않는다.
 > 작성자는 이 문서의 명령을 **한 번도 실행하지 않았다(실배포 미적용).** 로컬에서는 단위 테스트와 판정 로직만 확인했다(맨 아래 "검증 범위").
 > 대상 독자: 이 저장소를 처음 보는 운영 팀원. 위에서부터 순서대로 따라 한다. **기대 출력과 다르면 그 자리에서 멈추고 root에 보고한다.** 프로세스 강제 종료나 이름 재사용 같은 임의 복구는 하지 않는다.
 > AGENTS.md 규칙에 따라 커밋·push는 root만 한다.
@@ -87,8 +87,8 @@ curl -s http://127.0.0.1:8001/v1/models | grep -o 'NVIDIA-Nemotron-Nano-12B-v2-V
 ```bash
 . ~/redeploy-vars.sh && cd "$REPO"
 git fetch origin && git checkout main && git pull --ff-only
-git merge-base --is-ancestor 77fcda7 HEAD && echo target-ok      # 기대 출력: target-ok
-git diff --stat 77fcda7 HEAD -- . ':!docs'                         # 기대 출력: 빈 출력 (그 뒤 커밋은 문서뿐)
+git merge-base --is-ancestor 27dbf57 HEAD && echo target-ok      # 기대 출력: target-ok
+git diff --stat 27dbf57 HEAD -- . ':!docs'                         # 기대 출력: 빈 출력 (그 뒤 커밋은 문서뿐)
 export REF="docs/runtime/evidence/${OLD#hangul-}-effective-policy-predeploy-$STAMP.json"
 openshell policy get "$OLD" --full -o json > "$REF"
 "$VENV_PY" -c "import json,sys;d=json.load(open(sys.argv[1]));print(d['status'],d['sandbox'],d['hash'])" "$REF"
