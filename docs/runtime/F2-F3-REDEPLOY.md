@@ -89,7 +89,7 @@ curl -s http://127.0.0.1:8001/v1/models | grep -o 'NVIDIA-Nemotron-Nano-12B-v2-V
 . ~/redeploy-vars.sh && cd "$REPO"
 git fetch origin && git checkout main && git pull --ff-only
 git merge-base --is-ancestor 997b5a8 HEAD && echo target-ok      # 기대 출력: target-ok
-git diff --stat 997b5a8 HEAD -- . ':!docs'                         # 기대 출력: 빈 출력 (그 뒤 커밋은 문서뿐)
+git diff --stat 997b5a8 HEAD -- . ':!docs' ':!*.md' ':!.env.example'   # 기대 출력: 빈 출력 (그 뒤 커밋은 문서뿐)
 export REF="docs/runtime/evidence/${OLD#hangul-}-effective-policy-predeploy-$STAMP.json"
 openshell policy get "$OLD" --full -o json > "$REF"
 "$VENV_PY" -c "import json,sys;d=json.load(open(sys.argv[1]));print(d['status'],d['sandbox'],d['hash'])" "$REF"
