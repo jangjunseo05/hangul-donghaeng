@@ -6,12 +6,20 @@ $runtime = Join-Path $repo '.runtime\mobile-preview'
 $statePath = Join-Path $runtime 'state.json'
 $utf8 = [Text.UTF8Encoding]::new($false)
 function Save-Json($Value, $Path) { [IO.File]::WriteAllText($Path, ($Value | ConvertTo-Json -Depth 8), $utf8) }
+# Read with the same BOM-less UTF-8 it was written with: Windows PowerShell 5.1 would otherwise decode the
+# (possibly non-ASCII) repo path as ANSI and fail to parse the JSON.
+function Read-State { [IO.File]::ReadAllText($statePath, $utf8) | ConvertFrom-Json }
+# PowerShell 7 turns ISO strings into DateTime on ConvertFrom-Json; 5.1 keeps the string. Compare exact UTC ticks either way.
+function Utc-Ticks($Value) {
+    if ($Value -is [DateTime]) { return $Value.ToUniversalTime().Ticks }
+    [DateTime]::Parse([string]$Value, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime().Ticks
+}
 if ($Stop) {
     if (!(Test-Path -LiteralPath $statePath)) { throw 'No owned tunnel state.' }
-    $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+    $state = Read-State
     $running = Get-Process -Id $state.pid -ErrorAction SilentlyContinue
     if (!$running) { Write-Output 'Tunnel is already stopped.'; return }
-    if ($running.Path -ne $state.executable -or $running.StartTime.ToUniversalTime().ToString('o') -ne $state.started_utc) { throw 'PID ownership mismatch; refusing to stop.' }
+    if ($running.Path -ne $state.executable -or $running.StartTime.ToUniversalTime().Ticks -ne (Utc-Ticks $state.started_utc)) { throw 'PID ownership mismatch; refusing to stop.' }
     Stop-Process -Id $running.Id
     Write-Output 'Owned mobile preview tunnel stopped; broker and worker untouched.'
     return
@@ -19,7 +27,7 @@ if ($Stop) {
 if (!(Test-Path -LiteralPath (Join-Path $repo 'web\dist\index.html'))) { throw 'Build web/dist first.' }
 if ((Get-Content -LiteralPath (Join-Path $repo '.gitignore')) -notcontains '.runtime/') { throw '.runtime/ must already be ignored.' }
 if (Test-Path -LiteralPath $statePath) {
-    $previous = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+    $previous = Read-State
     if (Get-Process -Id $previous.pid -ErrorAction SilentlyContinue) { throw 'A recorded process is still running; inspect state.json before starting another tunnel.' }
 }
 foreach ($configuration in @((Join-Path $env:USERPROFILE '.cloudflared\config.yml'), (Join-Path $env:USERPROFILE '.cloudflared\config.yaml'))) {
